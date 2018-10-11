@@ -12,9 +12,9 @@ default_traces_path=".vtrace"
 def init_module(subparsers, veritracer_plugins):
     veritracer_plugins["launch"] = run
     launch_parser = subparsers.add_parser("launch", help="Launch parallel executions of binary")
-    launch_parser.add_argument('-b','--binary', type=str, required=True, metavar='',
+    launch_parser.add_argument('-b', '--binary', type=str, required=True, metavar='binary',
                                  help="filename of the trace to gather")
-    launch_parser.add_argument('-j','--jobs', type=int, required=True, metavar='',
+    launch_parser.add_argument('-j', '--jobs', type=int, required=True, metavar='jobs',
                                  help='number of parallel jobs to run')
     launch_parser.add_argument('--prefix-dir', type=str, default=default_traces_path, metavar='',
                                  help='prefix of the directory')
@@ -24,7 +24,7 @@ def init_module(subparsers, veritracer_plugins):
     launch_parser.add_argument('--timeout', action="store", type=float, default=31536000)
     launch_parser.add_argument('--verbose', action="store_true",
                                  help="verbose mode")
-
+    
 def separate_dir(dirname):
     dirname_list = dirname.split(os.path.sep)
     dirname_list_cleaned = filter(lambda d : d != '.' and d != '', dirname_list)
