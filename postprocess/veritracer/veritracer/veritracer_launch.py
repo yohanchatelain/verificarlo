@@ -24,7 +24,7 @@ def init_module(subparsers, veritracer_plugins):
     launch_parser.add_argument('--timeout', action="store", type=float, default=31536000)
     launch_parser.add_argument('--verbose', action="store_true",
                                  help="verbose mode")
-    
+
 def separate_dir(dirname):
     dirname_list = dirname.split(os.path.sep)
     dirname_list_cleaned = filter(lambda d : d != '.' and d != '', dirname_list)
