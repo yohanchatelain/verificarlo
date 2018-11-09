@@ -32,11 +32,12 @@ def parse_raw_line(line):
                                value=val) 
     return value
 
-def parse_file(filename):
+def parse_file(filename, offset):
     try:
         fi = open(filename, 'r+b')
+        fi.seek(offset)
     except IOError as e:
-        print "Could not open " + filename + " " + str(e)
+        print "Could not open {filename} -> {err}".format(filename=filename, err=str(e))
         return
 
     if os.path.getsize(filename) == 0:

@@ -7,6 +7,10 @@ from collections import deque
 
 import veritracer_format as vtr_fmt
 
+sizeof_veritracer_line_struct = 36
+sizeof_binary32 = 4
+sizeof_binary64 = 8
+
 # Args order fmt,time,hash,ptr,val
 def parse_raw_line(line):
     # print line
@@ -28,55 +32,48 @@ def parse_raw_line(line):
                                value=val)
     
     return value
-        
-def parse_file(filename):
+
+
+# https://docs.python.org/2/library/struct.html#format-characters
+# struct Format Characters
+# I : unsigned integer, 4 bytes
+# Q : long long unsigned integer, 8 bytes
+# P : void*, 8 bytes
+# f : float, 4 bytes
+# d : double, 8 bytes
+def parse_file(filename, offset):
 
     try:
-        f = open(filename, 'r+b')
+        print filename
+        fi = open(filename, 'rb')
+        fi.seek(offset)
     except IOError as e:
-        print "Could not open " + filename + " " + str(e)
+        print "Could not open {filename} -> {err}".format(filename=filename, err=str(e))
         return
 
     if os.path.getsize(filename) == 0:
-        print "Error: %s is empty" % filename
+        print "Error: {filename} is empty".format(filename=filename)
         exit(1)
-
-    # global offset
-    mm = mmap.mmap(f.fileno(), 0)    
-    # mm.seek(vtr_fmt.offset)
     
     values_list = deque()
     append = values_list.append
-    
-    size_file = mm.size()
 
-    try:
-        # while vtr_fmt.size_to_read + vtr_fmt.offset >  mm.tell() :
-        while size_file > mm.tell():
-            sizeVb = mm.read(4) 
-            sizeVl = struct.unpack('I',sizeVb)            
-            sizeV = sizeVl[0]
-            values = []
-            if sizeV == 4:
-                strb = mm.read(28)
-                values = struct.unpack('LPLf', strb)
-            elif sizeV == 8:
-                strb = mm.read(32)
-                values = struct.unpack('LPLd', strb)
-            else:
-                print "Unknow size : " + str(sizeV)
-                exit(1)
-            values_line = parse_raw_line(sizeVl+values)
-            append(values_line)
+    bytes_read = fi.read(sizeof_veritracer_line_struct)
 
-    except Exception as e:
-        # if vtr_fmt.size_to_read + vtr_fmt.offset <  mm.tell():
-        #     print 'Parse_file ERRROR ' + str(e)
-        # else:
-        print e
-        #     exit(1)
-            
-    # global local_offset
-    # local_offset = mm.tell()
-    mm.close()
+    while bytes_read != '':
+        values_read = struct.unpack('=IQQQxxxxxxxx', bytes_read)
+        sizeof_data = values_read[0]
+        if sizeof_data == sizeof_binary32:
+            values_read = struct.unpack('=IQQQfxxxx', bytes_read)
+        elif sizeof_data == sizeof_binary64:
+            values_read = struct.unpack('=IQQQd', bytes_read)
+        else:
+            print "Unknown size : {size}o".format(size=sizeof_data)
+            exit(1)
+        
+        values_line = parse_raw_line(values_read)
+        append(values_line)
+
+        bytes_read = fi.read(sizeof_veritracer_line_struct)
+        
     return values_list
