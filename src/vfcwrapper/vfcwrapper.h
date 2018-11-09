@@ -69,6 +69,7 @@ struct __attribute__((packed)) veritracer_probe_binary32_fmt_t {
   void *value_ptr;
   uint64_t hash_LI;
   float value;
+  float pad;
 };
 
 
@@ -86,6 +87,7 @@ struct __attribute__((packed)) veritracer_probe_int32_fmt_t {
   void *value_ptr;
   uint64_t hash_LI;
   int32_t value;
+  int32_t pad;
 };
 
 struct __attribute__((packed)) veritracer_probe_int64_fmt_t {
