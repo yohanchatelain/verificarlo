@@ -40,6 +40,8 @@
 #define BITMASK_MODE_INV  1
 #define BITMASK_MODE_RAND 2
 
+#define PAD_SIZE 4
+
 /* seeds all the MCA backends */
 void vfc_seed(void);
 
@@ -69,6 +71,7 @@ struct __attribute__((packed)) veritracer_probe_binary32_fmt_t {
   void *value_ptr;
   uint64_t hash_LI;
   float value;
+  uint8_t pad[PAD_SIZE];
 };
 
 
@@ -86,6 +89,7 @@ struct __attribute__((packed)) veritracer_probe_int32_fmt_t {
   void *value_ptr;
   uint64_t hash_LI;
   int32_t value;
+  uint8_t pad[PAD_SIZE];
 };
 
 struct __attribute__((packed)) veritracer_probe_int64_fmt_t {
