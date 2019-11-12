@@ -135,7 +135,7 @@ static inline double pow2d(int exp) {
     return res;
   }
   if (exp < -1022) { /*subnormal*/
-    *x = ((uint64_t)DOUBLE_PMAN_MSB) >> -(exp + DOUBLE_EXP_MAX);
+    *x = ((uint64_t)DOUBLE_PMAN_MSB) >> -(exp + DOUBLE_NORMAL_EXP_MAX);
     res = *((double *)x);
     return res;
   }
