@@ -40,9 +40,8 @@ mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + 'vfcwrapper.c'
 llvm_bindir = "@LLVM_BINDIR@"
 clang = '@CLANG_PATH@'
+flang = '@FLANG_PATH@'
 opt = llvm_bindir + '/opt'
-dragonegg = "@DRAGONEGG_PATH@"
-gcc = "@GCC_PATH@"
 FORTRAN_EXTENSIONS = [".f", ".f90", ".f77"]
 C_EXTENSIONS = [".c", ".cpp", ".cc", ".cxx"]
 
@@ -75,7 +74,7 @@ def parse_extra_args(args):
 
     for a in args:
         if is_fortran(a):
-            if not dragonegg:
+            if not flang:
                 fail("fortran not supported. "
                      + "--without-fortran was used during configuration.")
             sources.append(a)
@@ -104,26 +103,29 @@ def linker_mode(sources, options, output, args):
         vfcwrapper=vfcwrapper,
         mcalib_includes=mcalib_includes))
 
-    # Only include lgfortran if fortran support is enabled
-    gfortran = "-lgfortran" if dragonegg else ""
+    # # Only include lgfortran if fortran support is enabled
+    # gfortran = "-lgfortran" if flang else ""
 
     f = tempfile.NamedTemporaryFile(mode='w+')
     if args.static:
-        f.write('{output} {sources} {options} -static .vfcwrapper.o -lmpfr -lgmp {gfortran} -lm -ldl'.format(
+        f.write('{output} {sources} {options} -static .vfcwrapper.o -lmpfr -lgmp -lm -ldl'.format(
             output=output,
             sources=' '.join([os.path.splitext(s)[0]+'.o' for s in sources]),
-            options=options,
-            gfortran=gfortran))
+            options=options
+            ))
     else:
-        f.write('{output} {sources} {options} .vfcwrapper.o {mcalib_options} {gfortran} -ldl'.format(
+        f.write('{output} {sources} {options} .vfcwrapper.o {mcalib_options} -ldl'.format(
             output=output,
             sources=' '.join([os.path.splitext(s)[0]+'.o' for s in sources]),
             options=options,
             mcalib_options=mcalib_options,
-            gfortran=gfortran))
+            ))
 
     f.flush()
-    shell('{clang} @{temp}'.format(clang=clang, temp=f.name))
+
+    linker = flang if args.fortran_linker else clang
+    shell('{linker} @{temp}'.format(linker=linker, temp=f.name))
+
     f.close()
 
 
@@ -133,21 +135,14 @@ def compiler_mode(sources, options, output, args):
         ir = basename + '.1.ll'
         ins = basename + '.2.ll'
 
+        compiler = flang if is_fortran(source) else clang
+        
         # Compile to ir (fortran uses gcc+dragonegg, c uses clang)
-        if is_fortran(source):
-            shell('{gcc} -c -S {source} {options} -fplugin={dragonegg} -fplugin-arg-dragonegg-emit-ir -o {ir}'.format(
-                gcc=gcc,
-                source=source,
-                options=options,
-                dragonegg=dragonegg,
-                ir=ir))
-        else:
-            shell('{clang} -c -S {source} -emit-llvm {options} -o {ir}'.format(
-                clang=clang,
-                source=source,
-                options=options,
-                ir=ir
-            ))
+        shell('{compiler} -c -S {source} -emit-llvm {options} -o {ir}'.format(
+            compiler=compiler,
+            source=source,
+            options=options,
+            ir=ir))
 
         selectfunction = ""
         if args.function:
@@ -180,9 +175,10 @@ def compiler_mode(sources, options, output, args):
 
         if not output:
             output = '-o ' + basename + '.o'
+
         # Produce object file
-        shell('{clang} -c {output} {ins} {options}'.format(
-            clang=clang,
+        shell('{compiler} -c {output} {ins} {options}'.format(
+            compiler=compiler,
             output=output,
             ins=ins,
             options=options))
@@ -190,6 +186,7 @@ def compiler_mode(sources, options, output, args):
 
 if __name__ == "__main__":
     parser = NoPrefixParser(description='Compiles a program replacing floating point operation with calls to the mcalib (Montecarlo Arithmetic).')
+    parser.add_argument('--fortran-linker', action='store_true', help='use fortran linker')
     parser.add_argument('-c', action='store_true', help='only run preprocess, compile, and assemble steps')
     parser.add_argument('-o', metavar='file', help='write output to <file>')
     parser.add_argument('--ddebug', action='store_true', help='enable delta-debug mode')
