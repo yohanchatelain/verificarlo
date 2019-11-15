@@ -1,0 +1,1 @@
+{"regions_infos": "/home/yohan/Documents/cere/examples/NPB3.0-SER/IS/regions.csv", "multiple_trace": false, "run_cmd": "numactl -C 1 ../bin/is.A", "omp": false, "clean_cmd": "make clean", "build_cmd": "make CLASS=A"}
