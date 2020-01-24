@@ -6,7 +6,7 @@ env:
   global:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
    #   via the "travis encrypt" command using the project repo's public key
-   - secure: "Nlx4poy2Su7YoYZQAcQSWLEf818+7qYhMPnetIwrrNUX6GmTGbMcHN+z/Uro1ZTnRHu0h7uiNqIPGtdynh1Menp1SqsmdEvbKx4mXyzOIsT9mGMtuh7cDWCrUzfagapN+UzCrfJh/rqePDDoFblODbAJZywzI2dK5ocwgOZIt9A="
+   - secure: "Z4RvBipmS/iF7ZkDJFUTWi3eULQ5TxaCVf98xWmwW8F/Jciknimx34EK2Ooikb71wdHnTE3zu0+ohpk31htuZrJ2hBgCtnC7WkVIwQ61SZViFkYfhGSsADTZXgvewNkwwKUTW9Nh1Vqpo37YxhPmxcVrkXf8ySgX9pk53i7dmEivp6j6X8UmXom35Prnp0/J5eW2pn33JyKh2c/5fKosP/LYkvV6IWrXOUnz+5tCXD8AOtiJ2ekdvo0FLUJU4Xyilw70pnW+ocrVf3MFOhQCIR17mZCcxFkQVxVep60y75rfQnks0A0KwSBX8Ylxe+X4qwa4wvtSD98jXwg00w7bFQsOyN1Pxfljjz0Q6mc2cSwznf0VtMNbfQEs1yZT+3Wj8f9hBs8IppSqmU6H7aN3NotT2f9RfHgHOMq2Fuvn3kdVUvlCmoX/fNx3vwMWgcRKYiMADu3VRfb8XBV0MgNZlnqHkSSAD6TnvXG7of5Gno0VwJwHoqsl3KKmhnfmOTze3I0Al1VM76cDRjrDHOlUZTpmnnptJ7n9RUK9OH/HYTSriYc6V4tLfFQC8fNdfWBrR641t127Kqe3zMRog/sR+y2SP+mBAf4jKke9JxdxxOpgkS6ld+qfSg4b2wWdX9YXX/Z/W2NPJb7m3URXiSQtY+ZpCP8gpl91V7eyxq7L89I="
 
 before_install:
   - sudo add-apt-repository 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main'
@@ -38,6 +38,7 @@ install:
   - export PYTHONPATH=/usr/local/lib/python3.4/site-packages/:$PYTHONPATH
 
 script:
+  - cat /home/travis/build/yohanchatelain/verificarlo/cov-int/scm_log.txt
   - make installcheck
   - for i in $(find tests/ -maxdepth 1 -type d -name 'test_*' | sort ); do echo "************** TEST $i"; cat $i/test.log; done;
 
