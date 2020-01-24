@@ -1,0 +1,38 @@
+name: C/C++ CI
+
+on: [push]
+
+jobs:
+  install:
+    runs-on: ubuntu-16.04
+   
+    steps:
+      - name: dependencies
+        run: |
+          sudo add-apt-repository 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main'
+          wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+          sudo add-apt-repository ppa:dns/gnu -y
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6B05F25D762E3157
+          sudo apt-get update
+          sudo apt-get install libmpfr-dev clang-3.5 llvm-3.5 llvm-3.5-dev dragonegg-4.7 gcc-4.7 g++-4.7 gfortran-4.7 libgfortran-4.7-dev autoconf automake build-essential libedit-dev python3-dev cython3 binutils
+          
+    
+  build:
+
+    runs-on: ubuntu-16.04
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: configure
+      run: |
+        ./autogen.sh
+        export LIBRARY_PATH=/usr/bin/../lib/gcc/x86_64-linux-gnu/4.7:/usr/bin/../lib/gcc/x86_64-linux-gnu/4.7/../../../x86_64-linux-gnu:/lib/x86_64-linux-gnu:/lib/../lib64:/usr/lib/x86_64-linux-gnu:/usr/bin/../lib/gcc/x86_64-linux-gnu/4.7/../../..:/usr/lib/llvm-3.5/bin/../lib:/lib:/usr/lib:$LIBRARY_PATH
+        ./configure --with-llvm=/usr/lib/llvm-3.5/bin/ --with-dragonegg=/usr/lib/gcc/x86_64-linux-gnu/4.7/plugin/dragonegg.so CC=gcc-4.7 CXX=g++-4.7 || cat config.log
+    - name: make
+      run: make
+    - name: make install
+      run: make install
+    - name: make check
+      run: make installcheck
+    - name: display test
+      run: for i in $(find tests/ -maxdepth 1 -type d -name 'test_*' | sort ); do echo "************** TEST $i"; cat $i/test.log; done;
