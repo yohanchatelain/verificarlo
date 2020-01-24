@@ -6,7 +6,7 @@ env:
   global:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
    #   via the "travis encrypt" command using the project repo's public key
-   - secure: "Tg7eHn8cRJBHjNefwH2aEA+sp3z3wvL4g8/KwyiGU3+ReQHBHPBzFTxv47Z5Ern1YPu1MTU/eXaHsIsNLXZfOavohjZLIGgSTXOzvhiNpWf+eRGBH1TeFCt7q4eJK3FLyfLHRnENZNbFYSuK8G3qornXtqQdin8adM16eO05Gcc9BrOY5bWolUwU4h8iITUT2Qnfr3n7b0EMo8SyfFfJwporvhy7CCJZX42uChyRjFLCBRmLtmWieMIrH71enlqqQr8qDWqIu01l+oquem0polXXKk8gsY3fqtc+i5XGyvSjFi7KeB/dUwZscNOSXt4BGa52Jik6aUS/mmvNj2DJIWoMHOpdF+P8kfTx+ByeUm/OnVOfuwKakZRV/LwnKqerPzhOlks+p0OTniCo/Ad0OMIgPz+7HBh1xfxoZh1PJZ0PZYeoXli+sPj3MAiog0f0uKEB2+/NUENs8yZyX78/Bxy2RedibkrsQey1RTqkD0EsQupTH4d6462J7OtWYwFJKOZDtWaFMxsRFx9deMoKpbrkxAvckKllMaJk8BOv980XigBs+HHydIGBTbjExKQnoDYcJgW91nnDm/H/ZXchwB03q64PL1b8aqjJcmEoPrAxMnmz8WNQIzKyMUaTW/OHdxNiuAVbqOHJ0tdO2WyvNNKaOBzX1d+YZW+sIw6bXL4="
+   - secure: "nlzhYyCXFFisxGhpkVJZCE9N2lL/Vrb6ScmIE1nFdbpp+T8rMbRpwOYiKFgI3RREaY1WCrdR15g827/Mxf8xXhBWeqZ2CmxW7Q3o1zlGXilcmJCATlx9Lok6E/iv6L0Pds3pofP73C5tyfsQAVtLt5rkxmyy5P9ZHugpTYn2eAeEdGk5ikVgJz6Un+yoJfOJ5CS9rM+WTb2NrZ87PTe8nPg3KWOM1kgDE0rFHeTHwxxT7VQIP0MJ4JIWSLSeD+K+9loJLiD6Ow8DrG3kBPEAKRxeDNYF090Dcdut82sg5bSkfv5UXHbe4hef1eq69ptF8OcZNfTXCh8gvpLv5hqCsa/CkUzjaZW1HNrdxO417/MrriV49tl1gmt+wkA8KvHm/HTXnJbqF6GihPlrTgkZZwooi7ABVOGW5Y75jCLx9KYWsBgxt7jjcAKrChAdZXpbmmwrsbU4SiWQAb5uOgKcH1WDoHAPeYQYRrG77wVYBybKLMRwx1qAPwk7RcNmq6/6BUAE5LCiu4nXV7mLyKf7FVk9YFqMQNHRRCXHavcdsw5sgJ8IFSzxRW0e9eYLoAd+hnc86jfD0W5yFNw5LgDAQpiH/hBhE18rHwSgNlyKiLSw7NZS6sXdUzmdKJdnMgNdb8JhM+FeN3m3YwxIBMMkXfU61skU3+t/jHdatMzGUYk="
 
 before_install:
   - sudo add-apt-repository 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main'
@@ -20,11 +20,11 @@ before_install:
 addons:
   coverity_scan:
     project:
-      name: yohanchatelain/verificarlo
-      description: A tool for automatic Montecarlo Arithmetic analysis.
+      name: "yohanchatelain/verificarlo"
+      description: "A tool for automatic Montecarlo Arithmetic analysis."
     notification_email: yohan.chatelain@gmail.com
-    build_command_prepend: cov-configure --template --compiler=gcc-4.7 --comptype=gcc
-    build_command: make
+    build_command_prepend: "cov-configure --template --compiler=gcc-4.7 --comptype=gcc"
+    build_command: "make"
     branch_pattern: coverity-travis-CI
 
 install:
@@ -35,6 +35,7 @@ install:
   - sudo make install
   - export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
   - export PYTHONPATH=/usr/local/lib/python3.4/site-packages/:$PYTHONPATH
+  - make clean
 
 script:
   - cat /home/travis/build/yohanchatelain/verificarlo/cov-int/scm_log.txt
