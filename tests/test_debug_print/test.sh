@@ -1,6 +1,9 @@
 #!/bin/bash
 #set -e
 
+# Test for the --debug-binary option
+# TODO: add a test for the --debug option
+
 check_success() {
     if  [[ $? != 0 ]]; then
 	echo "Test failed"
