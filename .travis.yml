@@ -23,7 +23,7 @@ addons:
       name: "yohanchatelain/verificarlo"
       description: "A tool for automatic Montecarlo Arithmetic analysis."
     notification_email: yohan.chatelain@gmail.com
-    build_command_prepend: "cov-configure --compiler=gcc-4.7 --comptype=gcc"
+    build_command_prepend: "cov-configure --gcc --compiler=gcc-4.7 --comptype=gcc"
     build_command: "cov-build --dir=cov-int --include-instrumentation-path $HOME/build/yohanchatelain/verificarlo/src make"
     branch_pattern: coverity-travis-CI
 
