@@ -167,6 +167,6 @@ int bit_handler(FILE *stream, const struct printf_info *info,
     return bit_float_handler(stream, info, args);
 }
 
-__attribute__((constructor)) void register_printf_bit(void) {
+void register_printf_bit(void) {
   register_printf_specifier('b', bit_handler, bit_handler_arginfo);
 }
