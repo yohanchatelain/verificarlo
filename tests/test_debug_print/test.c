@@ -33,15 +33,13 @@ REAL operation(REAL x, REAL y, char op) {
 int main(int argc, char *argv[]) {
 
   if (argc != 4) {
-    fprintf(stderr, "usage: <float> <float> op");
+    fprintf(stderr, "usage: <float> <float> op\n");
     exit(1);
   }
 
   REAL x = strtoflt(argv[1]);
   REAL y = strtoflt(argv[2]);
   char op = argv[3][0];
-  /* fprintf(stderr, "x %a\n",x); */
-  /* fprintf(stderr, "y %a\n",y); */
   operation(x, y, op);
   
   return 0;
