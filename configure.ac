@@ -36,6 +36,12 @@ fi
 AC_DEFINE_UNQUOTED([CLANG_PATH], ["$CLANG"], [CLANG path])
 AC_SUBST(CLANG_PATH, $CLANG)
 
+AC_ARG_WITH([flang],
+  AS_HELP_STRING([--with-flang@<:@=DIR@:>@],
+    [use flang located in DIR]),
+  [with_flang="$withval"],
+  [with_flang=yes])
+
 AC_PATH_PROG([FLANG], [flang], "", $PATH)
 if test -z "$FLANG"; then
    AC_MSG_NOTICE([Fortran support disabled.])

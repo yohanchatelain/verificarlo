@@ -130,34 +130,5 @@ llvm::Module *M = new llvm::Module("test", context);]])],
       [cannot compile and link test program with selected LLVM])
   fi
 
-
-  # Check for dragonegg
-
-  AC_ARG_WITH([dragonegg],
-          AS_HELP_STRING([--with-dragonegg@<:@=DIR@:>@],
-              [PATH of dragonegg.so]),
-          [with_dragonegg="$withval"],
-          [with_dragonegg=yes])
-
-  if test "x$with_dragonegg" = "xno"; then
-    AC_MSG_WARN(
-      [--with-dragonegg=no was given. Disabling fortran support.])
-    DRAGONEGG_PATH=""
-  else
-    if test "x$with_dragonegg" = "xyes"; then
-      DRAGONEGG_PATH="$LLVM_LIBDIR/dragonegg.so"
-    else
-      DRAGONEGG_PATH="$with_dragonegg"
-    fi
-
-    if test -z "$DRAGONEGG_PATH"; then
-        AC_MSG_ERROR(
-                [dragonegg.so could not be found at $with_dragonegg_path. Disabling fortran support.])
-        DRAGONEGG_PATH=""
-    fi
-  fi
-  AC_DEFINE_UNQUOTED([DRAGONEGG_PATH], ["$DRAGONEGG_PATH"], [The dragonegg.so path])
-
-  AC_SUBST(DRAGONEGG_PATH)
   AC_SUBST(LLVM_BINDIR)
 ])
