@@ -319,8 +319,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   case 'n':
     ctx->print_new_line = true;
     break;
-  case 'b':
-    ctx->debug_binary = 1;
   default:
     return ARGP_ERR_UNKNOWN;
   }
