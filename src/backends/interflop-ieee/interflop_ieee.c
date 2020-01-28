@@ -79,19 +79,23 @@ void debug_print(void *context, char *fmt_flt, char *fmt, ...) {
 #define DEBUG_PRINT(context, typeop, op, a, b, c)                              \
   {                                                                            \
     bool debug = ((t_context *)context)->debug ? true : false;                 \
-    bool print_header =                                                        \
-        (((t_context *)context)->no_print_debug_mode) ? false : true;          \
-    char *header = (debug) ? DEBUG_HEADER : DEBUG_BINARY_HEADER;               \
-    char *float_fmt = FMT(a);                                                  \
-    if (print_header)                                                          \
-      debug_print(context, float_fmt, header);                                 \
-    if (typeop == ARITHMETIC) {                                                \
-      debug_print(context, float_fmt, "%g %s ", a, a, op);                     \
-      debug_print(context, float_fmt, "%g -> ", b);                            \
-      debug_print(context, float_fmt, "%g\n", c);                              \
-    } else {                                                                   \
-      debug_print(context, float_fmt, "%g [%s] ", a, op);                      \
-      debug_print(context, float_fmt, "%g -> %s\n", b, c ? "true" : "false");  \
+    bool debug_binary = ((t_context *)context)->debug_binary ? true : false;   \
+    if (debug || debug_binary) {                                               \
+      bool print_header =                                                      \
+          (((t_context *)context)->no_print_debug_mode) ? false : true;        \
+      char *header = (debug) ? DEBUG_HEADER : DEBUG_BINARY_HEADER;             \
+      char *float_fmt = FMT(a);                                                \
+      if (print_header)                                                        \
+        debug_print(context, float_fmt, header);                               \
+      if (typeop == ARITHMETIC) {                                              \
+        debug_print(context, float_fmt, "%g %s ", a, a, op);                   \
+        debug_print(context, float_fmt, "%g -> ", b);                          \
+        debug_print(context, float_fmt, "%g\n", c);                            \
+      } else {                                                                 \
+        debug_print(context, float_fmt, "%g [%s] ", a, op);                    \
+        debug_print(context, float_fmt, "%g -> %s\n", b,                       \
+                    c ? "true" : "false");                                     \
+      }                                                                        \
     }                                                                          \
   }
 
@@ -322,7 +326,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   default:
     return ARGP_ERR_UNKNOWN;
   }
-  
+
   return 0;
 }
 
@@ -337,7 +341,7 @@ static struct argp argp = {options, parse_opt, "", ""};
 
 struct interflop_backend_interface_t interflop_init(int argc, char **argv,
                                                     void **context) {
-  t_context * ctx = calloc(1, sizeof(t_context));
+  t_context *ctx = calloc(1, sizeof(t_context));
   init_context(ctx);
   /* parse backend arguments */
   argp_parse(&argp, argc, argv, 0, 0, ctx);
