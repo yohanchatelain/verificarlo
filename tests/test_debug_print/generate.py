@@ -182,13 +182,13 @@ def get_float_operation(float_type, op_str):
     else:
         raise(Exception("Unknown operation {op}".format(op=op_str)))
 
-      if op_str == "+":
+    if op_str == "+":
         return lambda args:flt(args[0])+flt(args[1])
-     elif op_str == "-":
+    elif op_str == "-":
         return lambda args:flt(args[0])-flt(args[1])
-     elif op_str == "*":
+    elif op_str == "*":
         return lambda args:flt(args[0])*flt(args[1])
-     elif op_str == "/":
+    elif op_str == "/":
         return lambda args:flt(args[0])/flt(args[1])
 
 if "__main__" == __name__:
