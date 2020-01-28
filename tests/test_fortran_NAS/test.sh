@@ -7,6 +7,7 @@ if grep "FLANG_PATH \"\"" ../../config.h > /dev/null; then
 fi
 
 cd NPB3.0-SER
+mkdir -p bin
 ./run-bench.sh
 
 echo 'Test successed'
