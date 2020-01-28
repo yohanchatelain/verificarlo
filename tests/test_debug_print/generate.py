@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import sys
 import numpy as np
@@ -52,13 +52,13 @@ def remove_trailing_0(x_int):
 # Extract fields from c99 hex float representation
 # [s]0xH.hhhhp[+-]e -> s,H,hhhh,e
 def extract_fields(hex_float):
-    # [-]0xh.hhhhp[+-]e -> [-],h.hhhhp[+-]e        
+    # [-]0xh.hhhhp[+-]e -> [-],h.hhhhp[+-]e
     sign,value = hex_float.split('0x')
     # h.hhhhp[+-]e -> h,hhhhp[+-]e
     implicit_bit,mantissa_exponent = value.split(".")
     mantissa,exponent = mantissa_exponent.split('p')
     return sign,implicit_bit,exponent,mantissa
-        
+
 class Binary(object):
 
     def __init__(self, hex_float):
@@ -66,7 +66,11 @@ class Binary(object):
         self.implicit_bit = '1'
         self.sign = '-' if is_negative(hex_float) else '+'
         if is_substring(hex_float, 'nan'):
-            # Do not check the sign for nan for the moment
+            # Always return a +nan
+            # IEEE-754-2008: For arithmetic operations,
+            #  this standard does not specify the sign bit of a NaN
+            #  result, even when there is only one input NaN,
+            #  or when the NaN is produced from an invalid operation.
             self.sign = '+'
             self.exponent = self.exponent_max - self.exponent_bias
             self.mantissa = 0x1
@@ -98,7 +102,7 @@ class Binary(object):
                                                               i=self.implicit_bit,
                                                               mant=mantissa_bin,
                                                               exp=self.exponent)
-            
+
 class Binary32(Binary):
 
     sign_size = 1
@@ -122,7 +126,7 @@ class Binary32(Binary):
                                       exponent=self.exponent,
                                       mantissa=self.mantissa)
         return fmt
-                    
+
 class Binary64(Binary):
 
     sign_size = 1
@@ -132,14 +136,14 @@ class Binary64(Binary):
     exponent_max = 0x7ff
     exponent_min = -0x3fe
     mantissa_offset = sign_size + exponent_size
-    
+
     def __init__(self, flt):
         if type(flt) == float:
             hex_float = flt.hex()
             super(Binary64, self).__init__(hex_float)
         else:
             super(Binary64, self).__init__(flt)
-        
+
     def __str__(self):
         fmt="Binary64 [sign : {sign}; \
         exponent: {exponent}; \
@@ -147,7 +151,7 @@ class Binary64(Binary):
                                       exponent=self.exponent,
                                       mantissa=self.mantissa)
         return fmt
-    
+
 def parse_line(line):
     x,y,op = line.strip().split()
     return x,y,op
@@ -160,7 +164,7 @@ def get_binary(float_type, hex_float):
         b = Binary32(hex_float)
     else:
         exception('Unknow format {type}'.format(type=float_type))
-                  
+
     return b.string
 
 
@@ -178,27 +182,27 @@ def get_float_operation(float_type, op_str):
     else:
         raise(Exception("Unknown operation {op}".format(op=op_str)))
 
-    if op_str == "+":
-        return lambda (x,y):flt(x)+flt(y)
-    elif op_str == "-":
-        return lambda (x,y):flt(x)-flt(y)
-    elif op_str == "*":
-        return lambda (x,y):flt(x)*flt(y)
-    elif op_str == "/":
-        return lambda (x,y):flt(x)/flt(y)
-        
+      if op_str == "+":
+        return lambda args:flt(args[0])+flt(args[1])
+     elif op_str == "-":
+        return lambda args:flt(args[0])-flt(args[1])
+     elif op_str == "*":
+        return lambda args:flt(args[0])*flt(args[1])
+     elif op_str == "/":
+        return lambda args:flt(args[0])/flt(args[1])
+
 if "__main__" == __name__:
 
     if (len(sys.argv) != 3):
         print("usage <float_type> <filename>")
         print('<float_type>: {flt}'.format(flt=float_types))
         exit(1)
-        
+
     float_type = sys.argv[1]
     filename = sys.argv[2]
 
     check_float_type(float_type)
-    
+
     fi = open(filename)
 
     for line in fi:
@@ -207,11 +211,11 @@ if "__main__" == __name__:
             op = get_float_operation(float_type, op_str)
             x_flt = float.fromhex(x_str)
             y_flt = float.fromhex(y_str)
-            
+
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', r'overflow encountered in float_scalars')
                 res = op((x_flt,y_flt))
-        
+
             x_bin = get_binary(float_type, x_str)
             y_bin = get_binary(float_type, y_str)
             res_bin = get_binary(float_type, res)

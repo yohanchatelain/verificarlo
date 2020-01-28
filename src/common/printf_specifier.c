@@ -90,6 +90,7 @@ const char *hex_to_bit[16] = {"0000", "0001", "0010", "0011", "0100", "0101",
       sprintf(s_val, "%cinf", sign_char);                                      \
       return;                                                                  \
     case FP_NAN:                                                               \
+      sign_char = '+';                                                         \
       implicit_bit = '1';                                                      \
       exponent = real_exp_max;                                                 \
       sprintf(s_val, "%cnan", sign_char);                                      \
