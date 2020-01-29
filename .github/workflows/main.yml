@@ -1,0 +1,22 @@
+name: CI
+
+on: [push]
+
+env:
+  global:  
+    - CODECOV_TOKEN="1a0a8e83-c1df-402b-a9d7-f6e32f1fb47e" 
+  
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Codecov Action
+      uses: Atrox/codecov-action@v0.1.3
+    - name: clang-tidy check
+      uses: muxee/clang-tidy-action@0.0.1-rc1
+      
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
