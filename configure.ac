@@ -42,12 +42,17 @@ AC_ARG_WITH([flang],
   [with_flang="$withval"],
   [with_flang=yes])
 
-AC_PATH_PROG([FLANG], [flang], "", $PATH)
-if test -z "$FLANG"; then
-   AC_MSG_NOTICE([Fortran support disabled.])
+if test "x$with_flang" = "xno"; then
+   AC_MSG_NOTICE([--with-flang=no was given. Disabling Fortran support.])
+   FLANG_PATH=""
 else
-   AC_DEFINE_UNQUOTED([FLANG_PATH], ["$FLANG"], [FLANG path])
-   AC_SUBST(FLANG_PATH, $FLANG)
+   if test "x$with_flang" = "xyes"; then
+      AC_PATH_PROG([FLANG_PATH], [flang], "", $PATH)
+   else
+      FLANG_PATH="$with_flang"
+   fi
+   AC_DEFINE_UNQUOTED([FLANG_PATH], ["$FLANG_PATH"], [The flang path])
+   AC_SUBST(FLANG_PATH)
 fi
 
 AC_CHECK_LIB([c], [exit], , AC_MSG_ERROR([Could not find c library]))
@@ -60,7 +65,7 @@ AC_CHECK_LIB([mpfr], [mpfr_clear], , AC_MSG_ERROR([Could not find mpfr library])
 LIBS=""
 
 # Check for header files.
-AC_CHECK_HEADERS([fcntl.h inttypes.h limits.h malloc.h stdint.h stdlib.h string.h sys/time.h unistd.h utime.h mpfr.h], , AC_MSG_ERROR([Missing required headers]))
+AC_CHECK_HEADERS([fcntl.h float.h inttypes.h limits.h malloc.h stdint.h stdlib.h string.h sys/time.h unistd.h utime.h mpfr.h], , AC_MSG_ERROR([Missing required headers]))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
@@ -103,12 +108,14 @@ fi
 AC_FUNC_ALLOCA
 AC_FUNC_CHOWN
 AC_FUNC_ERROR_AT_LINE
+AC_FUNC_FORK
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_MKTIME
+AC_FUNC_MMAP
 AC_FUNC_REALLOC
 
-AC_CHECK_FUNCS([atexit floor getenv gettimeofday getpid memset mkdir pow sqrt strchr strdup strerror strrchr strstr strtol tzset utime])
+AC_CHECK_FUNCS([atexit dup2 floor getenv gettimeofday getpagesize getpid memset mkdir pow sqrt strcasecmp strchr strdup strerror strrchr strstr strtol strtoull tzset utime])
 
 # Check for Python 3
 AM_PATH_PYTHON([3])
