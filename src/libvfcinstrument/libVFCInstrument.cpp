@@ -46,19 +46,29 @@
 /* This function must be used with at least one variadic argument otherwise */
 /* it will fails when compiling since it will expand as M.getOrInsertFunction(name,res,,(Type*)NULL) */
 /* It could be fixed when __VA_OPT__ will be available (see https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html)*/
-#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(mcaFunctionName, name, res, __VA_ARGS__, (Type*)NULL)
-#elif LLVM_VERSION_MAJOR < 6
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type*)NULL)
+typedef llvm::Constant* LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 5
 #define CREATE_CALL3(func, op1, op2, op3)                                      \
   (Builder.CreateCall(func, {op1, op2, op3}, ""))
 #define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
 #define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
-#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(mcaFunctionName, res, __VA_ARGS__, (Type*)NULL)
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type*)NULL)
+typedef llvm::Constant* LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 9
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::Constant* LLVMFunctionType;
 #else
 #define CREATE_CALL3(func, op1, op2, op3)                                      \
   (Builder.CreateCall(func, {op1, op2, op3}, ""))
 #define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
 #define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
-#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(mcaFunctionName, res, __VA_ARGS__)
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::FunctionCallee LLVMFunctionType;
 #endif
 
 using namespace llvm;
@@ -259,14 +269,14 @@ struct VfclibInst : public ModulePass {
       if (size > 1) {
         res = VectorType::get(res, size);
       }
-      Constant *hookFunc = GET_OR_INSERT_FUNCTION(M, mcaFunctionName, res,
+      LLVMFunctionType hookFunc = GET_OR_INSERT_FUNCTION(M, mcaFunctionName, res,
 						  Builder.getInt32Ty(),
 						  opType, opType);
       newInst = CREATE_CALL3(hookFunc, Builder.getInt32(FCI->getPredicate()),
                              FCI->getOperand(0), FCI->getOperand(1));
       newInst = Builder.CreateIntCast(newInst, retType, true);
     } else {
-      Constant *hookFunc = GET_OR_INSERT_FUNCTION(M, mcaFunctionName, retType,
+      LLVMFunctionType hookFunc = GET_OR_INSERT_FUNCTION(M, mcaFunctionName, retType,
 						  opType, opType);
       newInst = CREATE_CALL2(hookFunc, I->getOperand(0), I->getOperand(1));
     }
