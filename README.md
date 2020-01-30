@@ -10,9 +10,9 @@ A tool for automatic Montecarlo Arithmetic analysis.
 
 ## Using Verificarlo through its Docker image
 
-A docker image is available at https://hub.docker.com/r/verificarlo/verificarlo/. 
+A docker image is available at https://hub.docker.com/r/verificarlo/verificarlo/.
 This image uses the latest git master version of Verificarlo and includes
-support for Fortran. It uses llvm-3.5 and gcc-4.7.
+support for Fortran. It uses llvm-7 and gcc-7.
 
 Example of usage:
 
@@ -34,7 +34,7 @@ $ docker run -v "$PWD":/workdir -e VFC_BACKENDS="libinterflop_mca.so" \
    verificarlo/verificarlo ./test
 999.99999999999795364
 $ docker run -v "$PWD":/workdir -e VFC_BACKENDS="libinterflop_mca.so" \
-   verificarlo/verificarlo ./test   
+   verificarlo/verificarlo ./test
 999.99999999999761258
 ```
 
@@ -43,9 +43,9 @@ $ docker run -v "$PWD":/workdir -e VFC_BACKENDS="libinterflop_mca.so" \
 Please ensure that Verificarlo's dependencies are installed on your system:
 
   * GNU mpfr library http://www.mpfr.org/
-  * LLVM, clang and opt from 3.3 up to 4.0.1 (the last version with Fortran
-    support is 3.6), http://clang.llvm.org/
-  * gcc, gfortran and dragonegg (for Fortran support), http://dragonegg.llvm.org/
+  * LLVM, clang and opt from 3.3 up to 9 (the last version with Fortran
+    support is 7), http://clang.llvm.org/
+  * gcc and flang (for Fortran support)
   * python3 and NumPy
   * autotools (automake, autoconf)
 
@@ -58,23 +58,23 @@ Then run the following command inside verificarlo directory:
    $ sudo make install
 ```
 
-If you do not care about Fortran support, you can avoid installing gfortran and
-dragonegg, by passing the option `--without-dragonegg` to `configure`:
+If you do not care about Fortran support, you can avoid installing flang
+by passing the option `--without-flang` to `configure`:
 
 ```bash
    $ ./autogen.sh
-   $ ./configure --without-dragonegg
+   $ ./configure --without-flang
    $ make
    $ sudo make install
 ```
 
-If needed LLVM path, dragonegg path, and gcc path can be configured with the
+If needed LLVM path, flang path, and gcc path can be configured with the
 following options:
 
 ```bash
    $ ./configure --with-llvm=<path to llvm install directory> \
-                 --with-dragonegg=<path to dragonegg.so> \
-                 CC=<gcc binary compatible with installed dragonegg>
+                 --with-flang=<path to flang> \
+                 CC=<gcc binary>
 ```
 
 Once installation is over, we recommend that you run the test suite to ensure
@@ -84,20 +84,20 @@ verificarlo works as expected on your system:
    $ make installcheck
 ```
 
-If you disable dragonegg support during configure, fortran_test will be disabled and considered as passing the test.
+If you disable flang support during configure, fortran_test will be disabled and considered as passing the test.
 
-For example on an x86_64 Ubuntu 14.04 release, you should use the following
+For example on an x86_64 Ubuntu 19.10 release, you should use the following
 install procedure:
 
 ```bash
-   $ sudo apt-get install libmpfr-dev clang-3.3 llvm-3.3-dev dragonegg-4.7 \
-       gcc-4.7 gfortran-4.7 autoconf automake build-essential python3 python3-numpy
+   $ sudo apt-get install libmpfr-dev clang-7 llvm-7-dev flang \
+       gcc-5 autoconf automake build-essential python3 python3-numpy
    $ cd verificarlo/
    $ ./autogen.sh
    $ ./configure \
-       --with-dragonegg=/usr/lib/gcc/x86_64-linux-gnu/4.7/plugin/dragonegg.so \
-       CC=gcc-4.7
-   $ make 
+       --with-flang=/usr/bin/flang \
+       CC=gcc-5
+   $ make
    $ sudo make install
 ```
 
@@ -125,7 +125,7 @@ To automatically instrument a program with Verificarlo you must compile it using
 the `verificarlo` command. First make sure that the verificarlo installation
 directory is in your PATH.
 
-Then you can use the `verificarlo` command to compile your programs. Either modify 
+Then you can use the `verificarlo` command to compile your programs. Either modify
 your makefile to use `verificarlo` as the compiler (`CC=verificarlo` and
 `FC=verificarlo` ) and linker (`LD=verificarlo`) or use the verificarlo command
 directly:
@@ -150,7 +150,7 @@ library.
 
 Once your program is compiled with Verificarlo, it can be instrumented with
 different floating-point backends.
-At least one backend must be selected when running your application, 
+At least one backend must be selected when running your application,
 
 ```bash
    $ verificarlo *.c -o program
@@ -159,7 +159,7 @@ At least one backend must be selected when running your application,
 ```
 
 Backends are distributed as dynamic libraries. They are loaded with the
-environment variable `VFC_BACKENDS`. 
+environment variable `VFC_BACKENDS`.
 
 ```bash
    $ VFC_BACKENDS="libinterflop_mca.so" ./program
@@ -178,13 +178,13 @@ after each backend,
 
 ```bash
    $ VFC_BACKENDS="libinterflop_ieee.so --debug; \
-                   libinterflop_mca.so --precision 10 --mode rr" \ 
+                   libinterflop_mca.so --precision-binary64 10 --mode rr" \
                    ./program"
 ```
 
 ### IEEE Backend (libinterflop_ieee.so)
 
-The IEEE backend implements straighforward IEEE-754 arithmetic. 
+The IEEE backend implements straighforward IEEE-754 arithmetic.
 It should have no effect on the output and behavior of your program.
 
 The options `--debug` and `--debug_binary` enable verbose output that print
@@ -195,8 +195,10 @@ VFC_BACKENDS="libinterflop_ieee.so --help" ./test
 test: verificarlo loaded backend libinterflop_ieee.so
 Usage: libinterflop_ieee.so [OPTION...]
 
-  -b, --debug_binary         enable binary debug output
+  -b, --debug-binary         enable binary debug output
   -d, --debug                enable debug output
+  -n, --print-new-line	     print new line after debug output
+  -s, --no-print-debug-mode  do not print debug mode before debug outputting
   -?, --help                 Give this help list
       --usage                Give a short usage message
 
@@ -206,8 +208,15 @@ interflop_ieee 1.23457e-05 - 9.87654e+12 -> -9.87654e+12
 interflop_ieee 1.23457e-05 * 9.87654e+12 -> 1.21933e+08
 interflop_ieee 1.23457e-05 / 9.87654e+12 -> 1.25e-18
 ...
-```
 
+VFC_BACKENDS='libinterflop_ieee.so --debug-binary' test
+test: verificarlo loaded backend libinterflop_ieee.so
+interflop_ieee_bin +1.10011110010000001001001 x 2^-17 - +1.0001111101110001111111 x 2^43 -> -1.0001111101110001111111 x 2^43
+interflop_ieee_bin +1.10011110010000001001001 x 2^-17 * +1.0001111101110001111111 x 2^43 -> +1.11010001001000101101011 x 2^26
+interflop_ieee_bin -1.0001111101110001111111 x 2^43 + +1.11010001001000101101011 x 2^26 -> -1.0001111101110001000101 x 2^43
+...
+
+```
 ### MCA Backend (libinterflop_mca.so)
 
 The MCA backends implements Montecarlo Arithmetic.  It uses quad types to
@@ -218,10 +227,11 @@ still experimental.
 ```
 VFC_BACKENDS="libinterflop_mca.so --help" ./test
 test: verificarlo loaded backend libinterflop_mca.so
-Usage: libinterflop_mca.so [OPTION...] 
+Usage: libinterflop_mca.so [OPTION...]
 
   -m, --mode=MODE            select MCA mode among {ieee, mca, pb, rr}
-  -p, --precision=PRECISION  select precision (PRECISION >= 0)
+      --precision-binary32=PRECISION  select precision for binary32 (PRECISION >= 0)
+      --precision-binary64=PRECISION  select precision for binary64 (PRECISION >= 0)
   -s, --seed=SEED            fix the random generator seed
   -?, --help                 Give this help list
       --usage                Give a short usage message
