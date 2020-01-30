@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-if grep "FLANG_PATH \"\"" ../../config.h > /dev/null; then
-	echo "this test is not run when using --without-dragonegg"
+if grep "undef FLANG_PATH" ../../config.h > /dev/null; then
+	echo "this test is not run when not using --with-flang"
 	exit 0
 fi
 
