@@ -1,0 +1,12 @@
+extraction:
+  cpp:
+    prepare:
+      packages: "llvm-4.0"
+    after_prepare:
+    - "export GNU_MAKE=make"
+    - "export GIT=true"
+    - "./autogen.sh"
+    configure:
+      command: "./configure --with-llvm=$(llvm-config-4.0 --prefix) --without-dragonegg"
+    index:
+      build_command: "$GNU_MAKE"
