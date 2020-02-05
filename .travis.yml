@@ -34,7 +34,7 @@ before_install:
   - cd DragonEgg
   - LLVM_CONFIG=llvm-config-${LLVM_VERSION} GCC=gcc-${GCC_VERSION} GXX=g++-${GCC_VERSION} make
   - mkdir -p ${GCC_INSTALL_PATH}/plugin/
-  - cp dragonegg.so ${GCC_INSTALL_PATH}/plugin/dragonegg.so
+  - sudo cp dragonegg.so ${GCC_INSTALL_PATH}/plugin/dragonegg.so
 
 install:
   - ./autogen.sh
