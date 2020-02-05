@@ -35,14 +35,14 @@ before_install:
   - export LLVM_INSTALL_PATH=$PWD/llvm-3.6.1
   - git clone -b gcc-llvm-3.6 --depth=1 https://github.com/yohanchatelain/DragonEgg.git
   - cd DragonEgg
-  - LLVM_CONFIG=${LLVM_INSTALL_PATH} GCC=gcc-${GCC_VERSION} GXX=g++-${GCC_VERSION} make
+  - LLVM_CONFIG=${LLVM_INSTALL_PATH}/bin/llvm-config GCC=gcc-${GCC_VERSION} GXX=g++-${GCC_VERSION} make
   - mkdir -p ${GCC_INSTALL_PATH}/plugin/
   - sudo cp dragonegg.so ${GCC_INSTALL_PATH}/plugin/dragonegg.so
 
 install:
   - cd $TRAVIS_BUILD_DIR
   - ./autogen.sh
-  - ./configure --with-llvm=$LLVM_INSTALL_PATH --with-dragonegg=${GCC_INSTALL_PATH}/plugin/dragonegg.so CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} || cat config.log
+  - ./configure --with-llvm=${LLVM_INSTALL_PATH} --with-dragonegg=${GCC_INSTALL_PATH}/plugin/dragonegg.so CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} || cat config.log
   - make
   - sudo make install
   - export PYTHON_VERSION=$(python3 -c "import sys ; print('{major}.{minor}'.format(major=sys.version_info.major,minor=sys.version_info.minor))")
