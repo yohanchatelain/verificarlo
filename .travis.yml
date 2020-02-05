@@ -26,7 +26,7 @@ stages:
   - script
       
 before_install:
-  - export LLVM_INSTALL_PATH=(llvm-config-${LLVM_VERSION} --prefix)
+  - export LLVM_INSTALL_PATH=$(llvm-config-${LLVM_VERSION} --prefix)
   - export GCC_INSTALL_PATH=$($GCC --print-search-dirs | grep install | cut -d' ' -f2)
   - export GCC_LIB_PATH=$($GCC --print-search-dirs | grep libraries | cut -d'=' -f2)
   - export LIBRARY_PATH=${GCC_LIB_PATH}:${LLVM_INSTALL_PATH}:/lib:/usr/lib
