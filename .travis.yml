@@ -14,8 +14,7 @@ addons:
     update: true
     packages:
       - libmpfr-dev
-      - clang-3.9 llvm-3.9 llvm-3.9-dev
-      - gcc-5 gcc-5-plugin-dev g++-5 gfortran-5 libgfortran-5-dev
+      - gcc-4.9 gcc-4.9-plugin-dev g++-4.9 gfortran-4.9 libgfortran-4.9-dev
       - autoconf automake build-essential libedit-dev binutils
       - python3-dev cython3 wget xz-utils
 
