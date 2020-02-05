@@ -41,9 +41,9 @@ install:
   - ./autogen.sh
   - ./configure --with-llvm=$LLVM_INSTALL_PATH --with-dragonegg=${GCC_INSTALL_PATH}/plugin/dragonegg.so CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} || cat config.log
   - make
-  - make install
+  - sudo make install
   - export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-     -  export  PYTHONPATH=/usr/local/lib/python3.4/site-packages/:$PYTHONPATH
+  - export  PYTHONPATH=/usr/local/lib/python3.4/site-packages/:$PYTHONPATH
 
 script:
   - make installcheck
