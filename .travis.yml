@@ -5,7 +5,7 @@ os: linux
 env:
   global:
     - LLVM_VERSION=3.9
-    - GCC_VERSION=5
+    - GCC_VERSION=4.9
     - GCC=gcc-${GCC_VERSION}
     - GXX=g++-${GCC_VERSION}
 
