@@ -1,5 +1,6 @@
 dist: xenial
 language: c
+os: linux
 
 env:
   global:
@@ -18,23 +19,17 @@ addons:
       - autoconf automake build-essential libedit-dev binutils
       - python3-dev cython3
 
-matrix:
-  include:
-    env:
-      - LLVM_INSTALL_PATH (llvm-config-${LLVM_VERSION} --prefix)
-      - GCC_INSTALL_PATH $($GCC --print-search-dirs | grep install | cut -d' ' -f2)
-      - GCC_LIB_PATH $($GCC --print-search-dirs | grep libraries | cut -d'=' -f2)
-      - LIBRARY_PATH ${GCC_LIB_PATH}:${LLVM_INSTALL_PATH}:/lib:/usr/lib
-    stages:
-      - before_install
-      - install
-      - before_script:
-      	env:
-	  - LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-	  - PYTHONPATH=/usr/local/lib/python3.4/site-packages/:$PYTHONPATH
-      - script
+stages:
+  - before_install
+  - install
+  - before_script
+  - script
       
 before_install:
+  - export LLVM_INSTALL_PATH=(llvm-config-${LLVM_VERSION} --prefix)
+  - export GCC_INSTALL_PATH=$($GCC --print-search-dirs | grep install | cut -d' ' -f2)
+  - export GCC_LIB_PATH=$($GCC --print-search-dirs | grep libraries | cut -d'=' -f2)
+  - export LIBRARY_PATH=${GCC_LIB_PATH}:${LLVM_INSTALL_PATH}:/lib:/usr/lib
   - git clone -b gcc5 https://github.com/yohanchatelain/DragonEgg.git
   - cd DragonEgg
   - LLVM_CONFIG=llvm-config-${LLVM_VERSION} GCC=gcc-${GCC_VERSION} GXX=g++-${GCC_VERSION} make
@@ -46,6 +41,8 @@ install:
   - ./configure --with-llvm=$LLVM_INSTALL_PATH --with-dragonegg=${GCC_INSTALL_PATH}/plugin/dragonegg.so CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} || cat config.log
   - make
   - make install
+  - export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+     -  export  PYTHONPATH=/usr/local/lib/python3.4/site-packages/:$PYTHONPATH
 
 script:
   - make installcheck
