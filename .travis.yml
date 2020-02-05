@@ -37,6 +37,7 @@ before_install:
   - sudo cp dragonegg.so ${GCC_INSTALL_PATH}/plugin/dragonegg.so
 
 install:
+  - cd $TRAVIS_BUILD_DIR
   - ./autogen.sh
   - ./configure --with-llvm=$LLVM_INSTALL_PATH --with-dragonegg=${GCC_INSTALL_PATH}/plugin/dragonegg.so CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} || cat config.log
   - make
