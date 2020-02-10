@@ -1,0 +1,44 @@
+[_C_4]
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 10
+begin = 2
+end = 14
+
+[test1]
+name = "Function test1"
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 4
+begin = 7
+end = 12
+
+[_C_5]
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 8
+begin = 12
+end = 52
+
+[test2]
+name = "Function test2"
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 9
+begin = 6
+end = 11
+
+[_C_3]
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 3
+begin = 12
+end = 26
+
+[_C_2]
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 5
+begin = 2
+end = 19
+
+[_C_1]
+file = "/home/yohan/Documents/verificarlo/verification/test/test.c"
+line = 5
+begin = 9
+end = 18
+

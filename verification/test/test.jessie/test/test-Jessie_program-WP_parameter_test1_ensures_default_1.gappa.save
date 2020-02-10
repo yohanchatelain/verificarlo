@@ -1,0 +1,18 @@
+
+# this is a prelude for Gappa
+# this is a prelude for Gappa integer arithmetic
+# this is a prelude for Gappa real arithmetic
+# equation 'H'
+abstr = float<ieee_64,ne>(3.5) ;
+# equation 'H1'
+abstr1 = float<ieee_64,ne>((2.0 * float<ieee_64,ne>(3.5))) ;
+{ @FIX(abstr2,0) ->
+  @FIX(abstr3,0) ->
+  @FIX(abstr4,0) ->
+  # hypothesis 'auto_instance'
+  | abstr1 | <= 0x1.FFFFFFFFFFFFFp1023 ->
+  # hypothesis 'auto_instance1'
+  | 2.0 | <= 0x1.FFFFFFFFFFFFFp1023 ->
+  # hypothesis 'auto_instance2'
+  | abstr | <= 0x1.FFFFFFFFFFFFFp1023 ->
+  float<ieee_64,ne>((2.0 * float<ieee_64,ne>(3.5))) in [7.0,7.0] }

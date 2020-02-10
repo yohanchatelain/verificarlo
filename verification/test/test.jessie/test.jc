@@ -1,0 +1,56 @@
+# IntModel = bounded
+# InvariantPolicy = Arguments
+# SeparationPolicy = Regions
+# AnnotationPolicy = None
+# AbstractDomain = Pol
+
+axiomatic Padding {
+
+  logic type padding
+  
+}
+
+type uint8 = 0..255
+
+type int8 = -128..127
+
+tag unsigned_charP = {
+  uint8 unsigned_charM: 8;
+}
+
+type unsigned_charP = [unsigned_charP]
+
+tag charP = {
+  int8 charM: 8;
+}
+
+type charP = [charP]
+
+tag voidP = {
+}
+
+type voidP = [voidP]
+
+double test1()
+behavior default:
+  ensures (_C_3 : ((\result :> real) == 7.0));
+{  
+   (var double __retres);
+   
+   {  (_C_2 : (__retres = (_C_1 : ((2.0 :> double) * (3.5 :> double)))));
+      
+      (return __retres)
+   }
+}
+
+float test2()
+behavior default:
+  ensures (_C_5 : ((\result :> real) == 0.100000001490116119384765625));
+{  
+   (var float __retres_0);
+   
+   {  (_C_4 : (__retres_0 = (0.1 :> float)));
+      
+      (return __retres_0)
+   }
+}

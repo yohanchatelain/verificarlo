@@ -1,0 +1,451 @@
+theory Jessie_model
+
+use import int.Int
+
+use bool.Bool
+
+use import floating_point.Single
+use import floating_point.Double
+
+use import jessie_why3theories.Jessie_memory_model
+
+type charP
+
+type int8
+
+type padding
+
+type uint8
+
+type unsigned_charP
+
+type voidP
+
+function charP_tag  : (tag_id charP)
+
+axiom charP_int "charP_int": ((int_of_tag charP_tag) = (1))
+
+function charP_of_pointer_address (pointer ()) : (pointer charP)
+
+axiom charP_of_pointer_address_of_pointer_addr "charP_of_pointer_address_of_pointer_addr":
+ (forall p:(pointer charP).
+  (p = (charP_of_pointer_address (pointer_address p))))
+
+axiom charP_parenttag_bottom "charP_parenttag_bottom":
+ (parenttag charP_tag bottom_tag)
+
+axiom charP_tags "charP_tags":
+ (forall x:(pointer charP).
+  (forall charP_tag_table:(tag_table charP).
+   (instanceof charP_tag_table x charP_tag)))
+
+function integer_of_int8 int8 : int
+
+predicate eq_int8(x:int8) (y:int8) =
+ ((integer_of_int8 x) = (integer_of_int8 y))
+
+function integer_of_uint8 uint8 : int
+
+predicate eq_uint8(x:uint8) (y:uint8) =
+ ((integer_of_uint8 x) = (integer_of_uint8 y))
+
+function int8_of_integer int : int8
+
+axiom int8_coerce "int8_coerce":
+ (forall x:int.
+  (((Int.(<=) (-128) x) /\ (Int.(<=) x (127))) ->
+   ((integer_of_int8 (int8_of_integer x)) = x)))
+
+axiom int8_extensionality "int8_extensionality":
+ (forall x:int8.
+  (forall y:int8[((integer_of_int8 x) = (integer_of_int8 y))].
+   (((integer_of_int8 x) = (integer_of_int8 y)) -> (x = y))))
+
+axiom int8_range "int8_range":
+ (forall x:int8.
+  ((Int.(<=) (-128) (integer_of_int8 x))
+  /\ (Int.(<=) (integer_of_int8 x) (127))))
+
+predicate left_valid_struct_charP(p:(pointer charP)) (a:int) (charP_alloc_table:(alloc_table charP)) =
+ ((offset_min charP_alloc_table p) <= a)
+
+predicate left_valid_struct_unsigned_charP(p:(pointer unsigned_charP)) (a:int) (unsigned_charP_alloc_table:(alloc_table unsigned_charP)) =
+ ((offset_min unsigned_charP_alloc_table p) <= a)
+
+predicate left_valid_struct_voidP(p:(pointer voidP)) (a:int) (voidP_alloc_table:(alloc_table voidP)) =
+ ((offset_min voidP_alloc_table p) <= a)
+
+axiom pointer_addr_of_charP_of_pointer_address "pointer_addr_of_charP_of_pointer_address":
+ (forall p:(pointer ()).
+  (p = (pointer_address (charP_of_pointer_address p))))
+
+function unsigned_charP_of_pointer_address (pointer ()) : (pointer unsigned_charP)
+
+axiom pointer_addr_of_unsigned_charP_of_pointer_address "pointer_addr_of_unsigned_charP_of_pointer_address":
+ (forall p:(pointer ()).
+  (p = (pointer_address (unsigned_charP_of_pointer_address p))))
+
+function voidP_of_pointer_address (pointer ()) : (pointer voidP)
+
+axiom pointer_addr_of_voidP_of_pointer_address "pointer_addr_of_voidP_of_pointer_address":
+ (forall p:(pointer ()).
+  (p = (pointer_address (voidP_of_pointer_address p))))
+
+predicate right_valid_struct_charP(p:(pointer charP)) (b:int) (charP_alloc_table:(alloc_table charP)) =
+ ((offset_max charP_alloc_table p) >= b)
+
+predicate right_valid_struct_unsigned_charP(p:(pointer unsigned_charP)) (b:int) (unsigned_charP_alloc_table:(alloc_table unsigned_charP)) =
+ ((offset_max unsigned_charP_alloc_table p) >= b)
+
+predicate right_valid_struct_voidP(p:(pointer voidP)) (b:int) (voidP_alloc_table:(alloc_table voidP)) =
+ ((offset_max voidP_alloc_table p) >= b)
+
+predicate strict_valid_root_charP(p:(pointer charP)) (a:int) (b:int) (charP_alloc_table:(alloc_table charP)) =
+ (((offset_min charP_alloc_table p) = a)
+ /\ ((offset_max charP_alloc_table p) = b))
+
+predicate strict_valid_root_unsigned_charP(p:(pointer unsigned_charP)) (a:int) (b:int) (unsigned_charP_alloc_table:(alloc_table unsigned_charP)) =
+ (((offset_min unsigned_charP_alloc_table p) = a)
+ /\ ((offset_max unsigned_charP_alloc_table p) = b))
+
+predicate strict_valid_root_voidP(p:(pointer voidP)) (a:int) (b:int) (voidP_alloc_table:(alloc_table voidP)) =
+ (((offset_min voidP_alloc_table p) = a)
+ /\ ((offset_max voidP_alloc_table p) = b))
+
+predicate strict_valid_struct_charP(p:(pointer charP)) (a:int) (b:int) (charP_alloc_table:(alloc_table charP)) =
+ (((offset_min charP_alloc_table p) = a)
+ /\ ((offset_max charP_alloc_table p) = b))
+
+predicate strict_valid_struct_unsigned_charP(p:(pointer unsigned_charP)) (a:int) (b:int) (unsigned_charP_alloc_table:(alloc_table unsigned_charP)) =
+ (((offset_min unsigned_charP_alloc_table p) = a)
+ /\ ((offset_max unsigned_charP_alloc_table p) = b))
+
+predicate strict_valid_struct_voidP(p:(pointer voidP)) (a:int) (b:int) (voidP_alloc_table:(alloc_table voidP)) =
+ (((offset_min voidP_alloc_table p) = a)
+ /\ ((offset_max voidP_alloc_table p) = b))
+
+function uint8_of_integer int : uint8
+
+axiom uint8_coerce "uint8_coerce":
+ (forall x:int.
+  (((Int.(<=) (0) x) /\ (Int.(<=) x (255))) ->
+   ((integer_of_uint8 (uint8_of_integer x)) = x)))
+
+axiom uint8_extensionality "uint8_extensionality":
+ (forall x:uint8.
+  (forall y:uint8[((integer_of_uint8 x) = (integer_of_uint8 y))].
+   (((integer_of_uint8 x) = (integer_of_uint8 y)) -> (x = y))))
+
+axiom uint8_range "uint8_range":
+ (forall x:uint8.
+  ((Int.(<=) (0) (integer_of_uint8 x))
+  /\ (Int.(<=) (integer_of_uint8 x) (255))))
+
+function unsigned_charP_tag  : (tag_id unsigned_charP)
+
+axiom unsigned_charP_int "unsigned_charP_int":
+ ((int_of_tag unsigned_charP_tag) = (1))
+
+axiom unsigned_charP_of_pointer_address_of_pointer_addr "unsigned_charP_of_pointer_address_of_pointer_addr":
+ (forall p:(pointer unsigned_charP).
+  (p = (unsigned_charP_of_pointer_address (pointer_address p))))
+
+axiom unsigned_charP_parenttag_bottom "unsigned_charP_parenttag_bottom":
+ (parenttag unsigned_charP_tag bottom_tag)
+
+axiom unsigned_charP_tags "unsigned_charP_tags":
+ (forall x:(pointer unsigned_charP).
+  (forall unsigned_charP_tag_table:(tag_table unsigned_charP).
+   (instanceof unsigned_charP_tag_table x unsigned_charP_tag)))
+
+predicate valid_root_charP(p:(pointer charP)) (a:int) (b:int) (charP_alloc_table:(alloc_table charP)) =
+ (((offset_min charP_alloc_table p) <= a)
+ /\ ((offset_max charP_alloc_table p) >= b))
+
+predicate valid_root_unsigned_charP(p:(pointer unsigned_charP)) (a:int) (b:int) (unsigned_charP_alloc_table:(alloc_table unsigned_charP)) =
+ (((offset_min unsigned_charP_alloc_table p) <= a)
+ /\ ((offset_max unsigned_charP_alloc_table p) >= b))
+
+predicate valid_root_voidP(p:(pointer voidP)) (a:int) (b:int) (voidP_alloc_table:(alloc_table voidP)) =
+ (((offset_min voidP_alloc_table p) <= a)
+ /\ ((offset_max voidP_alloc_table p) >= b))
+
+predicate valid_struct_charP(p:(pointer charP)) (a:int) (b:int) (charP_alloc_table:(alloc_table charP)) =
+ (((offset_min charP_alloc_table p) <= a)
+ /\ ((offset_max charP_alloc_table p) >= b))
+
+predicate valid_struct_unsigned_charP(p:(pointer unsigned_charP)) (a:int) (b:int) (unsigned_charP_alloc_table:(alloc_table unsigned_charP)) =
+ (((offset_min unsigned_charP_alloc_table p) <= a)
+ /\ ((offset_max unsigned_charP_alloc_table p) >= b))
+
+predicate valid_struct_voidP(p:(pointer voidP)) (a:int) (b:int) (voidP_alloc_table:(alloc_table voidP)) =
+ (((offset_min voidP_alloc_table p) <= a)
+ /\ ((offset_max voidP_alloc_table p) >= b))
+
+function voidP_tag  : (tag_id voidP)
+
+axiom voidP_int "voidP_int": ((int_of_tag voidP_tag) = (1))
+
+axiom voidP_of_pointer_address_of_pointer_addr "voidP_of_pointer_address_of_pointer_addr":
+ (forall p:(pointer voidP).
+  (p = (voidP_of_pointer_address (pointer_address p))))
+
+axiom voidP_parenttag_bottom "voidP_parenttag_bottom":
+ (parenttag voidP_tag bottom_tag)
+
+axiom voidP_tags "voidP_tags":
+ (forall x:(pointer voidP).
+  (forall voidP_tag_table:(tag_table voidP).
+   (instanceof voidP_tag_table x voidP_tag)))
+
+end
+
+module Jessie_program
+
+use import int.Int
+
+use bool.Bool
+
+use import floating_point.Single
+use import floating_point.Double
+
+use import jessie_why3theories.Jessie_memory_model
+
+use import Jessie_model
+
+use import ref.Ref
+
+use import jessie_why3.JessieDivision
+
+use import floating_point.Rounding
+
+use import jessie_why3.JessieFloats
+
+use import jessie_why3.Jessie_memory_model_parameters
+
+exception Loop_continue_exc ()
+
+exception Loop_exit_exc ()
+
+exception Return_label_exc ()
+
+val charP_alloc_table : ref (alloc_table charP)
+
+val charP_tag_table : ref (tag_table charP)
+
+val alloc_struct_charP
+ (n:int)
+  (charP_alloc_table:ref (alloc_table charP))
+   (charP_tag_table:ref (tag_table charP)) : (pointer charP)
+    requires { true } writes { charP_alloc_table, charP_tag_table }
+     ensures { ((strict_valid_struct_charP result (0) (Int.(-) n (1))
+                !charP_alloc_table)
+               /\ ((alloc_extends (old !charP_alloc_table)
+                   !charP_alloc_table)
+                  /\ ((alloc_fresh (old !charP_alloc_table) result n)
+                     /\ (instanceof !charP_tag_table result charP_tag)))) }
+
+val alloc_struct_charP_requires
+ (n:int)
+  (charP_alloc_table:ref (alloc_table charP))
+   (charP_tag_table:ref (tag_table charP)) : (pointer charP)
+    requires { (Int.(>=) n (0)) } writes { charP_alloc_table,
+    charP_tag_table }
+     ensures { ((strict_valid_struct_charP result (0) (Int.(-) n (1))
+                !charP_alloc_table)
+               /\ ((alloc_extends (old !charP_alloc_table)
+                   !charP_alloc_table)
+                  /\ ((alloc_fresh (old !charP_alloc_table) result n)
+                     /\ (instanceof !charP_tag_table result charP_tag)))) }
+
+val unsigned_charP_alloc_table : ref (alloc_table unsigned_charP)
+
+val unsigned_charP_tag_table : ref (tag_table unsigned_charP)
+
+val alloc_struct_unsigned_charP
+ (n:int)
+  (unsigned_charP_alloc_table:ref (alloc_table unsigned_charP))
+   (unsigned_charP_tag_table:ref (tag_table unsigned_charP))
+    : (pointer unsigned_charP)
+    requires { true } writes { unsigned_charP_alloc_table,
+    unsigned_charP_tag_table }
+     ensures { ((strict_valid_struct_unsigned_charP result (0)
+                (Int.(-) n (1)) !unsigned_charP_alloc_table)
+               /\ ((alloc_extends (old !unsigned_charP_alloc_table)
+                   !unsigned_charP_alloc_table)
+                  /\ ((alloc_fresh (old !unsigned_charP_alloc_table) result
+                      n)
+                     /\ (instanceof !unsigned_charP_tag_table result
+                        unsigned_charP_tag)))) }
+
+val alloc_struct_unsigned_charP_requires
+ (n:int)
+  (unsigned_charP_alloc_table:ref (alloc_table unsigned_charP))
+   (unsigned_charP_tag_table:ref (tag_table unsigned_charP))
+    : (pointer unsigned_charP)
+    requires { (Int.(>=) n (0)) } writes { unsigned_charP_alloc_table,
+    unsigned_charP_tag_table }
+     ensures { ((strict_valid_struct_unsigned_charP result (0)
+                (Int.(-) n (1)) !unsigned_charP_alloc_table)
+               /\ ((alloc_extends (old !unsigned_charP_alloc_table)
+                   !unsigned_charP_alloc_table)
+                  /\ ((alloc_fresh (old !unsigned_charP_alloc_table) result
+                      n)
+                     /\ (instanceof !unsigned_charP_tag_table result
+                        unsigned_charP_tag)))) }
+
+val voidP_alloc_table : ref (alloc_table voidP)
+
+val voidP_tag_table : ref (tag_table voidP)
+
+val alloc_struct_voidP
+ (n:int)
+  (voidP_alloc_table:ref (alloc_table voidP))
+   (voidP_tag_table:ref (tag_table voidP)) : (pointer voidP)
+    requires { true } writes { voidP_alloc_table, voidP_tag_table }
+     ensures { ((strict_valid_struct_voidP result (0) (Int.(-) n (1))
+                !voidP_alloc_table)
+               /\ ((alloc_extends (old !voidP_alloc_table)
+                   !voidP_alloc_table)
+                  /\ ((alloc_fresh (old !voidP_alloc_table) result n)
+                     /\ (instanceof !voidP_tag_table result voidP_tag)))) }
+
+val alloc_struct_voidP_requires
+ (n:int)
+  (voidP_alloc_table:ref (alloc_table voidP))
+   (voidP_tag_table:ref (tag_table voidP)) : (pointer voidP)
+    requires { (Int.(>=) n (0)) } writes { voidP_alloc_table,
+    voidP_tag_table }
+     ensures { ((strict_valid_struct_voidP result (0) (Int.(-) n (1))
+                !voidP_alloc_table)
+               /\ ((alloc_extends (old !voidP_alloc_table)
+                   !voidP_alloc_table)
+                  /\ ((alloc_fresh (old !voidP_alloc_table) result n)
+                     /\ (instanceof !voidP_tag_table result voidP_tag)))) }
+
+val any_int8 (_anonymous:()) : int8 requires { true }  ensures { true }
+
+val any_uint8 (_anonymous:()) : uint8 requires { true }  ensures { true }
+
+val int8_of_integer_
+ (x:int) : int8
+  requires { ((Int.(<=) (-128) x) /\ (Int.(<=) x (127))) }
+   ensures { ((integer_of_int8 result) = x) }
+
+val safe_int8_of_integer_
+ (x:int) : int8 requires { true }  ensures { ((integer_of_int8 result) = x) }
+
+val safe_uint8_of_integer_
+ (x:int) : uint8
+  requires { true }  ensures { ((integer_of_uint8 result) = x) }
+
+val test1
+ (tt:()) : double
+  requires { true }
+   ensures { (#"/home/yohan/Documents/verificarlo/verification/test/test.c" 3 12 26#
+             ((Double.value result) = 7.0)) }
+
+val test1_requires
+ (tt:()) : double
+  requires { (#"/home/yohan/Documents/verificarlo/verification/test/test.jessie/" 0 0 0#
+             true) }
+   ensures { (#"/home/yohan/Documents/verificarlo/verification/test/test.c" 3 12 26#
+             ((Double.value result) = 7.0)) }
+
+val test2
+ (tt:()) : single
+  requires { true }
+   ensures { (#"/home/yohan/Documents/verificarlo/verification/test/test.c" 8 12 52#
+             ((Single.value result) = 0.100000001490116119384765625)) }
+
+val test2_requires
+ (tt:()) : single
+  requires { (#"/home/yohan/Documents/verificarlo/verification/test/test.jessie/" 0 0 0#
+             true) }
+   ensures { (#"/home/yohan/Documents/verificarlo/verification/test/test.c" 8 12 52#
+             ((Single.value result) = 0.100000001490116119384765625)) }
+
+val uint8_of_integer_
+ (x:int) : uint8
+  requires { ((Int.(<=) (0) x) /\ (Int.(<=) x (255))) }
+   ensures { ((integer_of_uint8 result) = x) }
+
+let test1_ensures_default "W:diverges:N" "expl:Function test1, default behavior"
+ #"/home/yohan/Documents/verificarlo/verification/test/test.c" 4 7 12#=
+ fun (tt : ()) ->
+  requires { (#"/home/yohan/Documents/verificarlo/verification/test/test.jessie/" 0 0 0#
+             true)  }
+  ensures { (#"/home/yohan/Documents/verificarlo/verification/test/test.c" 3 12 26#
+            ((Double.value result) = 7.0)) } 
+  ('Init: 
+  (let return = ref (any_double ()) in
+  try
+   begin
+     (let __retres = ref (any_double ()) in
+     begin
+       (let _jessie_5 =
+       (__retres := ("expl:floating-point overflow"
+                    #"/home/yohan/Documents/verificarlo/verification/test/test.c" 5 9 18#
+                    (mul_double_safe Rounding.NearestTiesToEven (double_of_real_exact 2.0) 
+                     (double_of_real_safe Rounding.NearestTiesToEven 3.5)))) in
+       ()); (return := !__retres); (raise Return) end); absurd  end with
+   Return -> !return end)) 
+
+let test1_safety "expl:Function test1, Safety"
+ #"/home/yohan/Documents/verificarlo/verification/test/test.c" 4 7 12#=
+ fun (tt : ()) ->
+  requires { (#"/home/yohan/Documents/verificarlo/verification/test/test.jessie/" 0 0 0#
+             true)  } ensures { true } 
+  ('Init: 
+  (let return = ref (any_double ()) in
+  try
+   begin
+     (let __retres = ref (any_double ()) in
+     begin
+       (let _jessie_2 =
+       (__retres := ("expl:floating-point overflow"
+                    #"/home/yohan/Documents/verificarlo/verification/test/test.c" 5 9 18#
+                    (mul_double Rounding.NearestTiesToEven (double_of_real_exact 2.0) 
+                     ("expl:floating-point overflow"
+                     #"/home/yohan/Documents/verificarlo/verification/test/test.jessie/test.jc" 40 53 68#
+                     (double_of_real Rounding.NearestTiesToEven 3.5))))) in
+       ()); (return := !__retres); (raise Return) end); absurd  end with
+   Return -> !return end)) 
+
+let test2_ensures_default "W:diverges:N" "expl:Function test2, default behavior"
+ #"/home/yohan/Documents/verificarlo/verification/test/test.c" 9 6 11#=
+ fun (tt : ()) ->
+  requires { (#"/home/yohan/Documents/verificarlo/verification/test/test.jessie/" 0 0 0#
+             true)  }
+  ensures { (#"/home/yohan/Documents/verificarlo/verification/test/test.c" 8 12 52#
+            ((Single.value result) = 0.100000001490116119384765625)) } 
+  ('Init: 
+  (let return = ref (any_single ()) in
+  try
+   begin
+     (let __retres_0 = ref (any_single ()) in
+     begin
+       (let _jessie_11 =
+       (__retres_0 := (single_of_real_exact 0x1.99999ap-4)) in ());
+      (return := !__retres_0); (raise Return) end); absurd  end with
+   Return -> !return end)) 
+
+let test2_safety "expl:Function test2, Safety"
+ #"/home/yohan/Documents/verificarlo/verification/test/test.c" 9 6 11#=
+ fun (tt : ()) ->
+  requires { (#"/home/yohan/Documents/verificarlo/verification/test/test.jessie/" 0 0 0#
+             true)  } ensures { true } 
+  ('Init: 
+  (let return = ref (any_single ()) in
+  try
+   begin
+     (let __retres_0 = ref (any_single ()) in
+     begin
+       (let _jessie_8 =
+       (__retres_0 := (single_of_real_exact 0x1.99999ap-4)) in ());
+      (return := !__retres_0); (raise Return) end); absurd  end with
+   Return -> !return end)) 
+
+end
+
+
