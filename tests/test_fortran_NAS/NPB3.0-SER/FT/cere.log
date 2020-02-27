@@ -1,0 +1,60 @@
+INFO 03/23/2017 10:24:29 CERE : Start
+INFO 03/23/2017 10:24:29 Profile : Measuring application cycles
+DEBUG 03/23/2017 10:24:29 Profile : rm -f *.o *~ mputil*
+rm -f ft npbparams.h core
+make[1] : on entre dans le répertoire « /home/yohan/Documents/NPB3.0-SER/sys »
+make[1]: rien à faire pour « all ».
+make[1] : on quitte le répertoire « /home/yohan/Documents/NPB3.0-SER/sys »
+../sys/setparams ft A
+gfortran -c -I/usr/include/  -O3 appft.f
+gfortran -c -I/usr/include/  -O3 auxfnct.f
+gfortran -c -I/usr/include/  -O3 fft3d.f
+gfortran -c -I/usr/include/  -O3 mainft.f
+gfortran -c -I/usr/include/  -O3 verify.f
+gfortran -O3 -lprofiler  -o ../bin/ft.A appft.o auxfnct.o fft3d.o mainft.o verify.o ../common/randi8.o ../common/print_results.o ../common/timers.o ../common/wtime.o -lgfortran -lm
+
+INFO 03/23/2017 10:24:34 Profile : 
+
+ NAS Parallel Benchmarks (NPB3.0-SER) - FT Benchmark
+
+ Size                : 256x256x128
+ Iterations          :           6
+ T =    1     Checksum =    5.046735008193D+02    5.114047905510D+02
+ T =    2     Checksum =    5.059412319734D+02    5.098809666433D+02
+ T =    3     Checksum =    5.069376896287D+02    5.098144042213D+02
+ T =    4     Checksum =    5.077892868474D+02    5.101336130759D+02
+ T =    5     Checksum =    5.085233095391D+02    5.104914655194D+02
+ T =    6     Checksum =    5.091487099959D+02    5.107917842803D+02
+ Verification test for FT PASSED
+
+
+ FT Benchmark Completed.
+ Class           =                        A
+ Size            =              256x256x128
+ Iterations      =                        6
+ Time in seconds =                     4.06
+ Mop/s total     =                  1757.94
+ Operation type  =           floating point
+ Verification    =               SUCCESSFUL
+ Version         =                      3.0
+ Compile date    =              23 Mar 2017
+
+ Compile options:
+    F77          = gfortran
+    FLINK        = gfortran
+    F_LIB        = -lgfortran -lm
+    F_INC        = -I/usr/include/ 
+    FFLAGS       = -O3
+    FLINKFLAGS   = -O3 -lprofiler 
+    RAND         = randi8
+
+
+ Please send all errors/feedbacks to:
+
+ NPB Development Team
+ npb@nas.nasa.gov
+
+
+
+CRITICAL 03/23/2017 10:24:34 Profile : Measuring application failed: No output file
+INFO 03/23/2017 10:24:34 CERE : Stop

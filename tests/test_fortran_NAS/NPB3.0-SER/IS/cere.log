@@ -1,0 +1,5 @@
+INFO 02/15/2017 11:54:14 CERE : Start
+INFO 02/15/2017 11:54:14 Report : Start report
+WARNING 02/15/2017 11:54:14 Report : Can't find .cere/report/table_error.csv
+ERROR 02/15/2017 11:54:14 Report : Profile file missing. Please run cere profile
+ERROR 02/15/2017 11:54:14 Report : File not found: regions.csv. Did you run cere regions

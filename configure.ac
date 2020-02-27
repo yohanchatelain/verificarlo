@@ -17,7 +17,7 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 # Check for specific compilers
 AC_PROG_CC([gcc])
-AC_DEFINE_UNQUOTED([GCC_PATH], ["$CC"], [GCC path (for dragonegg and replay linking)])
+AC_DEFINE_UNQUOTED([GCC_PATH], ["$CC"], [GCC path (for compiling)])
 AC_SUBST(GCC_PATH, $CC)
 AX_LLVM([3.3],[9.0.1],[all])
 
@@ -34,28 +34,28 @@ fi
 AC_DEFINE_UNQUOTED([CLANG_PATH], ["$CLANG"], [CLANG path])
 AC_SUBST(CLANG_PATH, $CLANG)
 
+AC_ARG_WITH([flang],
+  AS_HELP_STRING([--with-flang@<:@=DIR@:>@],
+    [use flang located in DIR]),
+  [with_flang="$withval"],
+  [with_flang=yes])
+
+if test "x$with_flang" = "xno"; then
+   AC_MSG_NOTICE([--with-flang=no was given. Disabling Fortran support.])
+   FLANG_PATH=""
+else
+   if test "x$with_flang" = "xyes"; then
+      AC_PATH_PROG([FLANG_PATH], [flang], "", $PATH)
+   else
+      FLANG_PATH="$with_flang"
+   fi
+   AC_DEFINE_UNQUOTED([FLANG_PATH], ["$FLANG_PATH"], [The flang path])
+   AC_SUBST(FLANG_PATH)
+fi
+
 AC_CHECK_LIB([c], [exit], , AC_MSG_ERROR([Could not find c library]))
 AC_CHECK_LIB([m], [sin], , AC_MSG_ERROR([Could not find mpfr library]))
 AC_CHECK_LIB([mpfr], [mpfr_clear], , AC_MSG_ERROR([Could not find mpfr library]))
-
-# Check that the selected GCC is compatible with the selected dragonegg
-if test -z "$DRAGONEGG_PATH"; then
-    AC_MSG_NOTICE([Fortran support disabled.])
-else
-    AC_CHECK_LIB([gfortran], [exit], , AC_MSG_ERROR([Could not find gfortran library]))
-    AC_MSG_CHECKING([if gcc can compile fortran with dragonegg])
-    cat <<EOF >conftest.f90
-    module conftest_module
-    end module conftest_module
-EOF
-    doit='$CC -S -fplugin=$DRAGONEGG_PATH -fplugin-arg-dragonegg-emit-ir conftest.f90'
-    if AC_TRY_EVAL(doit); then
-        AC_MSG_RESULT([yes])
-    else
-        AC_MSG_RESULT([no])
-        AC_MSG_ERROR([Your gcc version ($CC) cannot compile Fortran programs with your dragonegg plugin ($DRAGONEGG_PATH)])
-    fi
-fi
 
 # Reset libs after ac_check_lib We do not want each and every backend or the
 # libvfcinstrument frontend to be linked against libmpfr or libgfortran for

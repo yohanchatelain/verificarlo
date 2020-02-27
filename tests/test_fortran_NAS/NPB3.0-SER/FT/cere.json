@@ -1,0 +1,1 @@
+{"regions_infos": "/home/yohan/Documents/NPB3.0-SER/FT/regions.csv", "multiple_trace": false, "run_cmd": "../bin/ft.A", "omp": false, "clean_cmd": "make clean", "build_cmd": "make CLASS=A"}
