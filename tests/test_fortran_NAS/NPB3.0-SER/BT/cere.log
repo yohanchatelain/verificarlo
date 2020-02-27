@@ -1,0 +1,3 @@
+INFO 02/15/2017 11:54:22 CERE : Start
+CRITICAL 02/15/2017 11:54:22 Max-Cov selector : No profiling file or graph not created. Run: cere profile
+INFO 02/15/2017 11:54:22 CERE : Stop

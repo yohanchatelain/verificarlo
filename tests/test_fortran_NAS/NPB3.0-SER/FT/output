@@ -1,0 +1,42 @@
+
+
+ NAS Parallel Benchmarks (NPB3.0-SER) - FT Benchmark
+
+ Size                :  64x 64x 64
+ Iterations          :           6
+ T =    1     Checksum =    5.546087004964D+02    4.845363331978D+02
+ T =    2     Checksum =    5.546385409190D+02    4.865304269511D+02
+ T =    3     Checksum =    5.546148406171D+02    4.883910722337D+02
+ T =    4     Checksum =    5.545423607415D+02    4.901273169046D+02
+ T =    5     Checksum =    5.544255039624D+02    4.917475857993D+02
+ T =    6     Checksum =    5.542683411903D+02    4.932597244941D+02
+ Verification test for FT PASSED
+
+
+ FT Benchmark Completed.
+ Class           =                        S
+ Size            =               64x 64x 64
+ Iterations      =                        6
+ Time in seconds =                     0.15
+ Mop/s total     =                  1213.00
+ Operation type  =           floating point
+ Verification    =               SUCCESSFUL
+ Version         =                      3.0
+ Compile date    =              15 Feb 2017
+
+ Compile options:
+    F77          = gfortran
+    FLINK        = gfortran
+    F_LIB        = -lgfortran -lm
+    F_INC        = (none)
+    FFLAGS       = -O3
+    FLINKFLAGS   = -O3
+    RAND         = randi8
+
+
+ Please send all errors/feedbacks to:
+
+ NPB Development Team
+ npb@nas.nasa.gov
+
+

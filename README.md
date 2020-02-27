@@ -10,7 +10,7 @@ A tool for debugging and assessing floating point precision and reproducibility.
 
    * [Using Verificarlo through its Docker image](#using-verificarlo-through-its-docker-image)
    * [Installation](#installation)
-      * [Example on x86_64 Ubuntu 14.04 release without Fortran support](#example-on-x86_64-ubuntu-1404-release-without-fortran-support)
+      * [Example on x86_64 Ubuntu 20.04 release without Fortran support](#example-on-x86_64-ubuntu-2004-release-without-fortran-support)
       * [Fortran support](#fortran-support)
       * [Checking installation](#checking-installation)
    * [Usage](#usage)
@@ -36,7 +36,7 @@ A tool for debugging and assessing floating point precision and reproducibility.
 
 A docker image is available at https://hub.docker.com/r/verificarlo/verificarlo/. 
 This image uses the latest git master version of Verificarlo and includes
-support for Fortran. It uses llvm-3.6.1 and gcc-4.9.
+support for Fortran. It uses llvm-7 and gcc-7.
 
 Example of usage with Monte Carlo arithmetic:
 
@@ -69,7 +69,7 @@ Please ensure that Verificarlo's dependencies are installed on your system:
   * GNU mpfr library http://www.mpfr.org/
   * LLVM, clang and opt from 3.3 up to 9.0.1, http://clang.llvm.org/
   * gcc from 4.9
-  * For Fortran support see section Fortran support
+  * For Fortran support flang, clang and llvm from 7
   * python3 and NumPy
   * autotools (automake, autoconf)
 
@@ -77,53 +77,24 @@ Then run the following command inside verificarlo directory:
 
 ```bash
    $ ./autogen.sh
-   $ ./configure --without-dragonegg
+   $ ./configure --without-flang
    $ make
    $ sudo make install
 ```
 
-### Example on x86_64 Ubuntu 14.04 release without Fortran support
+### Example on x86_64 Ubuntu 20.04 release with Fortran support
 
-For example on an x86_64 Ubuntu 14.04 release, you should use the following
+For example on an x86_64 Ubuntu 20.04 release, you should use the following
 install procedure:
 
 ```bash
-   $ sudo apt-get install libmpfr-dev clang-3.3 llvm-3.3-dev dragonegg-4.9 \
-       gcc-4.9 gfortran-4.9 autoconf automake build-essential python3 python3-numpy
+   $ sudo apt-get install libmpfr-dev clang-7 flang-7 llvm-7-dev \
+       gcc-7 gfortran-7 libgfortran-7-dev autoconf automake build-essential python3 python3-numpy
    $ cd verificarlo/
    $ ./autogen.sh
-   $ ./configure \
-       --with-dragonegg=/usr/lib/gcc/x86_64-linux-gnu/4.9/plugin/dragonegg.so \
-       CC=gcc-4.9
+   $ ./configure --with-flang CC=gcc-7 CXX=g++-7
    $ make 
    $ sudo make install
-```
-
-### Fortran support
-
-In the upcoming release Fortran support will be provided by `flang`. In the
-meantime, if you need Fortran support you can either use the provided [docker
-image](https://hub.docker.com/r/verificarlo/verificarlo/) or follow the
-instructions below to install `dragongegg.so` with a recent gcc.
-
-```bash
-   # Install gcc-4.9, gfortran-4.9 and llvm-3.6.1 with the following commands:
-   $ sudo apt install gcc-4.9 gcc-4.9-plugin-dev g++-4.9 gfortran-4.9 libgfortran-4.9-dev
-   $ wget http://releases.llvm.org/3.6.1/clang+llvm-3.6.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
-   $ tar xvf clang+llvm-3.6.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz llvm-3.6.1
-   $ export LLVM_INSTALL_PATH=$PWD/llvm-3.6.1
-
-   # Install dragonegg
-   $ git clone -b gcc-llvm-3.6 --depth=1 https://github.com/yohanchatelain/DragonEgg.git
-   $ cd DragonEgg
-   $ LLVM_CONFIG=${LLVM_INSTALL_PATH}/bin/llvm-config GCC=gcc-4.9 CXX=g++-4.9 make
-   $ export DRAGONEGG_PATH=$PWD/dragonegg.so
-   
-   # Install Verificarlo
-   $ cd verificarlo/
-   $ ./autogen.sh
-   $ ./configure --with-llvm=${LLVM_INSTALL_PATH} --with-dragonegg=${DRAGONEGG_PATH} CC=gcc-4.9 CXX=g++4.9
-   $ make && sudo make install
 ```
 
 ### Checking installation
@@ -148,10 +119,8 @@ Then you can run the test suite with,
    $ make installcheck
 ```
 
-If you disable dragonegg support during configure, Fortran tests will be
+If you disable flang support during configure, Fortran tests will be
 disabled and considered as passing the test.
-
-
 
 ## Usage
 

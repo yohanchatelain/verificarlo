@@ -1,0 +1,4 @@
+INFO 02/15/2017 11:54:02 CERE : Start
+INFO 02/15/2017 11:54:02 Report : Start report
+CRITICAL 02/15/2017 11:54:02 Report : Can't load graph. Did you run cere profile?
+INFO 02/15/2017 11:54:02 CERE : Stop
