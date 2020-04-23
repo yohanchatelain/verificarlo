@@ -144,6 +144,7 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/common/Makefile
                  src/libvfcinstrument/Makefile
+                 src/libvfcreport/Makefile
                  src/vfcwrapper/Makefile
                  src/backends/Makefile
                  src/backends/interflop-ieee/Makefile

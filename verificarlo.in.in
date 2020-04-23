@@ -35,6 +35,7 @@ PACKAGE_STRING = "@PACKAGE_STRING@"
 LIBDIR = "%LIBDIR%"
 PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
 libvfcinstrument = LIBDIR + '/libvfcinstrument.so'
+libvfcreport = LIBDIR + '/libvfcreport.so'
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + 'vfcwrapper.c'
@@ -168,6 +169,18 @@ def compiler_mode(sources, options, output, args):
         if args.inst_fcmp:
             extra_args += "-vfclibinst-inst-fcmp "
 
+        # Apply Report pass
+        if args.report:
+            shell('{opt} -S  -load {libvfcreport} -vfclibreport {extra_args} {selectfunction} {ir} > /dev/null '.format(
+                opt=opt,
+                libvfcreport=libvfcreport,
+                selectfunction=selectfunction,
+                extra_args=extra_args,
+                ir=ir,
+                ins=ins
+            ))
+                
+            
         # Apply MCA instrumentation pass
         shell('{opt} -S  -load {libvfcinstrument} -vfclibinst {extra_args} {selectfunction} {ir} -o {ins}'.format(
             opt=opt,
@@ -199,6 +212,7 @@ if __name__ == "__main__":
     parser.add_argument('-static', '--static', action='store_true', help='produce a static binary')
     parser.add_argument('--verbose', action='store_true', help='verbose output')
     parser.add_argument('--inst-fcmp', action='store_true', help='instrument floating point comparisons')
+    parser.add_argument('--report', action='store_true', help='report floating point instructions')
     parser.add_argument('--version', action='version', version=PACKAGE_STRING)
     args, other = parser.parse_known_args()
 
