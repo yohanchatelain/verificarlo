@@ -358,6 +358,23 @@ int _doublecmp(enum FCMP_PREDICATE p, double a, double b) {
   return c;
 }
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+void _handle_call(int destination, INTERFLOP_CALL_OPCODE opcode, ...) {
+  if (destination == 0) {
+    return;
+  }
+
+  va_list ap;
+  va_start(ap, opcode);
+  int d =
+      (destination == -1) ? loaded_backends : MIN(destination, loaded_backends);
+  for (unsigned int i = 0; i < d; i++) {
+    backends[i].interflop_handle_call(1, opcode, contexts[i], ap);
+  }
+  va_end(ap);
+}
+
 /* Arithmetic vector wrappers */
 
 #define define_2x_wrapper(precision, operation)                                \

@@ -34,7 +34,8 @@ import tempfile
 PACKAGE_STRING = "@PACKAGE_STRING@"
 LIBDIR = "%LIBDIR%"
 PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
-libvfcinstrument = LIBDIR + '/libvfcinstrument.so'
+libvfcfpinstrument = LIBDIR + '/libvfcfpinstrument.so'
+libvfchandlerinstrument = LIBDIR + '/libvfchandlerinstrument.so'
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + 'vfcwrapper.c'
@@ -43,24 +44,34 @@ clang = '@CLANG_PATH@'
 opt = llvm_bindir + '/opt'
 dragonegg = "@DRAGONEGG_PATH@"
 gcc = "@GCC_PATH@"
-FORTRAN_EXTENSIONS = [".f", ".f90", ".f77"]
-C_EXTENSIONS = [".c", ".cpp", ".cc", ".cxx"]
+FORTRAN_EXTENSIONS=[".f", ".f90", ".f77"]
+C_EXTENSIONS=[".c", ".cpp", ".cc", ".cxx"]
 
+class IRFile:
+    irno = 1
+    ext = "ll"
+
+    def str(self):
+        return '.'.join([self.basename,str(self.irno),self.ext])
+    
+    def __init__(self, basename):
+        self.basename = basename
+        self.irno = 1
+        
+    def next(self):
+        self.irno += 1
 
 class NoPrefixParser(argparse.ArgumentParser):
     # ignore prefix autocompletion of options
     def _get_option_tuples(self, option_string):
         return []
 
-
 def fail(msg):
     print(sys.argv[0] + ': ' + msg, file=sys.stderr)
     sys.exit(1)
 
-
 def is_fortran(name):
     return os.path.splitext(name)[1].lower() in FORTRAN_EXTENSIONS
-
 
 def is_c(name):
     return os.path.splitext(name)[1].lower() in C_EXTENSIONS
@@ -89,11 +100,12 @@ def parse_extra_args(args):
 
 def shell(cmd):
     try:
+        if args.verbose_cmd:
+            print(cmd)
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        fail('command failed:\n' + cmd)
-
-
+        fail('command failed:\n' + cmd)    
+        
 def linker_mode(sources, options, output, args):
     extra_args = "-static " if args.static else "-fPIC "
     extra_args += "-DINST_FCMP " if args.inst_fcmp else ""
@@ -126,67 +138,96 @@ def linker_mode(sources, options, output, args):
     shell('{clang} @{temp}'.format(clang=clang, temp=f.name))
     f.close()
 
+# Compile to ir (fortran uses gcc+dragonegg, c uses clang)
+def compile_to_ir(source, options, output):
+    if is_fortran(source):
+        shell('{gcc} -g -c -S {source} {options} -fplugin={dragonegg} -fplugin-arg-dragonegg-emit-ir -o {ir}'.format(
+            gcc=gcc,
+            source=source,
+            options=options,
+            dragonegg=dragonegg,
+            ir=output.str()))
+    else:
+        shell('{clang} -g -c -S {source} -emit-llvm {options} -o {ir}'.format(
+            clang=clang,
+            source=source,
+            options=options,
+            ir=output.str()
+        ))
 
+# Instrument floating-point operations       
+def fp_instrumentation_pass(ir, args):
+    selectfunction = ""
+    if args.function:
+        selectfunction = "-vfclibfpinst-function " + args.function
+    else:
+        if args.include_file:
+            selectfunction = "-vfclibfpinst-include-file " + args.include_file
+        if args.exclude_file:
+            selectfunction += " -vfclibfpinst-exclude-file " + args.exclude_file
+
+    extra_args = ""
+
+    # Activate verbose mode
+    if args.verbose:
+        extra_args += "-vfclibinst-verbose "
+
+    # Activate fcmp instrumentation
+    if args.inst_fcmp:
+        extra_args += "-vfclibfpinst-inst-fcmp "
+
+    inputir = ir.str()
+    ir.next()
+    outputir = ir.str()
+        
+    # Apply FP instrumentation pass
+    shell('{opt} -S -load {libvfcinstrument} -vfclibfpinst {extra_args} {selectfunction} {ir} -o {ins}'.format(
+        opt=opt,                                                                                              libvfcinstrument=libvfcfpinstrument,
+        selectfunction=selectfunction,
+        extra_args=extra_args,
+        ir=inputir,
+        ins=outputir,
+    ))
+
+# Instrument interflop_handler calls 
+def handler_instrumentation_pass(ir, args):
+    inputir = ir.str()
+    ir.next()
+    outputir = ir.str()
+
+    extra_args = ""
+    # Activate verbose mode
+    if args.verbose:
+        extra_args += "-vfclibinst-verbose "
+
+    # Apply handler instrumentation pass
+    shell('{opt} -S -load {libvfcinstrument} -vfclibhandlerinst {extra_args} {ir} -o {ins}'.format(
+        opt=opt,
+        libvfcinstrument=libvfchandlerinstrument,
+        extra_args=extra_args,
+        ir=inputir,
+        ins=outputir,
+        ))
+    
+def compile_to_object(ir, output, options, args):
+    if not output:
+        output = '-o ' + ir.basename + '.o'
+        
+    # Produce object file
+    shell('{clang} -c {output} {ins} {options}'.format(
+        clang=clang,
+        output=output,
+        ins=ir.str(),
+        options=options))
+    
 def compiler_mode(sources, options, output, args):
     for source in sources:
         basename = os.path.splitext(source)[0]
-        ir = basename + '.1.ll'
-        ins = basename + '.2.ll'
-
-        # Compile to ir (fortran uses gcc+dragonegg, c uses clang)
-        if is_fortran(source):
-            shell('{gcc} -c -S {source} {options} -fplugin={dragonegg} -fplugin-arg-dragonegg-emit-ir -o {ir}'.format(
-                gcc=gcc,
-                source=source,
-                options=options,
-                dragonegg=dragonegg,
-                ir=ir))
-        else:
-            shell('{clang} -c -S {source} -emit-llvm {options} -o {ir}'.format(
-                clang=clang,
-                source=source,
-                options=options,
-                ir=ir
-            ))
-
-        selectfunction = ""
-        if args.function:
-            selectfunction = "-vfclibinst-function " + args.function
-        else:
-            if args.include_file:
-                selectfunction = "-vfclibinst-include-file " + args.include_file
-            if args.exclude_file:
-                selectfunction += " -vfclibinst-exclude-file " + args.exclude_file
-
-        extra_args = ""
-
-        # Activate verbose mode
-        if args.verbose:
-            extra_args += "-vfclibinst-verbose "
-
-        # Activate fcmp instrumentation
-        if args.inst_fcmp:
-            extra_args += "-vfclibinst-inst-fcmp "
-
-        # Apply MCA instrumentation pass
-        shell('{opt} -S  -load {libvfcinstrument} -vfclibinst {extra_args} {selectfunction} {ir} -o {ins}'.format(
-            opt=opt,
-            libvfcinstrument=libvfcinstrument,
-            selectfunction=selectfunction,
-            extra_args=extra_args,
-            ir=ir,
-            ins=ins
-            ))
-
-        if not output:
-            output = '-o ' + basename + '.o'
-        # Produce object file
-        shell('{clang} -c {output} {ins} {options}'.format(
-            clang=clang,
-            output=output,
-            ins=ins,
-            options=options))
-
+        ir = IRFile(basename)        
+        compile_to_ir(source, options, ir)        
+        fp_instrumentation_pass(ir, args)        
+        handler_instrumentation_pass(ir, args)
+        compile_to_object(ir, output, options, args)        
 
 if __name__ == "__main__":
     parser = NoPrefixParser(description='Compiles a program replacing floating point operation with calls to the mcalib (Montecarlo Arithmetic).')
@@ -198,10 +239,12 @@ if __name__ == "__main__":
     parser.add_argument('--exclude-file', metavar='file', help='black-list module and functions')
     parser.add_argument('-static', '--static', action='store_true', help='produce a static binary')
     parser.add_argument('--verbose', action='store_true', help='verbose output')
+    parser.add_argument('--verbose-cmd', action='store_true', help='verbose commands output')
     parser.add_argument('--inst-fcmp', action='store_true', help='instrument floating point comparisons')
     parser.add_argument('--version', action='version', version=PACKAGE_STRING)
-    args, other = parser.parse_known_args()
 
+    args, other = parser.parse_known_args()
+    
     sources, llvm_options = parse_extra_args(other)
 
     # check input files
@@ -211,7 +254,7 @@ if __name__ == "__main__":
     # check mutually excluding args
     if args.function and (args.include_file or args.exclude_file):
         fail('Cannot use --function and --include-file/--exclude-file together')
-
+                
     output = "-o " + args.o if args.o else ""
     if args.c:
         if len(sources) == 0:

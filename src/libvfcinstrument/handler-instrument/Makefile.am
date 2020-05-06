@@ -1,0 +1,6 @@
+libvfchandlerinstrument_la_CXXFLAGS = @LLVM_CPPFLAGS@
+libvfchandlerinstrument_la_LDFLAGS = @LLVM_LDFLAGS@
+
+lib_LTLIBRARIES = libvfchandlerinstrument.la
+libvfchandlerinstrument_la_SOURCES = libVfcHandlerInstrument.cpp
+libvfchandlerinstrument_la_LIBADD = libVfcTracerHandler/libvfctracerhandler.la

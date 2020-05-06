@@ -157,6 +157,19 @@ static void _set_mca_precision_binary64(const int precision) {
   _set_precision(MCA, precision, &MCALIB_BINARY64_T, (double)0);
 }
 
+static void _set_mca_precision(IEEE_BINARY_TYPE type, int precision) {
+  switch (type) {
+  case BINARY32_TYPE:
+    _set_mca_precision_binary32(precision);
+    break;
+  case BINARY64_TYPE:
+    _set_mca_precision_binary64(precision);
+    break;
+  default:
+    logger_error("Unknown binary type (%d)", type);
+  }
+}
+
 /******************** MCA RANDOM FUNCTIONS ********************
  * The following functions are used to calculate the random
  * perturbations used for MCA
@@ -252,27 +265,27 @@ static void _set_mca_seed(const bool choose_seed, const uint64_t seed) {
 
 /* perform_bin_op: applies the binary operator (op) to (a) and (b) */
 /* and stores the result in (res) */
-#define PERFORM_BIN_OP(OP, RES, A, B)		\
-  switch (OP) {					\
-  case mca_add:					\
-    RES = (A) + (B);				\
-    break;					\
-  case mca_mul:					\
-    RES = (A) * (B);				\
-    break;					\
-  case mca_sub:					\
-    RES = (A) - (B);				\
-    break;					\
-  case mca_div:					\
-    RES = (A) / (B);				\
-    break;					\
-  default:					\
-    logger_error("invalid operator %c", OP);	\
+#define PERFORM_BIN_OP(OP, RES, A, B)                                          \
+  switch (OP) {                                                                \
+  case mca_add:                                                                \
+    RES = (A) + (B);                                                           \
+    break;                                                                     \
+  case mca_mul:                                                                \
+    RES = (A) * (B);                                                           \
+    break;                                                                     \
+  case mca_sub:                                                                \
+    RES = (A) - (B);                                                           \
+    break;                                                                     \
+  case mca_div:                                                                \
+    RES = (A) / (B);                                                           \
+    break;                                                                     \
+  default:                                                                     \
+    logger_error("invalid operator %c", OP);                                   \
   };
 
 /* Generic macro function that returns mca(A OP B) */
 /* Functions are determined according to the type of X */
-#define _MCA_BINARY_OP(A, B, OP, CTX, X)				\
+#define _MCA_BINARY_OP(A, B, OP, CTX, X)                                       \
   do {                                                                         \
     typeof(X) _A = A;                                                          \
     typeof(X) _B = B;                                                          \
@@ -285,7 +298,7 @@ static void _set_mca_seed(const bool choose_seed, const uint64_t seed) {
       _INEXACT_BINARYN(X, &_A);                                                \
       _INEXACT_BINARYN(X, &_B);                                                \
     }                                                                          \
-    PERFORM_BIN_OP(OP, _RES, _A, _B);					\
+    PERFORM_BIN_OP(OP, _RES, _A, _B);                                          \
     if (MCALIB_MODE == mcamode_rr || MCALIB_MODE == mcamode_mca) {             \
       _INEXACT_BINARYN(X, &_RES);                                              \
     }                                                                          \
@@ -295,17 +308,45 @@ static void _set_mca_seed(const bool choose_seed, const uint64_t seed) {
     return (typeof(A))(_RES);                                                  \
   } while (0);
 
+/* Generic macro function that returns mca(A) */
+/* Functions are determined according to the type of X */
+#define _MCA_INEXACT(A, CTX, X)                                                \
+  do {                                                                         \
+    typeof(X) _A = A;                                                          \
+    if (((t_context *)CTX)->daz) {                                             \
+      _A = DAZ(A);                                                             \
+    }                                                                          \
+    if (MCALIB_MODE != mcamode_ieee) {                                         \
+      _INEXACT_BINARYN(X, &_A);                                                \
+    }                                                                          \
+    return (typeof(A))(_A);                                                    \
+  } while (0);
+
+/* Performs mca(a) where a is a binary32 value */
+/* Intermediate computations are performed with binary64 */
+static inline float _mca_binary32_id_op(const float a, void *context) {
+  _MCA_INEXACT(a, context, (double)0);
+}
+
 /* Performs mca(a dop b) where a and b are binary32 values */
 /* Intermediate computations are performed with binary64 */
-inline float _mca_binary32_binary_op(const float a, const float b,
-                                     const mca_operations dop, void *context) {
+static inline float _mca_binary32_binary_op(const float a, const float b,
+                                            const mca_operations dop,
+                                            void *context) {
   _MCA_BINARY_OP(a, b, dop, context, (double)0);
+}
+
+/* Performs mca(a) where a is a binary64 value */
+/* Intermediate computations are performed with binary128 */
+static inline double _mca_binary64_id_op(const double a, void *context) {
+  _MCA_INEXACT(a, context, (__float128)0);
 }
 
 /* Performs mca(a qop b) where a and b are binary64 values */
 /* Intermediate computations are performed with binary128 */
-inline double _mca_binary64_binary_op(const double a, const double b,
-                                      const mca_operations qop, void *context) {
+static inline double _mca_binary64_binary_op(const double a, const double b,
+                                             const mca_operations qop,
+                                             void *context) {
   _MCA_BINARY_OP(a, b, qop, context, (__float128)0);
 }
 
@@ -351,17 +392,66 @@ static void _interflop_div_double(double a, double b, double *c,
   *c = _mca_binary64_binary_op(a, b, mca_div, context);
 }
 
+static void *_interflop_handle_call(int destination,
+                                    INTERFLOP_CALL_OPCODE opcode, void *context,
+                                    va_list ap) {
+  if (destination < 1) {
+    return NULL;
+  }
+
+  switch (opcode) {
+  case SET_SEED:
+    _set_mca_seed(((t_context *)context)->choose_seed,
+                  ((t_context *)context)->seed);
+    return NULL;
+  case SET_PRECISION: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    int precision = va_arg(ap, int);
+    _set_mca_precision(flt_ty, precision);
+    return NULL;
+  }
+  case SET_MODE: {
+    mcamode mode = va_arg(ap, mcamode);
+    _set_mca_mode(mode);
+  }
+    return NULL;
+  case SET_INEXACT: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    switch (flt_ty) {
+    case BINARY32_TYPE: {
+      float *a = va_arg(ap, float *);
+      *a = _mca_binary32_id_op(*a, context);
+      return NULL;
+    }
+    case BINARY64_TYPE: {
+      double *a = va_arg(ap, double *);
+      *a = _mca_binary64_id_op(*a, context);
+      return NULL;
+    }
+    default:
+      logger_error("Unknown binary type");
+      return NULL;
+    }
+  }
+  default:
+    return NULL;
+  }
+}
+
+static void _interflop_finalize(void **context) { return; }
+
 static struct argp_option options[] = {
     {key_prec_b32_str, KEY_PREC_B32, "PRECISION", 0,
-     "select precision for binary32 (PRECISION > 0)"},
+     "select precision for binary32 (PRECISION > 0)", 0},
     {key_prec_b64_str, KEY_PREC_B64, "PRECISION", 0,
-     "select precision for binary64 (PRECISION > 0)"},
+     "select precision for binary64 (PRECISION > 0)", 0},
     {key_mode_str, KEY_MODE, "MODE", 0,
-     "select MCA mode among {ieee, mca, pb, rr}"},
-    {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed"},
+     "select MCA mode among {ieee, mca, pb, rr}", 0},
+    {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed", 0},
     {key_daz_str, KEY_DAZ, 0, 0,
-     "denormals-are-zero: sets denormals inputs to zero"},
-    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero"},
+     "denormals-are-zero: sets denormals inputs to zero", 0},
+    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero",
+     0},
     {0}};
 
 error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -431,7 +521,7 @@ error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-struct argp argp = {options, parse_opt, "", ""};
+struct argp argp = {options, parse_opt, "", "", NULL, NULL, NULL};
 
 void init_context(t_context *ctx) {
   ctx->choose_seed = false;
@@ -485,7 +575,9 @@ struct interflop_backend_interface_t interflop_init(int argc, char **argv,
       _interflop_sub_double,
       _interflop_mul_double,
       _interflop_div_double,
-      NULL};
+      NULL,
+      _interflop_handle_call,
+      _interflop_finalize};
 
   /* Initialize the seed */
   _set_mca_seed(ctx->choose_seed, ctx->seed);

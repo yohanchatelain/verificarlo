@@ -91,15 +91,15 @@ static inline double _noise_binary64(const int exp) {
 #define cancell(X, Y, Z)                                                       \
   ({                                                                           \
     const int32_t e_z = GET_EXP_FLT(*Z);                                       \
-   /* computes the difference between the max of both operands and the
-    * exponent of the result to find the size of the cancellation */           \
+    /* computes the difference between the max of both operands and the        \
+     * exponent of the result to find the size of the cancellation */          \
     int cancellation = max(GET_EXP_FLT(X), GET_EXP_FLT(Y)) - e_z;              \
     if (cancellation >= TOLERANCE) {                                           \
       if (WARN) {                                                              \
         logger_info("cancellation of size %d detected\n", cancellation);       \
       }                                                                        \
-      /* Add an MCA noise of the magnitude of cancelled bits.
-       * This particular version in the case of cancellations does not use
+      /* Add an MCA noise of the magnitude of cancelled bits.                  \
+       * This particular version in the case of cancellations does not use     \
        * extended quad types */                                                \
       const int32_t e_n = e_z - (cancellation - 1);                            \
       *Z = *Z + _noise_binary64(e_n);                                          \
@@ -147,10 +147,18 @@ static void _interflop_div_double(double a, double b, double *c,
   *c = a / b;
 }
 
+static void *_interflop_handle_call(int destination,
+                                    INTERFLOP_CALL_OPCODE opcode, void *context,
+                                    va_list ap) {
+  return NULL;
+}
+
+static void _interflop_finalize(void **context) { return; }
+
 static struct argp_option options[] = {
-    {"tolerance", 't', "TOLERANCE", 0, "Select tolerance (TOLERANCE >= 0)"},
-    {"warning", 'w', "WARNING", 0, "Enable warning for cancellations"},
-    {"seed", 's', "SEED", 0, "Fix the random generator seed"},
+    {"tolerance", 't', "TOLERANCE", 0, "Select tolerance (TOLERANCE >= 0)", 0},
+    {"warning", 'w', "WARNING", 0, "Enable warning for cancellations", 0},
+    {"seed", 's', "SEED", 0, "Fix the random generator seed", 0},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -185,7 +193,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-static struct argp argp = {options, parse_opt, "", ""};
+static struct argp argp = {options, parse_opt, "", "", NULL, NULL, NULL};
 
 static void init_context(t_context *ctx) {
   ctx->choose_seed = 0;
@@ -206,7 +214,7 @@ struct interflop_backend_interface_t interflop_init(int argc, char **argv,
   /* parse backend arguments */
   argp_parse(&argp, argc, argv, 0, 0, ctx);
 
-  logger_info("interflop_cancellation: loaded backend with tolerance = %d\n",
+  logger_info("interflop_cancellation: loaded backend with tolerance = %d ",
               TOLERANCE);
 
   struct interflop_backend_interface_t interflop_backend_cancellation = {
@@ -219,7 +227,9 @@ struct interflop_backend_interface_t interflop_init(int argc, char **argv,
       _interflop_sub_double,
       _interflop_mul_double,
       _interflop_div_double,
-      NULL};
+      NULL,
+      _interflop_handle_call,
+      _interflop_finalize};
 
   /* Initialize the seed */
   _set_mca_seed(ctx->choose_seed, ctx->seed);

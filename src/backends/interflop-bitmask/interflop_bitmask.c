@@ -93,6 +93,12 @@ typedef enum {
 /* string name of the bitmask */
 static const char *BITMASK_OPERATOR_STR[] = {"zero", "one", "rand"};
 
+/* define the custom actions to _interflop_handle_call */
+typedef enum {
+  bitmask_cc_set_operator,
+  _bitmask_cc_end_,
+} bitmask_custom_call;
+
 /* define default environment variables and default parameters */
 #define BITMASK_PRECISION_BINARY32_MIN 1
 #define BITMASK_PRECISION_BINARY64_MIN 1
@@ -159,7 +165,7 @@ static void _set_bitmask_operator(const bitmask_operator bitmask) {
   BITMASKLIB_OPERATOR = bitmask;
 }
 
-#define _set_bitmask_precision(precision, VIRTUAL_PRECISION, Y, X)             \
+#define _SET_BITMASK_PRECISION(precision, VIRTUAL_PRECISION, Y, X)             \
   {                                                                            \
     typeof(Y) *bitmask = GET_BITMASK((typeof(X) *)0);                          \
     const int32_t PREC = GET_PREC(X);                                          \
@@ -171,14 +177,27 @@ static void _set_bitmask_operator(const bitmask_operator bitmask) {
 
 static void _set_bitmask_precision_binary32(const int precision) {
   _set_precision(BITMASK, precision, &BITMASKLIB_BINARY32_T, (float)0);
-  _set_bitmask_precision(precision, BITMASKLIB_BINARY32_T,
+  _SET_BITMASK_PRECISION(precision, BITMASKLIB_BINARY32_T,
                          (typeof(binary32_bitmask))0, (float)0);
 }
 
 static void _set_bitmask_precision_binary64(const int precision) {
   _set_precision(BITMASK, precision, &BITMASKLIB_BINARY64_T, (double)0);
-  _set_bitmask_precision(precision, BITMASKLIB_BINARY64_T,
+  _SET_BITMASK_PRECISION(precision, BITMASKLIB_BINARY64_T,
                          (typeof(binary64_bitmask))0, (double)0);
+}
+
+static void _set_bitmask_precision(IEEE_BINARY_TYPE type, int precision) {
+  switch (type) {
+  case BINARY32_TYPE:
+    _set_bitmask_precision_binary32(precision);
+    break;
+  case BINARY64_TYPE:
+    _set_bitmask_precision_binary64(precision);
+    break;
+  default:
+    logger_error("Unknown binary type (%d)", type);
+  }
 }
 
 /******************** BITMASK RANDOM FUNCTIONS ********************
@@ -223,22 +242,22 @@ static void _set_bitmask_seed(const bool choose_seed, const uint64_t seed) {
 
 /* perform_bin_op: applies the binary operator (op) to (a) and (b) */
 /* and stores the result in (res) */
-#define PERFORM_BIN_OP(OP, RES, A, B)		\
-  switch (OP) {					\
-  case bitmask_add:				\
-    RES = (A) + (B);				\
-    break;					\
-  case bitmask_mul:				\
-    RES = (A) * (B);				\
-    break;					\
-  case bitmask_sub:				\
-    RES = (A) - (B);				\
-    break;					\
-  case bitmask_div:				\
-    RES = (A) / (B);				\
-    break;					\
-  default:					\
-    logger_error("invalid operator %c", OP);	\
+#define PERFORM_BIN_OP(OP, RES, A, B)                                          \
+  switch (OP) {                                                                \
+  case bitmask_add:                                                            \
+    RES = (A) + (B);                                                           \
+    break;                                                                     \
+  case bitmask_mul:                                                            \
+    RES = (A) * (B);                                                           \
+    break;                                                                     \
+  case bitmask_sub:                                                            \
+    RES = (A) - (B);                                                           \
+    break;                                                                     \
+  case bitmask_div:                                                            \
+    RES = (A) / (B);                                                           \
+    break;                                                                     \
+  default:                                                                     \
+    logger_error("invalid operator %c", OP);                                   \
   };
 
 #define _MUST_NOT_BE_NOISED(X, VIRTUAL_PRECISION)                              \
@@ -315,7 +334,7 @@ static void _inexact_binary64(double *x) {
       _INEXACT_BINARYN(&A);                                                    \
       _INEXACT_BINARYN(&B);                                                    \
     }                                                                          \
-    PERFORM_BIN_OP(OP, RES, A, B);					\
+    PERFORM_BIN_OP(OP, RES, A, B);                                             \
     if (BITMASKLIB_MODE == bitmask_mode_ob ||                                  \
         BITMASKLIB_MODE == bitmask_mode_full) {                                \
       _INEXACT_BINARYN(&RES);                                                  \
@@ -326,16 +345,36 @@ static void _inexact_binary64(double *x) {
     return RES;                                                                \
   }
 
+#define _BITMASK_ID_OP(A, CTX)                                                 \
+  {                                                                            \
+    if (((t_context *)CTX)->daz) {                                             \
+      A = DAZ(A);                                                              \
+    }                                                                          \
+    if (BITMASKLIB_MODE == bitmask_mode_ib ||                                  \
+        BITMASKLIB_MODE == bitmask_mode_full) {                                \
+      _INEXACT_BINARYN(&A);                                                    \
+    }                                                                          \
+    return A;                                                                  \
+  }
+
 static float _bitmask_binary32_binary_op(float a, float b,
                                          const bitmask_operations op,
                                          void *context) {
   _BITMASK_BINARY_OP(a, b, op, context)
 }
 
+static float _bitmask_binary32_id_op(float a, void *context) {
+  _BITMASK_ID_OP(a, context)
+}
+
 static double _bitmask_binary64_binary_op(double a, double b,
                                           const bitmask_operations op,
                                           void *context) {
   _BITMASK_BINARY_OP(a, b, op, context)
+}
+
+static double _bitmask_binary64_id_op(double a, void *context) {
+  _BITMASK_ID_OP(a, context)
 }
 
 /******************** BITMASK COMPARE FUNCTIONS ********************
@@ -384,19 +423,84 @@ static void _interflop_div_double(double a, double b, double *c,
   *c = _bitmask_binary64_binary_op(a, b, bitmask_div, context);
 }
 
+static void *_bitmask_handle_custom_call(bitmask_custom_call call_id,
+                                         va_list ap) {
+  switch (call_id) {
+  case bitmask_cc_set_operator: {
+    bitmask_operator op = va_arg(ap, bitmask_operator);
+    _set_bitmask_operator(op);
+    return NULL;
+  }
+  default:
+    return NULL;
+  }
+}
+
+static void *_interflop_handle_call(int destination,
+                                    INTERFLOP_CALL_OPCODE opcode, void *context,
+                                    va_list ap) {
+  if (destination < 1) {
+    return NULL;
+  }
+
+  switch (opcode) {
+  case SET_SEED:
+    _set_bitmask_seed(((t_context *)context)->choose_seed,
+                      ((t_context *)context)->seed);
+    return NULL;
+  case SET_PRECISION: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    int precision = va_arg(ap, int);
+    _set_bitmask_precision(flt_ty, precision);
+    return NULL;
+  }
+  case SET_MODE: {
+    bitmask_mode mode = va_arg(ap, bitmask_mode);
+    _set_bitmask_mode(mode);
+    return NULL;
+  }
+  case CUSTOM: {
+    bitmask_custom_call call_id = va_arg(ap, bitmask_custom_call);
+    return _bitmask_handle_custom_call(call_id, ap);
+  }
+  case SET_INEXACT: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    switch (flt_ty) {
+    case BINARY32_TYPE: {
+      float *a = va_arg(ap, float *);
+      *a = _bitmask_binary32_id_op(*a, context);
+      return NULL;
+    }
+    case BINARY64_TYPE: {
+      double *a = va_arg(ap, double *);
+      *a = _bitmask_binary64_id_op(*a, context);
+      return NULL;
+    }
+    default:
+      logger_error("Unknown binary type");
+    }
+  default:
+    return NULL;
+  }
+  }
+}
+
+static void _interflop_finalize(void **context) { return; }
+
 static struct argp_option options[] = {
     {key_prec_b32_str, KEY_PREC_B32, "PRECISION", 0,
-     "select precision for binary32 (PRECISION > 0)"},
+     "select precision for binary32 (PRECISION > 0)", 0},
     {key_prec_b64_str, KEY_PREC_B64, "PRECISION", 0,
-     "select precision for binary64 (PRECISION > 0)"},
+     "select precision for binary64 (PRECISION > 0)", 0},
     {key_mode_str, KEY_MODE, "MODE", 0,
-     "select MCA mode among {ieee, mca, pb, rr}"},
+     "select MCA mode among {ieee, mca, pb, rr}", 0},
     {key_operator_str, KEY_OPERATOR, "OPERATOR", 0,
-     "select BITMASK operator among {zero, one, rand}"},
-    {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed"},
+     "select BITMASK operator among {zero, one, rand}", 0},
+    {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed", 0},
     {key_daz_str, KEY_DAZ, 0, 0,
-     "denormals-are-zero: sets denormals inputs to zero"},
-    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero"},
+     "denormals-are-zero: sets denormals inputs to zero", 0},
+    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero",
+     0},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -487,7 +591,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-static struct argp argp = {options, parse_opt, "", ""};
+static struct argp argp = {options, parse_opt, "", "", NULL, NULL, NULL};
 
 static void init_context(t_context *ctx) {
   ctx->choose_seed = false;
@@ -544,7 +648,9 @@ struct interflop_backend_interface_t interflop_init(int argc, char **argv,
       _interflop_sub_double,
       _interflop_mul_double,
       _interflop_div_double,
-      NULL};
+      NULL,
+      _interflop_handle_call,
+      _interflop_finalize};
 
   /* Initialize the seed */
   _set_bitmask_seed(ctx->choose_seed, ctx->seed);

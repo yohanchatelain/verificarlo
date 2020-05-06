@@ -195,6 +195,32 @@ void _set_vprec_range_binary64(int range) {
   }
 }
 
+void _set_vprec_precision(IEEE_BINARY_TYPE type, int precision) {
+  switch (type) {
+  case BINARY32_TYPE:
+    _set_vprec_precision_binary32(precision);
+    break;
+  case BINARY64_TYPE:
+    _set_vprec_precision_binary64(precision);
+    break;
+  default:
+    logger_error("Unknown binary type (%d)", type);
+  }
+}
+
+void _set_vprec_range(IEEE_BINARY_TYPE type, int range) {
+  switch (type) {
+  case BINARY32_TYPE:
+    _set_vprec_range_binary32(range);
+    break;
+  case BINARY64_TYPE:
+    _set_vprec_range_binary64(range);
+    break;
+  default:
+    logger_error("Unknown binary type (%d)", type);
+  }
+}
+
 /******************** VPREC ARITHMETIC FUNCTIONS ********************
  * The following set of functions perform the VPREC operation. Operands
  * are first correctly rounded to the target precison format if inbound
@@ -222,6 +248,56 @@ void _set_vprec_range_binary64(int range) {
   default:                                                                     \
     logger_error("invalid operator %c", op);                                   \
   };
+
+static inline float _vprec_round_binary32(float a, void *context) {
+
+  /* test if a is a special case */
+  if (!isfinite(a)) {
+    return a;
+  }
+
+  /* round to zero or set to infinity if underflow or overflow compare to
+   * VPRECLIB_BINARY32_RANGE */
+  int emax = (1 << (VPRECLIB_BINARY32_RANGE - 1)) - 1;
+  int emin = (emax > 1) ? 1 - emax : -1;
+
+  /* if IB or FULL, bound operand precision */
+  if ((VPRECLIB_MODE == vprecmode_full) || (VPRECLIB_MODE == vprecmode_ib)) {
+
+    /* get operand exponent */
+    binary32 aexp = {.f32 = a};
+
+    aexp.s32 = ((FLOAT_GET_EXP & aexp.u32) >> FLOAT_PMAN_SIZE) - FLOAT_EXP_COMP;
+
+    /* check for overflow or underflow in target range */
+    if (aexp.s32 > emax) {
+      a = a * INFINITY;
+      return a;
+    }
+
+    /* if exp of a is between emin and emin -target prec  (mantissa lenth) */
+    /* denormal number case require a rounding and truncation to the
+     * representable part */
+    /* if below emin-target prec */
+    /* set to correctly signed zero */
+    if (aexp.s32 <= emin) {
+      if (((t_context *)context)->daz) {
+        a = 0;
+      } else {
+        a = handle_binary32_denormal(a, emin, aexp.u32,
+                                     VPRECLIB_BINARY32_PRECISION);
+      }
+    }
+
+    /* else normal case, can be executed even if a or b
+       previously rounded and truncated as denormal */
+    if (VPRECLIB_BINARY32_PRECISION < FLOAT_PMAN_SIZE) {
+      a = round_binary32_normal(a, VPRECLIB_BINARY32_PRECISION);
+    }
+  };
+
+  return a;
+}
 
 static inline float _vprec_binary32_binary_op(float a, float b,
                                               const vprec_operation op,
@@ -336,6 +412,53 @@ static inline float _vprec_binary32_binary_op(float a, float b,
     }
   }
   return res;
+}
+
+static inline double _vprec_round_binary64(double a, void *context) {
+
+  /* test if a or b are special cases */
+  if (!isfinite(a)) {
+    return a;
+  }
+
+  /* round to zero or set to infinity if underflow or overflow compare to
+   * VPRECLIB_BINARY64_RANGE */
+  int emax = (1 << (VPRECLIB_BINARY64_RANGE - 1)) - 1;
+  int emin = (emax > 1) ? 1 - emax : -1;
+
+  /* get operand exponent */
+  binary64 aexp = {.f64 = a};
+
+  aexp.s64 =
+      ((DOUBLE_GET_EXP & aexp.u64) >> DOUBLE_PMAN_SIZE) - DOUBLE_EXP_COMP;
+
+  /* check for overflow or underflow in target range */
+  if (aexp.s64 > emax) {
+    a = a * INFINITY;
+    return a;
+  }
+
+  /* if exp of a or b between emin and emin -target prec  (mantissa lenth) */
+  /* denormal number case require a roundin and truncation to the
+   * representable part */
+  /* if below emin-target prec */
+  /* set to correctly signed zero */
+  if (aexp.s64 <= emin) {
+    if (((t_context *)context)->daz) {
+      a = 0;
+    } else {
+      a = handle_binary64_denormal(a, emin, aexp.u64,
+                                   VPRECLIB_BINARY64_PRECISION);
+    }
+  }
+
+  /* else normal case, can be executed even if a or b previously rounded and
+   * truncated as denormal */
+  if (VPRECLIB_BINARY64_PRECISION < DOUBLE_PMAN_SIZE) {
+    a = round_binary64_normal(a, VPRECLIB_BINARY64_PRECISION);
+  }
+
+  return a;
 }
 
 static inline double _vprec_binary64_binary_op(double a, double b,
@@ -497,21 +620,69 @@ static void _interflop_div_double(double a, double b, double *c,
   *c = _vprec_binary64_binary_op(a, b, vprec_div, context);
 }
 
+static void *_interflop_handle_call(int destination,
+                                    INTERFLOP_CALL_OPCODE opcode, void *context,
+                                    va_list ap) {
+  if (destination < 1) {
+    return NULL;
+  }
+
+  switch (opcode) {
+  case SET_PRECISION: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    int precision = va_arg(ap, int);
+    _set_vprec_precision(flt_ty, precision);
+    return NULL;
+  }
+  case SET_RANGE: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    int range = va_arg(ap, int);
+    _set_vprec_range(flt_ty, range);
+    return NULL;
+  }
+  case SET_MODE: {
+    vprec_mode mode = va_arg(ap, vprec_mode);
+    _set_vprec_mode(mode);
+    return NULL;
+  }
+  case SET_INEXACT: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    switch (flt_ty) {
+    case BINARY32_TYPE: {
+      float *a = va_arg(ap, float *);
+      *a = _vprec_round_binary32(*a, context);
+      return NULL;
+    }
+    case BINARY64_TYPE: {
+      double *a = va_arg(ap, double *);
+      *a = _vprec_round_binary64(*a, context);
+      return NULL;
+    }
+    }
+  default:
+    return NULL;
+  }
+  }
+}
+
+static void _interflop_finalize(void **context) { return; }
+
 static struct argp_option options[] = {
     /* --debug, sets the variable debug = true */
     {key_prec_b32_str, KEY_PREC_B32, "PRECISION", 0,
-     "select precision for binary32 (PRECISION >= 0)"},
+     "select precision for binary32 (PRECISION >= 0)", 0},
     {key_prec_b64_str, KEY_PREC_B64, "PRECISION", 0,
-     "select precision for binary64 (PRECISION >= 0)"},
+     "select precision for binary64 (PRECISION >= 0)", 0},
     {key_range_b32_str, KEY_RANGE_B32, "RANGE", 0,
-     "select range for binary32 (0 < RANGE && RANGE <= 8)"},
+     "select range for binary32 (0 < RANGE && RANGE <= 8)", 0},
     {key_range_b64_str, KEY_RANGE_B64, "RANGE", 0,
-     "select range for binary64 (0 < RANGE && RANGE <= 11)"},
+     "select range for binary64 (0 < RANGE && RANGE <= 11)", 0},
     {key_mode_str, KEY_MODE, "MODE", 0,
-     "select VPREC mode among {ieee, full, ib, ob}"},
+     "select VPREC mode among {ieee, full, ib, ob}", 0},
     {key_daz_str, KEY_DAZ, 0, 0,
-     "denormals-are-zero: sets denormals inputs to zero"},
-    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero"},
+     "denormals-are-zero: sets denormals inputs to zero", 0},
+    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero",
+     0},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -613,7 +784,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-static struct argp argp = {options, parse_opt, "", ""};
+static struct argp argp = {options, parse_opt, "", "", NULL, NULL, NULL};
 
 void init_context(t_context *ctx) {
   ctx->daz = false;
@@ -682,7 +853,9 @@ struct interflop_backend_interface_t interflop_init(int argc, char **argv,
       _interflop_sub_double,
       _interflop_mul_double,
       _interflop_div_double,
-      NULL};
+      NULL,
+      _interflop_handle_call,
+      _interflop_finalize};
 
   return interflop_backend_vprec;
 }

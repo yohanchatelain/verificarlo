@@ -175,6 +175,19 @@ static void _set_mca_precision_binary64(int precision) {
   _set_precision(MCA, precision, &MCALIB_BINARY64_T, (double)0);
 }
 
+static void _set_mca_precision(IEEE_BINARY_TYPE type, int precision) {
+  switch (type) {
+  case BINARY32_TYPE:
+    _set_mca_precision_binary32(precision);
+    break;
+  case BINARY64_TYPE:
+    _set_mca_precision_binary64(precision);
+    break;
+  default:
+    logger_error("Unknown binary type (%d)", type);
+  }
+}
+
 /******************** MCA RANDOM FUNCTIONS ********************
  * The following functions are used to calculate the random
  * perturbations used for MCA and apply these to MPFR format
@@ -284,6 +297,23 @@ static void _set_mca_seed(bool choose_seed, uint64_t seed) {
     return ret;                                                                \
   }
 
+/* Generic macro function that returns mca(X) */
+#define _MCA_ID_OP(X, CTX)                                                     \
+  {                                                                            \
+    mpfr_prec_t prec = GET_MPFR_PREC(X);                                       \
+    mpfr_rnd_t rnd = MPFR_RNDN;                                                \
+    if (((t_context *)CTX)->daz) {                                             \
+      X = DAZ(X);                                                              \
+    }                                                                          \
+    MPFR_DECL_INIT(mpfr_##X, prec);                                            \
+    MPFR_SET_FLT(X, rnd);                                                      \
+    if (MCALIB_MODE_TYPE != mcamode_ieee) {                                    \
+      _MCA_INEXACT(X, rnd);                                                    \
+    }                                                                          \
+    typeof(X) ret = MPFR_GET_FLT(X, rnd);                                      \
+    return ret;                                                                \
+  }
+
 /* Performs mca(a mpfr_op b) where a and b are binary32 values */
 /* Intermediate computations are performed with precision DOUBLE_PREC */
 static float _mca_binary32_binary_op(float a, float b, mpfr_bin mpfr_op,
@@ -295,6 +325,12 @@ static float _mca_binary32_binary_op(float a, float b, mpfr_bin mpfr_op,
 /* Intermediate computations are performed with precision DOUBLE_PREC */
 static float _mca_binary32_unary_op(float a, mpfr_unr mpfr_op, void *context) {
   _MCA_UNARY_OP(a, mpfr_op, context);
+}
+
+/* Performs mca(a) where a is a binary32 value */
+/* Intermediate computations are performed with precision DOUBLE_PREC */
+static float _mca_binary32_id_op(float a, void *context) {
+  _MCA_ID_OP(a, context);
 }
 
 /* Performs mca(a mpfr_op b) where a and b are binary32 values */
@@ -309,6 +345,12 @@ static double _mca_binary64_binary_op(double a, double b, mpfr_bin mpfr_op,
 static double _mca_binary64_unary_op(double a, mpfr_unr mpfr_op,
                                      void *context) {
   _MCA_UNARY_OP(a, mpfr_op, context);
+}
+
+/* Performs mca(a) where a is a binary32 value */
+/* Intermediate computations are performed with precision QUAD_PREC */
+static double _mca_binary64_id_op(double a, void *context) {
+  _MCA_ID_OP(a, context);
 }
 
 /************************* FPHOOKS FUNCTIONS *************************
@@ -353,17 +395,66 @@ static void _interflop_div_double(double a, double b, double *c,
   *c = _mca_binary64_binary_op(a, b, (mpfr_bin)MP_DIV, context);
 }
 
+static void *_interflop_handle_call(int destination,
+                                    INTERFLOP_CALL_OPCODE opcode, void *context,
+                                    va_list ap) {
+  if (destination < 1) {
+    return NULL;
+  }
+
+  switch (opcode) {
+  case SET_SEED:
+    _set_mca_seed(((t_context *)context)->choose_seed,
+                  ((t_context *)context)->seed);
+    return NULL;
+  case SET_PRECISION: {
+    IEEE_BINARY_TYPE flt_ty = va_arg(ap, IEEE_BINARY_TYPE);
+    int precision = va_arg(ap, int);
+    _set_mca_precision(flt_ty, precision);
+    return NULL;
+  }
+  case SET_MODE: {
+    mcamode mode = va_arg(ap, mcamode);
+    _set_mca_mode(mode);
+  }
+    return NULL;
+  case SET_INEXACT: {
+    IEEE_BINARY_TYPE flt_type = va_arg(ap, IEEE_BINARY_TYPE);
+    switch (flt_type) {
+    case BINARY32_TYPE: {
+      float *a = va_arg(ap, float *);
+      *a = _mca_binary32_id_op(*a, context);
+      return NULL;
+    }
+    case BINARY64_TYPE: {
+      double *a = va_arg(ap, double *);
+      *a = _mca_binary64_id_op(*a, context);
+      return NULL;
+    }
+    default:
+      logger_error("Unknown binary type");
+      return NULL;
+    }
+  }
+  default:
+    return NULL;
+  }
+}
+
+static void _interflop_finalize(void **context) { return; }
+
 static struct argp_option options[] = {
     {key_prec_b32_str, KEY_PREC_B32, "PRECISION", 0,
-     "select precision for binary32 (PRECISION > 0)"},
+     "select precision for binary32 (PRECISION > 0)", 0},
     {key_prec_b64_str, KEY_PREC_B64, "PRECISION", 0,
-     "select precision for binary64 (PRECISION > 0)"},
+     "select precision for binary64 (PRECISION > 0)", 0},
     {key_mode_str, KEY_MODE, "MODE", 0,
-     "select MCA mode among {ieee, mca, pb, rr}"},
-    {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed"},
+     "select MCA mode among {ieee, mca, pb, rr}", 0},
+    {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed", 0},
     {key_daz_str, KEY_DAZ, 0, 0,
-     "denormals-are-zero: sets denormals inputs to zero"},
-    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero"},
+     "denormals-are-zero: sets denormals inputs to zero", 0},
+    {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero",
+     0},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -433,7 +524,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-static struct argp argp = {options, parse_opt, "", ""};
+static struct argp argp = {options, parse_opt, "", "", NULL, NULL, NULL};
 
 static void init_context(t_context *ctx) {
   ctx->choose_seed = false;
@@ -486,7 +577,9 @@ struct interflop_backend_interface_t interflop_init(int argc, char **argv,
       _interflop_sub_double,
       _interflop_mul_double,
       _interflop_div_double,
-      NULL};
+      NULL,
+      _interflop_handle_call,
+      _interflop_finalize};
 
   /* Initialize the seed */
   _set_mca_seed(ctx->choose_seed, ctx->seed);
