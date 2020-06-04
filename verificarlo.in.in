@@ -1,9 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #*******************************************************************************
 #                                                                              *
 #  This file is part of Verificarlo.                                           *
 #                                                                              *
-#  Copyright (c) 2015-2016                                                     *
+#  Copyright (c) 2015-2019                                                     *
+#     Verificarlo contributors                                                 *
 #     Universite de Versailles St-Quentin-en-Yvelines                          *
 #     CMLA, Ecole Normale Superieure de Cachan                                 *
 #                                                                              *
@@ -34,11 +35,8 @@ PACKAGE_STRING = "@PACKAGE_STRING@"
 LIBDIR = "%LIBDIR%"
 PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
 libvfcinstrument = LIBDIR + '/libvfcinstrument.so'
-libvfcreport = LIBDIR + '/libvfcreport.so'
 libvfctracer = LIBDIR + '/libvfctracer.so'
 libvfctracer_probe = LIBDIR + '/libvfctracer_probe.so'
-mcalib_static = "{0}/libmcampfr.a {0}/libmcaquad.a {0}/libbitmask.a".format(LIBDIR)
-mcalib_dynamic = "-lmcampfr -lmcaquad -lbitmask"
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + 'vfcwrapper.c'
@@ -50,9 +48,6 @@ gcc = "@GCC_PATH@"
 FORTRAN_EXTENSIONS=[".f", ".f90", ".f77"]
 C_EXTENSIONS=[".c", ".cpp", ".cc", ".cxx"]
 report_level_choices=["module", "function", "basicblock"]
-VERIFICARLO_REPORT_PATH_ENV = 'VERIFICARLO_REPORT_PATH'
-verificarlo_report_filename = "verificarlo_report.csv"
-verificarlo_report_path = ""
 VERITRACER_LOCINFO_PATH_ENV = 'VERITRACER_LOCINFO_PATH'
 veritracer_locinfo_filename = "locationInfo.map" 
 veritracer_locinfo_path = ""
@@ -64,15 +59,22 @@ class NoPrefixParser(argparse.ArgumentParser):
     def _get_option_tuples(self, option_string):
         return []
 
+
 def fail(msg):
     print(sys.argv[0] + ': ' + msg, file=sys.stderr)
     sys.exit(1)
 
+
 def is_fortran(name):
     return os.path.splitext(name)[1].lower() in FORTRAN_EXTENSIONS
 
+
 def is_c(name):
     return os.path.splitext(name)[1].lower() in C_EXTENSIONS
+
+def shell_escape(argument):
+    # prevents argument expansion in shell call
+    return "'" + argument + "'"
 
 def parse_extra_args(args):
     sources = []
@@ -80,20 +82,17 @@ def parse_extra_args(args):
 
     for a in args:
         if is_fortran(a):
-	    if not dragonegg:
-		fail("fortran not supported. "
-		     + "--without-fortran was used during configuration.")
-	    sources.append(a)
-	elif is_c(a):
+            if not dragonegg:
+                fail("fortran not supported. "
+                     + "--without-fortran was used during configuration.")
+            sources.append(a)
+        elif is_c(a):
             sources.append(a)
         else:
-            options.append(a)
+            options.append(shell_escape(a))
 
     return sources, ' '.join(options)
 
-def fail(msg):
-    print(sys.argv[0] + ': ' + msg, file=sys.stderr)
-    sys.exit(1)
 
 def shell(cmd):
     try:
@@ -101,56 +100,39 @@ def shell(cmd):
     except subprocess.CalledProcessError:
         fail('command failed:\n' + cmd)
 
-def add_header_verificarlo_report(report_level, print_percentage):
-    verificarlo_report_path = os.getenv(VERIFICARLO_REPORT_PATH_ENV)+"/"+verificarlo_report_filename
-    if os.path.isfile(verificarlo_report_path):
-        return
-
-    vr_file = open(verificarlo_report_path, "w")
-    header = ""
-    if (report_level == "module"):
-        header = "Module"
-    elif (report_level == "function"):
-        header = "Module,Function"
-    elif (report_level == "basicblock"):
-        header = "Module,Function,BasicBlock"
-    header += ",#FOPS"
-
-    if print_percentage:
-        header += ",add,sub,mul,div"
-
-    vr_file.write(header+"\n")
 
 def linker_mode(sources, options, output, args):
-    shell('{clang} -c -O2 -static -o .vfcwrapper.o {vfcwrapper} -I {mcalib_includes}'.format(
+    extra_args = "-static " if args.static else "-fPIC "
+    extra_args += "-DINST_FCMP " if args.inst_fcmp else ""
+    extra_args += "-DDDEBUG " if args.ddebug else ""
+    shell('{clang} -c -O3 {extra_args} -o .vfcwrapper.o {vfcwrapper} -I {mcalib_includes}'.format(
         clang=clang,
+        extra_args=extra_args,
         vfcwrapper=vfcwrapper,
         mcalib_includes=mcalib_includes))
 
     # Only include lgfortran if fortran support is enabled
     gfortran = "-lgfortran" if dragonegg else ""
 
-    f=tempfile.NamedTemporaryFile()
+    f = tempfile.NamedTemporaryFile(mode='w+')
     if args.static:
-        f.write('{output} {sources} {options} -static .vfcwrapper.o {mcalib_static} -lmpfr -lgmp {gfortran} -lm'.format(
+        f.write('{output} {sources} {options} -static .vfcwrapper.o -lmpfr -lgmp {gfortran} -lm -ldl'.format(
             output=output,
             sources=' '.join([os.path.splitext(s)[0]+'.o' for s in sources]),
             options=options,
-            mcalib_static=mcalib_static,
             gfortran=gfortran))
-       
     else:
-        f.write('{output} {sources} {options} .vfcwrapper.o {mcalib_options} {mcalib_dynamic} {gfortran}'.format(
+        f.write('{output} {sources} {options} .vfcwrapper.o {mcalib_options} {gfortran} -ldl'.format(
             output=output,
             sources=' '.join([os.path.splitext(s)[0]+'.o' for s in sources]),
             options=options,
             mcalib_options=mcalib_options,
-            mcalib_dynamic=mcalib_dynamic,
             gfortran=gfortran))
 
     f.flush()
     shell('{clang} @{temp}'.format(clang=clang, temp=f.name))
     f.close()
+
 
 def compiler_mode(sources, options, output, args):
     for source in sources:
@@ -178,14 +160,22 @@ def compiler_mode(sources, options, output, args):
 
         selectfunction = ""
         if args.function:
-            selectfunction = "-vfclibinst-function=" + args.function
-        elif args.functions_file:
-            selectfunction = "-vfclibinst-function-file=" + args.functions_file
+            selectfunction = "-vfclibinst-function " + args.function
+        else:
+            if args.include_file:
+                selectfunction = "-vfclibinst-include-file " + args.include_file
+            if args.exclude_file:
+                selectfunction += " -vfclibinst-exclude-file " + args.exclude_file
+
+        extra_args = ""
 
         # Activate verbose mode
-        verbose = ""
         if args.verbose:
-            verbose = "-vfclibinst-verbose "
+            extra_args += "-vfclibinst-verbose "
+
+        # Activate fcmp instrumentation
+        if args.inst_fcmp:
+            extra_args += "-vfclibinst-inst-fcmp "
 
         # Activate black list mode
         blacklist = ""
@@ -242,11 +232,11 @@ def compiler_mode(sources, options, output, args):
             ir = ins_tracer            
 
         # Apply MCA instrumentation pass
-        shell('{opt} -S -load {libvfcinstrument} -vfclibinst {verbose} {selectfunction} {blacklist} {ir} -o {ins}'.format(
+        shell('{opt} -S  -load {libvfcinstrument} -vfclibinst {extra_args} {selectfunction} {ir} -o {ins}'.format(
             opt=opt,
             libvfcinstrument=libvfcinstrument,
             selectfunction=selectfunction,
-            verbose=verbose,
+            extra_args=extra_args,
             ir=ir,
             ins=ins_mca,
             blacklist=blacklist,
@@ -264,20 +254,19 @@ def compiler_mode(sources, options, output, args):
             ins=ins,
             options=options))
 
+
 if __name__ == "__main__":
     parser = NoPrefixParser(description='Compiles a program replacing floating point operation with calls to the mcalib (Montecarlo Arithmetic).')
     parser.add_argument('-c', action='store_true', help='only run preprocess, compile, and assemble steps')
     parser.add_argument('-o', metavar='file', help='write output to <file>')
+    parser.add_argument('--ddebug', action='store_true', help='enable delta-debug mode')
     parser.add_argument('--function', metavar='function', help='only instrument <function>')
-    parser.add_argument('--functions-file', metavar='file', help='only instrument functions in <functions-file>')
+    parser.add_argument('--include-file', metavar='file', help='white-list module and functions')
+    parser.add_argument('--exclude-file', metavar='file', help='black-list module and functions')
     parser.add_argument('-static', '--static', action='store_true', help='produce a static binary')
     parser.add_argument('--verbose', action='store_true', help='verbose output')
+    parser.add_argument('--inst-fcmp', action='store_true', help='instrument floating point comparisons')
     parser.add_argument('--version', action='version', version=PACKAGE_STRING)
-    parser.add_argument('--black-list-mode', action='store_true',
-                        help='black list mode, not instrument functions present in <function> or <functions-file>')
-    parser.add_argument('-report', '--report-level', action='store', type=str, default=0, choices=report_level_choices,
-                        help='produces a report for floating-point operations')
-    parser.add_argument('--print-percentage', action='store_true', help="print percentage of floating-points' type for report")
     parser.add_argument('--tracer', action='store_true', help="veritracer mode")
     parser.add_argument('--tracer-format', action='store', type=str, default='binary', choices=tracer_format_choices,
                         help='Output format for tracing values')
@@ -293,17 +282,12 @@ if __name__ == "__main__":
     sources, llvm_options = parse_extra_args(other)
 
     # check input files
-
     if len(sources) > 1 and args.o:
         fail('cannot specify -o when generating multiple output files')
 
-    if args.function and args.functions_file:
-        fail("Cannot used --function and --functions-file together")
-
-    if args.report_level:        
-        if not os.getenv('VERIFICARLO_REPORT_PATH'):
-            os.environ['VERIFICARLO_REPORT_PATH'] = os.getenv("PWD")        
-        add_header_verificarlo_report(args.report_level, args.print_percentage)
+    # check mutually excluding args
+    if args.function and (args.include_file or args.exclude_file):
+        fail('Cannot use --function and --include-file/--exclude-file together')
 
     if args.tracer:
         # Need to add debug option to get debug info 

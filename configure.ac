@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([verificarlo], [0.2.0], [])
+AC_INIT([verificarlo], [0.3.0], [])
 AM_SILENT_RULES([yes])
 AC_CONFIG_AUX_DIR(autoconf)
 AC_CONFIG_MACRO_DIR([m4])
@@ -19,12 +19,12 @@ AC_PROG_MAKE_SET
 AC_PROG_CC([gcc])
 AC_DEFINE_UNQUOTED([GCC_PATH], ["$CC"], [GCC path (for dragonegg and replay linking)])
 AC_SUBST(GCC_PATH, $CC)
-AX_LLVM([3.3],[4.0.1],[all])
+AX_LLVM([3.3],[9.0.1],[all])
 
 AC_SUBST(LLVM_CPPFLAGS, $LLVM_CPPFLAGS)
 AC_SUBST(LLVM_LDFLAGS, $LLVM_LDFLAGS)
 
-AC_PATH_PROG([CLANG], [clang], "", $LLVM_BINDIR/)
+AC_PATH_PROG([CLANG], [clang], "", $LLVM_BINDIR/ $PATH)
 if test -z "$CLANG"; then
    AC_PATH_PROGS([CLANG], [clang-"$LLVM_VERSION_MAJOR"."$LLVM_VERSION_MINOR" clang], "")
 fi
@@ -57,8 +57,13 @@ EOF
     fi
 fi
 
+# Reset libs after ac_check_lib We do not want each and every backend or the
+# libvfcinstrument frontend to be linked against libmpfr or libgfortran for
+# example. -l flags should be added individually in each Makefile.am
+LIBS=""
+
 # Check for header files.
-AC_CHECK_HEADERS([fcntl.h inttypes.h limits.h malloc.h stdint.h stdlib.h string.h sys/time.h unistd.h utime.h mpfr.h], , AC_MSG_ERROR([Missing required headers]))
+AC_CHECK_HEADERS([fcntl.h float.h inttypes.h limits.h malloc.h stdint.h stdlib.h string.h sys/time.h unistd.h utime.h mpfr.h], , AC_MSG_ERROR([Missing required headers]))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
@@ -74,22 +79,44 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
+# Checks if __uint128_t is supported
+AC_CHECK_TYPE(__uint128_t,[cc_have_uint128="yes"], [cc_have_uint128="no"])
+if test "x$cc_have_uint128" = "xno"; then
+   AC_MSG_ERROR([__uint128_t is not supported])
+fi
+
+# Checks if __float128 is supported
+AC_CHECK_TYPE(__float128,[cc_have_float128="yes"], [cc_have_float128="no"])
+if test "x$cc_have_float128" = "xno"; then
+   AC_MSG_ERROR([__float128 is not supported])
+fi
+
+# Checks if _Generic keyword is supported
+AC_MSG_CHECKING([if _Generic is supported by $CC])
+echo "#define TEST(X) _Generic((X), int:1, long:2)" > conftest.c
+doit='$CC -c conftest.c'
+if AC_TRY_EVAL(doit); then
+  AC_MSG_RESULT([yes])
+else
+  AC_MSG_RESULT([no])
+  AC_MSG_ERROR([_Generic is not supported])
+fi
+
 # Checks for library functions.
 AC_FUNC_ALLOCA
 AC_FUNC_CHOWN
 AC_FUNC_ERROR_AT_LINE
+AC_FUNC_FORK
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_MKTIME
+AC_FUNC_MMAP
 AC_FUNC_REALLOC
 
-AC_CHECK_FUNCS([atexit floor getenv gettimeofday getpid memset mkdir pow sqrt strchr strdup strerror strrchr strstr strtol tzset utime])
+AC_CHECK_FUNCS([atexit dup2 floor getenv gettimeofday getpagesize getpid memset mkdir pow sqrt strcasecmp strchr strdup strerror strrchr strstr strtol strtoull tzset utime])
 
-# Check for Python 2.7
-
-AC_ARG_WITH([python],
-            [AS_HELP_STRING([--with-python], [path to python])],
-            [PYTHON="$withval"])
+# Check for Python 3
+AM_PATH_PYTHON([3])
 
 if test -n "$PYTHON" && test -x "$PYTHON" ; then
   AM_PATH_PYTHON([2.7])
@@ -105,18 +132,11 @@ else
                 AC_MSG_ERROR([could not find python 2.7 or higher])])
 fi
 
-AC_MSG_CHECKING([for python >= 2.7])
-ac_python_version=`$PYTHON -V 2>&1 | cut -d' ' -f2`
-ac_python_version_major=`echo $ac_python_version | cut -d'.' -f1`
-ac_python_version_minor=`echo $ac_python_version | cut -d'.' -f2`
-ac_python_version_patch=`echo $ac_python_version | cut -d'.' -f3`
-if test "$ac_python_version_major" -gt "2" || \
-   (test "$ac_python_version_major" -eq "2" && \
-    test "$ac_python_version_minor" -ge "7") ; then
-  AC_MSG_RESULT([$PYTHON ($ac_python_version)])
-else
-  AC_MSG_RESULT([not found])
-  AC_MSG_FAILURE([found python $ac_python_version ($PYTHON); required >= 2.7])
+AC_ARG_ENABLE(wall, AC_HELP_STRING([--enable-wall], [Enable -Wall compilation flag]), [WALL_CFLAGS="yes"])
+AM_CONDITIONAL([WALL_CFLAGS], [test "x$WALL_CFLAGS" = "xyes"])
+if test "x$WALL_CFLAGS" = "xyes"; then
+   AC_DEFINE([WALL_CFLAGS], [],  ["Enable -Wall compilation flag"])
+   AC_MSG_NOTICE([-Wall is set])
 fi
 
 AX_PYTHON_MODULE(numpy, fatal)
@@ -126,19 +146,25 @@ AX_PYTHON_MODULE(matplotlib.pyplot, fatal)
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
+                 src/common/Makefile
                  src/libvfcinstrument/Makefile
-                 src/libmca-mpfr/Makefile
-		 src/libmca-quad/Makefile
-		 src/libbitmask/Makefile
-		 src/libvfcreport/Makefile
+                 src/vfcwrapper/Makefile
+                 src/backends/Makefile
+                 src/backends/interflop-ieee/Makefile
+                 src/backends/interflop-mca/Makefile
+                 src/backends/interflop-mca-mpfr/Makefile
+                 src/backends/interflop-cancellation/Makefile
+                 src/backends/interflop-bitmask/Makefile
+		 src/backends/interflop-vprec/Makefile
 		 src/libvfctracer/Makefile
 		 src/libvfctracer/Data/Makefile
 		 src/libvfctracer/Format/Makefile		 
 		 src/libvfctracer-probe/Makefile
-		 src/common/Makefile		
-		 tests/Makefile
-		 postprocess/veritracer/Makefile])
+                 tests/Makefile
+                 tests/paths.sh
+		 postprocess/veritracer/Makefile
+                ])
 
-AC_CONFIG_FILES([verificarlo.in], [])
+AC_CONFIG_FILES([verificarlo.in tests/test_bitmask_backend/test.sh], [chmod +x tests/test_bitmask_backend/test.sh])
 
 AC_OUTPUT

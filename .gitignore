@@ -4,6 +4,10 @@
 **/*.ll
 **/*.pyc
 **/*.mod
+**/*.orig
+**/*.la
+**/*.lo
+**/*.dwo
 **/.*
 **/*~
 **/#*
@@ -13,6 +17,7 @@
 **/*.la
 **/*.lo
 verificarlo
+src/vfcwrapper/vfcwrapper.c
 configure
 autom4te.cache
 stamp-h1

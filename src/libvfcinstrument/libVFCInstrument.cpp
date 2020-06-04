@@ -1,313 +1,346 @@
-/********************************************************************************
- *                                                                              *
- *  This file is part of Verificarlo.                                           *
- *                                                                              *
- *  Copyright (c) 2015                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
- *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
- *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
- *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
- *                                                                              *
- ********************************************************************************/
+/******************************************************************************
+ *                                                                            *
+ *  This file is part of Verificarlo.                                         *
+ *                                                                            *
+ *  Copyright (c) 2015                                                        *
+ *     Universite de Versailles St-Quentin-en-Yvelines                        *
+ *     CMLA, Ecole Normale Superieure de Cachan                               *
+ *  Copyright (c) 2018                                                        *
+ *     Universite de Versailles St-Quentin-en-Yvelines                        *
+ *  Copyright (c) 2019                                                        *
+ *     Verificarlo contributors                                               *
+ *                                                                            *
+ *  Verificarlo is free software: you can redistribute it and/or modify       *
+ *  it under the terms of the GNU General Public License as published by      *
+ *  the Free Software Foundation, either version 3 of the License, or         *
+ *  (at your option) any later version.                                       *
+ *                                                                            *
+ *  Verificarlo is distributed in the hope that it will be useful,            *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             *
+ *  GNU General Public License for more details.                              *
+ *                                                                            *
+ *  You should have received a copy of the GNU General Public License         *
+ *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.      *
+ *                                                                            *
+ ******************************************************************************/
 
 #include "../../config.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-#include <set>
 #include <fstream>
+#include <set>
+#include <utility>
 
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR <= 6
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall3(func, op1, op2, op3, ""))
 #define CREATE_CALL2(func, op1, op2) (Builder.CreateCall2(func, op1, op2, ""))
 #define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(i, p))
-#else
+/* This function must be used with at least one variadic argument otherwise */
+/* it will fails when compiling since it will expand as
+ * M.getOrInsertFunction(name,res,,(Type*)NULL) */
+/* It could be fixed when __VA_OPT__ will be available (see
+ * https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html)*/
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type *)NULL)
+typedef llvm::Constant *_LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 5
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
 #define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
 #define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type *)NULL)
+typedef llvm::Constant *_LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 9
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::Constant *_LLVMFunctionType;
+#else
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::FunctionCallee _LLVMFunctionType;
 #endif
 
 using namespace llvm;
 // VfclibInst pass command line arguments
-static cl::opt<std::string> VfclibInstFunction("vfclibinst-function",
-					       cl::desc("Only instrument given FunctionName"),
-					       cl::value_desc("FunctionName"), cl::init(""));
+static cl::opt<std::string>
+    VfclibInstFunction("vfclibinst-function",
+                       cl::desc("Only instrument given FunctionName"),
+                       cl::value_desc("FunctionName"), cl::init(""));
 
-static cl::opt<std::string> VfclibInstFunctionFile("vfclibinst-function-file",
-						   cl::desc("Instrument functions in file FunctionNameFile "),
-						   cl::value_desc("FunctionsNameFile"), cl::init(""));
+static cl::opt<std::string> VfclibInstIncludeFile(
+    "vfclibinst-include-file",
+    cl::desc("Only instrument modules / functions in file IncludeNameFile "),
+    cl::value_desc("IncludeNameFile"), cl::init(""));
+
+static cl::opt<std::string> VfclibInstExcludeFile(
+    "vfclibinst-exclude-file",
+    cl::desc("Do not instrument modules / functions in file ExcludeNameFile "),
+    cl::value_desc("ExcludeNameFile"), cl::init(""));
 
 static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
-				       cl::desc("Activate verbose mode"),
-				       cl::value_desc("Verbose"), cl::init(false));
+                                       cl::desc("Activate verbose mode"),
+                                       cl::value_desc("Verbose"),
+                                       cl::init(false));
 
-
-static cl::opt<bool> VfclibBlackList("vfclibblack-list",
-				     cl::desc("Activate black list mode"),
-				     cl::value_desc("BlackList"), cl::init(false));
-
-
+static cl::opt<bool>
+    VfclibInstInstrumentFCMP("vfclibinst-inst-fcmp",
+                             cl::desc("Instrument floating point comparisons"),
+                             cl::value_desc("InstrumentFCMP"), cl::init(false));
 
 namespace {
-    // Define an enum type to classify the floating points operations
-    // that are instrumented by verificarlo
+// Define an enum type to classify the floating points operations
+// that are instrumented by verificarlo
 
-    enum Fops {FOP_ADD, FOP_SUB, FOP_MUL, FOP_DIV, FOP_IGNORE};
+enum Fops { FOP_ADD, FOP_SUB, FOP_MUL, FOP_DIV, FOP_CMP, FOP_IGNORE };
 
-    // Each instruction can be translated to a string representation
+// Each instruction can be translated to a string representation
 
-    std::string Fops2str[] = { "add", "sub", "mul", "div", "ignore"};
+std::string Fops2str[] = {"add", "sub", "mul", "div", "cmp", "ignore"};
 
-    struct VfclibInst : public ModulePass {
-        static char ID;
+struct VfclibInst : public ModulePass {
+  static char ID;
 
-        std::set<std::string> SelectedFunctionSet;
-        std::set<std::string> BlackListFunctionSet;
+  std::set<std::string> IncludedFunctionSet;
+  std::set<std::string> ExcludedFunctionSet;
 
-        VfclibInst() : ModulePass(ID) {
-            if (not VfclibInstFunctionFile.empty()) {
-                std::string line;
-                std::ifstream loopstream (VfclibInstFunctionFile.c_str());
-                if (loopstream.is_open()) {
-                    while (std::getline(loopstream, line)) {
-                        SelectedFunctionSet.insert(line);
-                    }
-                    loopstream.close();
-                } else {
-                    errs() << "Cannot open " << VfclibInstFunctionFile << "\n";
-                    assert(0);
-                }
-            } else if (not VfclibInstFunction.empty()) {
-                SelectedFunctionSet.insert(VfclibInstFunction);
-            }
+  VfclibInst() : ModulePass(ID) {}
+
+  void parseFunctionSetFile(Module &M, cl::opt<std::string> &fileName,
+                            std::set<std::string> &FunctionSet) {
+    // Skip if empty fileName
+    if (fileName.empty()) {
+      return;
+    }
+
+    // Open File
+    std::ifstream loopstream(fileName.c_str());
+    if (!loopstream.is_open()) {
+      errs() << "Cannot open " << fileName << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+
+    // Parse File, if module name matches, add function to FunctionSet
+    int lineno = 0;
+    std::string line;
+    // drop the .1.ll suffix in the module name
+    StringRef mod_name = StringRef(M.getModuleIdentifier()).drop_back(5);
+    while (std::getline(loopstream, line)) {
+      lineno++;
+      StringRef l = StringRef(line);
+      // Ignore empty or commented lines
+      if (l.startswith("#") || l.trim() == "") {
+        continue;
+      }
+      std::pair<StringRef, StringRef> p = l.split(" ");
+
+      if (p.second.equals("")) {
+        errs() << "Syntax error in exclusion/inclusion file " << fileName << ":"
+               << lineno << "\n";
+        report_fatal_error("libVFCInstrument fatal error");
+      } else {
+        if (p.first.trim().equals(mod_name) || p.first.trim().equals("*")) {
+          FunctionSet.insert(p.second.trim());
         }
+      }
+    }
 
-        StructType * getMCAInterfaceType(IRBuilder<> &Builder) {
+    loopstream.close();
+  }
 
-            // Verificarlo instrumentation calls the mca backend using
-            // a vtable implemented as a structure.
-            //
-            // Here we declare the struct type corresponding to the
-            // mca_interface_t defined in ../vfcwrapper/vfcwrapper.h
-            //
-            // Only the functions instrumented are declared. The last
-            // three functions are user called functions and are not
-            // needed here.
+  bool runOnModule(Module &M) {
+    bool modified = false;
 
-            SmallVector<Type *, 2> floatArgs, doubleArgs;
-            floatArgs.push_back(Builder.getFloatTy());
-            floatArgs.push_back(Builder.getFloatTy());
-            doubleArgs.push_back(Builder.getDoubleTy());
-            doubleArgs.push_back(Builder.getDoubleTy());
+    // Parse both included and excluded function set
+    parseFunctionSetFile(M, VfclibInstIncludeFile, IncludedFunctionSet);
+    parseFunctionSetFile(M, VfclibInstExcludeFile, ExcludedFunctionSet);
 
-            PointerType * floatInstFun = PointerType::getUnqual(
-                    FunctionType::get(Builder.getFloatTy(), floatArgs, false));
-            PointerType * doubleInstFun = PointerType::getUnqual(
-                    FunctionType::get(Builder.getDoubleTy(), doubleArgs, false));
+    // Parse instrument single function option (--function)
+    if (!VfclibInstFunction.empty()) {
+      IncludedFunctionSet.insert(VfclibInstFunction);
+      ExcludedFunctionSet.insert("*");
+    }
 
-            return StructType::get(
+    // Find the list of functions to instrument
+    std::vector<Function *> functions;
+    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+      // White-list
+      if (IncludedFunctionSet.find("*") != IncludedFunctionSet.end() ||
+          IncludedFunctionSet.find(F->getName()) != IncludedFunctionSet.end()) {
+        functions.push_back(&*F);
+        continue;
+      }
 
-                floatInstFun,
-                floatInstFun,
-                floatInstFun,
-                floatInstFun,
+      // Black-list
+      if (ExcludedFunctionSet.find("*") != ExcludedFunctionSet.end() ||
+          ExcludedFunctionSet.find(F->getName()) != ExcludedFunctionSet.end()) {
+        continue;
+      }
 
-                doubleInstFun,
-                doubleInstFun,
-                doubleInstFun,
-                doubleInstFun,
+      // If black-list is empty and while-list is not, we are done
+      if (VfclibInstExcludeFile.empty() && !VfclibInstIncludeFile.empty()) {
+        continue;
+      } else {
+        // Everything else is neither white-listed or black-listed
+        functions.push_back(&*F);
+      }
+    }
 
-                (void *)0
-                );
-        }
+    // Do the instrumentation on selected functions
+    for (std::vector<Function *>::iterator F = functions.begin();
+         F != functions.end(); ++F) {
+      modified |= runOnFunction(M, **F);
+    }
+    // runOnModule must return true if the pass modifies the IR
+    return modified;
+  }
 
+  bool runOnFunction(Module &M, Function &F) {
+    if (VfclibInstVerbose) {
+      errs() << "In Function: ";
+      errs().write_escaped(F.getName()) << '\n';
+    }
 
-        bool runOnModule(Module &M) {
-            bool modified = false;
+    bool modified = false;
 
-            // Find the list of functions to instrument
-            // Instrumentation adds stubs to mcalib function which we
-            // never want to instrument.  Therefore it is important to
-            // first find all the functions of interest before
-            // starting instrumentation.
+    for (Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi) {
+      modified |= runOnBasicBlock(M, *bi);
+    }
+    return modified;
+  }
 
-            std::vector<Function*> functions;
-            for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-                const bool is_in = SelectedFunctionSet.find(
-                        F->getName()) != SelectedFunctionSet.end();
-                if (SelectedFunctionSet.empty() || VfclibBlackList != is_in) {
-                    functions.push_back(&*F);
-                }
-            }
+  Value *replaceWithMCACall(Module &M, Instruction *I, Fops opCode) {
+    IRBuilder<> Builder(I);
 
-            // Do the instrumentation on selected functions
-            for(std::vector<Function*>::iterator F = functions.begin(); F != functions.end(); ++F) {
-                modified |= runOnFunction(M, **F);
-            }
-	    
-	    // runOnModule must return true if the pass modifies the IR
-            return modified;
-        }
+    Type *opType = I->getOperand(0)->getType();
+    Type *retType = I->getType();
+    std::string opName = Fops2str[opCode];
 
-        bool runOnFunction(Module &M, Function &F) {
-            if (VfclibInstVerbose) {
-                errs() << "In Function: ";
-                errs().write_escaped(F.getName()) << '\n';
-            }
+    std::string baseTypeName = "";
+    std::string vectorName = "";
+    Type *baseType = opType;
 
-            bool modified = false;
+    // Should we add a vector prefix?
+    unsigned size = 1;
+    if (opType->isVectorTy()) {
+      VectorType *t = static_cast<VectorType *>(opType);
+      baseType = t->getElementType();
+      size = t->getNumElements();
 
-            for (Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi) {
-                modified |= runOnBasicBlock(M, *bi);
-            }
-            return modified;
-        }
+      if (size == 2) {
+        vectorName = "2x";
+      } else if (size == 4) {
+        vectorName = "4x";
+      } else {
+        errs() << "Unsuported vector size: " << size << "\n";
+        return nullptr;
+      }
+    }
 
-        Instruction *replaceWithMCACall(Module &M, BasicBlock &B,
-                Instruction * I, Fops opCode) {
+    // Check the type of the operation
+    if (baseType->isDoubleTy()) {
+      baseTypeName = "double";
+    } else if (baseType->isFloatTy()) {
+      baseTypeName = "float";
+    } else {
+      errs() << "Unsupported operand type: " << *opType << "\n";
+      return nullptr;
+    }
 
-            LLVMContext &Context = M.getContext();
-            IRBuilder<> Builder(Context);
-            StructType * mca_interface_type = getMCAInterfaceType(Builder);
+    // Build name of the helper function in vfcwrapper
+    std::string mcaFunctionName = "_" + vectorName + baseTypeName + opName;
 
-            Type * retType = I->getType();
-            Type * opType = I->getOperand(0)->getType();
-            std::string opName = Fops2str[opCode];
+    // We call directly a hardcoded helper function
+    // no need to go through the vtable at this stage.
+    Value *newInst;
+    if (opCode == FOP_CMP) {
+      FCmpInst *FCI = static_cast<FCmpInst *>(I);
+      Type *res = Builder.getInt32Ty();
+      if (size > 1) {
+        res = VectorType::get(res, size);
+      }
+      _LLVMFunctionType hookFunc = GET_OR_INSERT_FUNCTION(
+          M, mcaFunctionName, res, Builder.getInt32Ty(), opType, opType);
+      newInst = CREATE_CALL3(hookFunc, Builder.getInt32(FCI->getPredicate()),
+                             FCI->getOperand(0), FCI->getOperand(1));
+      newInst = Builder.CreateIntCast(newInst, retType, true);
+    } else {
+      _LLVMFunctionType hookFunc =
+          GET_OR_INSERT_FUNCTION(M, mcaFunctionName, retType, opType, opType);
+      newInst = CREATE_CALL2(hookFunc, I->getOperand(0), I->getOperand(1));
+    }
 
-            std::string baseTypeName = "";
-            std::string vectorName = "";
-            Type *baseType = opType;
+    return newInst;
+  }
 
-            // Check for vector types
-            if (opType->isVectorTy()) {
-                VectorType *t = static_cast<VectorType *>(opType);
-                baseType = t->getElementType();
-                unsigned size = t->getNumElements();
+  Fops mustReplace(Instruction &I) {
+    switch (I.getOpcode()) {
+    case Instruction::FAdd:
+      return FOP_ADD;
+    case Instruction::FSub:
+      // In LLVM IR the FSub instruction is used to represent FNeg
+      return FOP_SUB;
+    case Instruction::FMul:
+      return FOP_MUL;
+    case Instruction::FDiv:
+      return FOP_DIV;
+    case Instruction::FCmp:
+      // Only instrument FCMP if the flag --inst-fcmp is passed
+      if (VfclibInstInstrumentFCMP) {
+        return FOP_CMP;
+      } else {
+        return FOP_IGNORE;
+      }
+    default:
+      return FOP_IGNORE;
+    }
+  }
 
-                if (size == 2) {
-                    vectorName = "2x";
-                } else if (size == 4) {
-                    vectorName = "4x";
-                } else {
-                    errs() << "Unsuported vector size: " << size << "\n";
-                    assert(0);
-                }
-            }
+  bool runOnBasicBlock(Module &M, BasicBlock &B) {
+    bool modified = false;
+    std::set<std::pair<Instruction *, Fops>> WorkList;
+    for (BasicBlock::iterator ii = B.begin(), ie = B.end(); ii != ie; ++ii) {
+      Instruction &I = *ii;
+      Fops opCode = mustReplace(I);
+      if (opCode == FOP_IGNORE)
+        continue;
+      WorkList.insert(std::make_pair(&I, opCode));
+    }
 
-            // Check the type of the operation
-            if (baseType->isDoubleTy()) {
-                baseTypeName = "double";
-            } else if (baseType->isFloatTy()) {
-                baseTypeName = "float";
-            } else {
-                errs() << "Unsupported operand type: " << *opType << "\n";
-                assert(0);
-            }
+    for (auto p : WorkList) {
+      Instruction *I = p.first;
+      Fops opCode = p.second;
+      if (VfclibInstVerbose)
+        errs() << "Instrumenting" << *I << '\n';
+      Value *value = replaceWithMCACall(M, I, opCode);
+      if (value != nullptr) {
+        BasicBlock::iterator ii(I);
+        ReplaceInstWithValue(B.getInstList(), ii, value);
+      }
+      modified = true;
+    }
 
-            // For vector types, helper functions in vfcwrapper are called
-            if (vectorName != "") {
-                std::string mcaFunctionName = "_" + vectorName + baseTypeName + opName;
-
-                Constant *hookFunc = M.getOrInsertFunction(mcaFunctionName,
-                                                           retType,
-                                                           opType,
-                                                           opType,
-                                                           (Type *) 0);
-
-                // For vector types we call directly a hardcoded helper function
-                // no need to go through the vtable at this stage.
-                Instruction *newInst = CREATE_CALL2(hookFunc,
-                                                    I->getOperand(0), I->getOperand(1));
-
-                return newInst;
-            }
-            // For scalar types, we go directly through the struct of pointer function
-            else {
-
-                // We use a builder adding instructions before the
-                // instruction to replace
-                Builder.SetInsertPoint(I);
-
-                // Get a pointer to the global vtable
-                // The vtable is accessed through the global structure
-                // _vfc_current_mca_interface of type mca_interface_t which is
-                // declared in ../vfcwrapper/vfcwrapper.c
-
-                Constant *current_mca_interface =
-                    M.getOrInsertGlobal("_vfc_current_mca_interface", mca_interface_type);
-
-                // Compute the position of the required member fct pointer
-                // opCodes are ordered in the same order than the struct members :-)
-                // There are 4 float members followed by 4 double members.
-                int fct_position = opCode;
-                if (baseTypeName == "double") fct_position += 4;
-                // Dereference the member at fct_position
-                Value *arg_ptr = CREATE_STRUCT_GEP(
-                    mca_interface_type, current_mca_interface, fct_position);
-                Value *fct_ptr = Builder.CreateLoad(arg_ptr, "");
-
-                // Create a call instruction. It
-                // will _replace_ I after it is returned.
-                Instruction *newInst = CREATE_CALL2(
-                    fct_ptr,
-                    I->getOperand(0), I->getOperand(1));
-
-                return newInst;
-            }
-        }
-
-
-        Fops mustReplace(Instruction &I) {
-            switch (I.getOpcode()) {
-                case Instruction::FAdd:
-                    return FOP_ADD;
-                case Instruction::FSub:
-                    // In LLVM IR the FSub instruction is used to represent FNeg
-                    return FOP_SUB;
-                case Instruction::FMul:
-                    return FOP_MUL;
-                case Instruction::FDiv:
-                    return FOP_DIV;
-                default:
-                    return FOP_IGNORE;
-            }
-        }
-
-        bool runOnBasicBlock(Module &M, BasicBlock &B) {
-
-            bool modified = false;
-            for (BasicBlock::iterator ii = B.begin(), ie = B.end(); ii != ie; ++ii) {
-                Instruction &I = *ii;
-                Fops opCode = mustReplace(I);
-                if (opCode == FOP_IGNORE) continue;
-                if (VfclibInstVerbose) errs() << "Instrumenting" << I << '\n';
-                Instruction *newInst = replaceWithMCACall(M, B, &I, opCode);
-                // Remove instruction from parent so it can be
-                // inserted in a new context
-                if (newInst->getParent() != NULL) newInst->removeFromParent();
-                ReplaceInstWithInst(B.getInstList(), ii, newInst);
-                modified = true;
-            }
-            return modified;
-        }
-    };
-}
+    return modified;
+  }
+};
+} // namespace
 
 char VfclibInst::ID = 0;
-static RegisterPass<VfclibInst> X("vfclibinst", "verificarlo instrument pass", false, false);
-
+static RegisterPass<VfclibInst> X("vfclibinst", "verificarlo instrument pass",
+                                  false, false);
