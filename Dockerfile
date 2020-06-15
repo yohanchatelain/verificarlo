@@ -34,15 +34,15 @@ RUN ln -s /usr/bin/x86_64-linux-gnu-gcc-7 /usr/bin/x86_64-linux-gnu-gcc && \
     pip3 install bigfloat
 
 # Download and configure verificarlo from git master
+COPY . /build/verificarlo/
 WORKDIR /build/verificarlo
-RUN git clone --depth=1 --branch flang-and-llvm-10 https://github.com/yohanchatelain/verificarlo.git &&  \
-    cd verificarlo && \
-    ./autogen.sh && \
-    ./configure --with-llvm=$(llvm-config-${LLVM_VERSION} --prefix) --with-flang CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} || cat config.log 
+RUN ./autogen.sh && \
+    ./configure --with-llvm=$(llvm-config-${LLVM_VERSION} --prefix) \
+                --with-flang CC=gcc-${GCC_VERSION} CXX=g++-${GCC_VERSION} \
+    || cat config.log
 
 # Build and test verificarlo
-RUN cd verificarlo && \
-    make && make install && \
+RUN make && make install && \
     make installcheck
 
 # Setup working directory
