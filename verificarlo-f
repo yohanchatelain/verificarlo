@@ -1,0 +1,3 @@
+#!/bin/bash
+
+verificarlo --compiler=flang ${@}
