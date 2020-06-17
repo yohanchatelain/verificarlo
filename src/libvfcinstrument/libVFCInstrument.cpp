@@ -124,8 +124,6 @@ struct VfclibInst : public ModulePass {
 
   void parseFunctionSetFile(Module &M, cl::opt<std::string> &fileName,
                             std::set<std::string> &FunctionSet) {
-
-    errs() << "FunctionName: " << fileName << "\n";
     
     // Skip if empty fileName
     if (fileName.empty()) {
@@ -144,9 +142,7 @@ struct VfclibInst : public ModulePass {
     std::string line;
     // drop the .1.ll suffix in the module name
     StringRef mod_name = StringRef(M.getModuleIdentifier()).drop_back(5);
-    errs() << "Module name: " << mod_name << "\n";
     while (std::getline(loopstream, line)) {
-      errs() << "line: " << line << "\n";
       lineno++;
       StringRef l = StringRef(line);
       // Ignore empty or commented lines
@@ -154,15 +150,12 @@ struct VfclibInst : public ModulePass {
         continue;
       }
       std::pair<StringRef, StringRef> p = l.split(" ");
-      errs() << "Pair: " << p.first << "," << p.second << "\n";
-      errs() << "PairTrim: " << p.first.trim() << "," << p.second.trim() << "\n";
       if (p.second.equals("")) {
         errs() << "Syntax error in exclusion/inclusion file " << fileName << ":"
                << lineno << "\n";
         report_fatal_error("libVFCInstrument fatal error");
       } else {
         if (p.first.trim().equals(mod_name) || p.first.trim().equals("*")) {
-	  errs() << "Module: " << p.first.trim() << " Function: " << p.second.trim() << "\n";
           FunctionSet.insert(p.second.trim());
         }
       }
@@ -208,18 +201,6 @@ struct VfclibInst : public ModulePass {
         functions.push_back(&*F);
       }
     }
-
-    errs() << "Included\n";
-    for (auto s : IncludedFunctionSet) {
-      errs() << "- function: " << s << "\n";
-    }
-    errs() << "\n";
-    
-    errs() << "Excluded\n";
-    for (auto s : ExcludedFunctionSet) {
-      errs() << "- function: " << s << "\n";
-    }
-    errs() << "\n";
     
     // Do the instrumentation on selected functions
     for (std::vector<Function *>::iterator F = functions.begin();
