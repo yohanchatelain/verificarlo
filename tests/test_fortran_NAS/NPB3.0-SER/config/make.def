@@ -28,8 +28,8 @@
 #---------------------------------------------------------------------------
 
 
-F77 	= verificarlo
-FLINK	= verificarlo
+F77 	= verificarlo-f
+FLINK	= verificarlo-f
 F_LIB    = -lgfortran -lm
 
 #---------------------------------------------------------------------------
@@ -67,8 +67,8 @@ FLINKFLAGS = -O3 -pg
 # linking is done with       $(CLINK) $(C_LIB) $(CLINKFLAGS)
 #---------------------------------------------------------------------------
 
-CC 	= verificarlo
-CLINK	= verificarlo
+CC 	= verificarlo-c
+CLINK	= verificarlo-c
 
 #---------------------------------------------------------------------------
 # These macros are passed to the linker 
@@ -100,7 +100,7 @@ CLINKFLAGS = -O3 -lprofiler
 # this compiler go here also; typically there are few flags required; hence 
 # there are no separate macros provided for such flags.
 #---------------------------------------------------------------------------
-UCC	= verificarlo
+UCC	= verificarlo-c
 
 
 #---------------------------------------------------------------------------

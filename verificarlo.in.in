@@ -40,30 +40,33 @@ mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + 'vfcwrapper.c'
 llvm_bindir = "@LLVM_BINDIR@"
 clang = '@CLANG_PATH@'
+clangxx = '@CLANGXX_PATH@'
 flang = '@FLANG_PATH@'
 opt = llvm_bindir + '/opt'
 FORTRAN_EXTENSIONS = [".f", ".f90", ".f77"]
-C_EXTENSIONS = [".c", ".cpp", ".cc", ".cxx"]
+C_EXTENSIONS = [".c"]
+CXX_EXTENSIONS = ['.cc', '.cp', '.cpp', '.cxx', 'c++']
 ASSEMBLY_EXTENSIONS = [".s"]
 OBJECT_EXTENSIONS = ['.o']
+compilers = {'clang':clang, 'flang':flang, 'clang++':clangxx}
 
 class NoPrefixParser(argparse.ArgumentParser):
     # ignore prefix autocompletion of options
     def _get_option_tuples(self, option_string):
         return []
 
-
 def fail(msg):
     print(sys.argv[0] + ': ' + msg, file=sys.stderr)
     sys.exit(1)
 
-
 def is_fortran(name):
     return os.path.splitext(name)[1].lower() in FORTRAN_EXTENSIONS
 
-
 def is_c(name):
     return os.path.splitext(name)[1].lower() in C_EXTENSIONS
+
+def is_cpp(name):
+    return os.path.splitext(name)[1].lower() in CXX_EXTENSIONS
 
 def is_assembly(name):
     return os.path.splitext(name)[1].lower() in ASSEMBLY_EXTENSIONS
@@ -88,6 +91,8 @@ def parse_extra_args(args):
             sources.append(a)
         elif is_c(a):
             sources.append(a)
+        elif is_cpp(a):
+            sources.append(a)
         elif is_object(a):
             objects.append(a)
         elif is_assembly(a):
@@ -106,38 +111,6 @@ def shell(cmd):
     except subprocess.CalledProcessError:
         fail('command failed:\n' + cmd)
 
-def sources_to_objs(sources):
-    objs = []
-    for s in sources:
-        objs.append(os.path.splitext(s)[0] + '.o')
-    return objs
-
-# Find which .o files contains the main function
-# Return clang if .c or flang if .f
-def choose_linker(sources):
-    for source in sources:
-        obj = os.path.splitext(source)[0] + ".o"
-        code,get_syms = subprocess.getstatusoutput("nm --defined-only " + obj)
-        if code != 0:
-            print(code,get_syms)
-            exit(1)
-        syms = get_syms.split("\n")
-        for sym in syms:
-            (_,_,function) = sym.split()
-            if function == "main":
-                return clang
-            elif function == "MAIN_":
-                return flang
-            elif function == "__pyx_n_s_main":
-                return clang
-
-    if all([is_c(s) for s in sources]):
-        return clang
-    elif all([is_fortran(s) for s in sources]):
-        return flang
-    else:
-        print("Error: unkwnon language")
-
 def linker_mode(sources, options, output, args):
     extra_args = "-static " if args.static else "-fPIC "
     extra_args += "-DINST_FCMP " if args.inst_fcmp else ""
@@ -150,60 +123,55 @@ def linker_mode(sources, options, output, args):
 
     f = tempfile.NamedTemporaryFile(mode='w+')
     if args.static:
-        f.write('{output} {sources} {options} -static .vfcwrapper.o -lmpfr -lgmp -lm -ldl'.format(
+        cmd = '{output} {sources} {options} -static .vfcwrapper.o -lmpfr -lgmp -lm -ldl'.format(
             output=output,
             sources=' '.join([os.path.splitext(s)[0]+'.o' for s in sources]),
-            options=options))
+            options=options)
     else:
-        f.write('{output} {sources} {options} .vfcwrapper.o {mcalib_options} -ldl'.format(
+        cmd = '{output} {sources} {options} .vfcwrapper.o {mcalib_options} -ldl'.format(
             output=output,
             sources=' '.join([os.path.splitext(s)[0]+'.o' for s in sources]),
             options=options,
-            mcalib_options=mcalib_options))
+            mcalib_options=mcalib_options)
 
+    f.write(cmd)
     f.flush()
-    linker = choose_linker(sources)
+    linker = compilers[args.compiler]
+
+    if args.show_cmd:
+        print('{linker} {cmd}'.format(linker=linker, cmd=cmd))
+    
     shell('{linker} @{temp}'.format(linker=linker, temp=f.name))
     f.close()
 
-def compiler_only(sources, options, output, args):    
-    for source in sources:
-        basename = os.path.splitext(source)[0]
-        compiler = flang if is_fortran(source) else clang
-        if not output:
-            output = '-o ' + basename + '.o'
-        shell('{compiler} -c {source} {options} {output}'.format(
-            compiler=compiler,
-            source=source,
-            options=options,
-            output=output))
+def compiler_only(sources, options, output, args):
+    compiler = compilers[args.compiler]
+    sources = ' '.join(sources)
+    shell('{compiler} {sources} {options} {output}'.format(
+        compiler=compiler,
+        sources=sources,
+        options=options,
+        output=output))
 
 def compiler_mode(sources, options, output, args):
     for source in sources:
+        output_ = output
+        basename = os.path.splitext(source)[0]
+        ir = source + '.1.bc'
+        ins = source + '.2.bc'
+        compiler = compilers[args.compiler]
 
         if is_assembly(source):
-            opts = options
-            if not args.c:
-                opts += ' -c '
-            compiler_only([source], opts, output, args)
+            if not output_:
+                output_ = '-o ' + basename + '.o'
+            shell('{compiler} -c {source} {output} {options}'.format(compiler=compiler,
+                                                                     source=source,
+                                                                     output=output_,
+                                                                     options=options))
             continue
 
-        basename = os.path.splitext(source)[0]
-        ir = basename + '.1.ll'
-        ins = basename + '.2.ll'
-
-        compiler = flang if is_fortran(source) else clang
-
-        if args.E:
-            shell('{compiler} -E {source} {options}'.format(
-                compiler=compiler,
-                source=source,
-                options=options,
-                ))
-            return
-
         # Compile to ir (fortran uses flang, c uses clang)
-        shell('{compiler} -c -S {source} -emit-llvm {options} -o {ir}'.format(
+        shell('{compiler} -c {source} -emit-llvm {options} -o {ir}'.format(
             compiler=compiler,
             source=source,
             options=options,
@@ -229,7 +197,7 @@ def compiler_mode(sources, options, output, args):
             extra_args += "-vfclibinst-inst-fcmp "
 
         # Apply MCA instrumentation pass
-        shell('{opt} -S  -load {libvfcinstrument} -vfclibinst {extra_args} {selectfunction} {ir} -o {ins}'.format(
+        shell('{opt} -load {libvfcinstrument} -vfclibinst {extra_args} {selectfunction} {ir} -o {ins}'.format(
             opt=opt,
             libvfcinstrument=libvfcinstrument,
             selectfunction=selectfunction,
@@ -238,18 +206,21 @@ def compiler_mode(sources, options, output, args):
             ins=ins
             ))
 
-        if not output:
-            output = '-o ' + basename + '.o'
+        if not output_:
+            output_ = '-o ' + basename + '.o'
+            
         # Produce object file
         shell('{compiler} -c {output} {ins} {options}'.format(
             compiler=compiler,
-            output=output,
+            output=output_,
             ins=ins,
             options=options))
 
 if __name__ == "__main__":
     parser = NoPrefixParser(description='Compiles a program replacing floating point operation with calls to the mcalib (Montecarlo Arithmetic).')
+    parser.add_argument('-E', action='store_true', help='only run the preprocessor')
     parser.add_argument('-c', action='store_true', help='only run preprocess, compile, and assemble steps')
+    parser.add_argument('-S', action='store_true', help='only run preprocess and compilation steps')
     parser.add_argument('-o', metavar='file', help='write output to <file>')
     parser.add_argument('--ddebug', action='store_true', help='enable delta-debug mode')
     parser.add_argument('--function', metavar='function', help='only instrument <function>')
@@ -260,15 +231,14 @@ if __name__ == "__main__":
     parser.add_argument('--inst-fcmp', action='store_true', help='instrument floating point comparisons')
     parser.add_argument('--show-cmd', action='store_true', help='show internal commands')
     parser.add_argument('--version', action='version', version=PACKAGE_STRING)
-    parser.add_argument('-E', action='store_true', help='stop after preprocessing stage')
+    parser.add_argument('--compiler', required=True, choices=compilers.keys(), help=argparse.SUPPRESS)
 
     args, other = parser.parse_known_args()
 
     sources, objects, llvm_options = parse_extra_args(other)
         
     # check input files
-    ss = [s for s in sources if is_c(s) or is_fortran(s)]
-    if len(ss) > 1 and args.o:
+    if (args.c or args.E or args.S) and len(sources) > 1 and args.o:
         fail('cannot specify -o when generating multiple output files')
 
     # check mutually excluding args
@@ -276,14 +246,20 @@ if __name__ == "__main__":
         fail('Cannot use --function and --include-file/--exclude-file together')
 
     output = "-o " + args.o if args.o else ""
-    if args.c:
+
+    if args.E:
+        llvm_options += ' -E '
+        compiler_only(sources, llvm_options, output, args)
+    elif args.S:
+        llvm_options += ' -S '
+        compiler_only(sources, llvm_options, output, args)        
+    elif args.c:
         if len(sources) == 0:
             fail('no input files')
         compiler_mode(sources, llvm_options, output, args)
     else:
-        if len(sources) == 0 and len(objects) == 0:
+        if len(sources) == 0 and len(objects) == 0 and len(llvm_options) == 0:
             fail('no input files')
         compiler_mode(sources, llvm_options, "", args)
-        if not args.E:
-            linker_mode(sources + objects, llvm_options, output, args)
+        linker_mode(sources + objects, llvm_options, output, args)
             

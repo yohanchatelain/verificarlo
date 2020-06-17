@@ -21,7 +21,7 @@ did_instrument() {
 }
 
 echo "SUBTEST 1: Check that --function works"
-verificarlo --verbose -c --function f1 a.c 2> a
+verificarlo-c --verbose -c --function f1 a.c 2> a
 did_instrument f1 a
 did_not_instrument f2 a
 
@@ -32,17 +32,17 @@ cat > include.txt <<HERE
 * f1
 
 HERE
-verificarlo --verbose -c --include-file include.txt a.c 2> a
+verificarlo-c --verbose -c --include-file include.txt a.c 2> a
 did_instrument f1 a
 did_not_instrument f2 a
 
 echo "SUBTEST 3 : more complex white-list only"
 cat > include.txt <<HERE
-a f1
-b f2
+a.c f1
+b.c f2
 HERE
-verificarlo --verbose -c --include-file include.txt a.c 2> a
-verificarlo --verbose -c --include-file include.txt b.c 2> b
+verificarlo-c --verbose -c --include-file include.txt a.c 2> a
+verificarlo-c --verbose -c --include-file include.txt b.c 2> b
 did_instrument f1 a
 did_not_instrument f2 a
 did_not_instrument f1 b
@@ -50,11 +50,11 @@ did_instrument f2 b
 
 echo "SUBTEST 4 : black-list only"
 cat > exclude.txt <<HERE
-a f1
+a.c f1
 * f2
 HERE
-verificarlo --verbose -c --exclude-file exclude.txt a.c 2> a
-verificarlo --verbose -c --exclude-file exclude.txt b.c 2> b
+verificarlo-c --verbose -c --exclude-file exclude.txt a.c 2> a
+verificarlo-c --verbose -c --exclude-file exclude.txt b.c 2> b
 did_not_instrument f2 a
 did_not_instrument f1 a
 did_not_instrument f2 b
@@ -62,20 +62,20 @@ did_instrument f1 b
 
 echo "SUBTEST 5 : white-list and black-list"
 cat > include.txt <<HERE
-b f2
+b.c f2
 HERE
 cat > exclude.txt <<HERE
 * f2
 HERE
-verificarlo --verbose -c --exclude-file exclude.txt --include-file include.txt a.c 2> a
-verificarlo --verbose -c --exclude-file exclude.txt --include-file include.txt b.c 2> b
+verificarlo-c --verbose -c --exclude-file exclude.txt --include-file include.txt a.c 2> a
+verificarlo-c --verbose -c --exclude-file exclude.txt --include-file include.txt b.c 2> b
 did_not_instrument f2 a
 did_instrument f2 b
 did_instrument f1 a
 did_instrument f1 b
 
 echo "SUBTEST 6 : --function and --exclude / --include are not compatible"
-if verificarlo --verbose -c --exclude-file exclude.txt --function f1 a.c ; then
+if verificarlo-c --verbose -c --exclude-file exclude.txt --function f1 a.c ; then
   echo "THIS SHOULD FAIL"
   exit 1
 else

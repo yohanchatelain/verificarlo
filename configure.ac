@@ -38,6 +38,16 @@ fi
 AC_DEFINE_UNQUOTED([CLANG_PATH], ["$CLANG"], [CLANG path])
 AC_SUBST(CLANG_PATH, $CLANG)
 
+AC_PATH_PROG([CLANGXX], [clang++], "", $LLVM_BINDIR/ $PATH)
+if test -z "$CLANGXX"; then
+   AC_PATH_PROGS([CLANGXX], [clang++-"$LLVM_VERSION_MAJOR"."$LLVM_VERSION_MINOR" clang++], "")
+fi
+if test -z "$CLANGXX"; then
+  AC_MSG_ERROR([Could not find clang++])
+fi
+AC_DEFINE_UNQUOTED([CLANGXX_PATH], ["$CLANGXX"], [CLANGXX path])
+AC_SUBST(CLANGXX_PATH, $CLANGXX)
+
 AC_ARG_WITH([flang],
   AS_HELP_STRING([--with-flang@<:@=DIR@:>@],
     [use flang located in DIR]),
