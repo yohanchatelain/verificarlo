@@ -1,7 +1,6 @@
 ACLOCAL_AMFLAGS=-I m4
 SUBDIRS=src/ postprocess/veritracer
-dist_bin_SCRIPTS=verificarlo
-
+dist_bin_SCRIPTS=verificarlo verificarlo-c verificarlo-f verificarlo-c++
 
 edit_script = $(SED) -e 's,%LIBDIR%,$(libdir),'g $(NULL)
 
@@ -11,10 +10,30 @@ verificarlo: verificarlo.in Makefile
 	chmod a-w $@.tmp && \
 	mv $@.tmp $@
 
+verificarlo-c:
+	chmod a-w $@
+
+verificarlo-c++:
+	chmod a-w $@
+
+verificarlo-f:
+	chmod a-w $@
+
 CLEANFILES = verificarlo
 
 check:
 	@echo "Tests should be run after install with make installcheck"
 
 installcheck:
-	$(MAKE) -C tests/ check
+# Run tests
+# When successful print simple message
+# If some tests have failed, report only the failing logs for the failed tests
+	@if $(MAKE) -C tests/ check; then \
+		echo "All tests have passed."; \
+	else \
+		grep FAIL tests/testplan.log | \
+		while IFS= read -r line ; do \
+			TEST=$$(echo $$line | cut -d' ' -f4); echo "************** TEST $${TEST}"; cat tests/$${TEST}/test.log; \
+		done; \
+		exit 1; \
+	fi

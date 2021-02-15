@@ -2,9 +2,9 @@
   <img  src="img/veritracer-logo.png">
 </p>
 
-## Verificarlo v0.3.0
+## Verificarlo v0.4.1
 
-[![Build Status](https://travis-ci.org/verificarlo/verificarlo.svg?branch=master)](https://travis-ci.org/verificarlo/verificarlo)
+![Build Status](https://github.com/verificarlo/verificarlo/workflows/test-docker/badge.svg?branch=master)
 [![DOI](https://zenodo.org/badge/34260221.svg)](https://zenodo.org/badge/latestdoi/34260221)
 [![Coverity](https://scan.coverity.com/projects/19956/badge.svg)](https://scan.coverity.com/projects/verificarlo-verificarlo)
 
@@ -12,8 +12,7 @@ A tool for debugging and assessing floating point precision and reproducibility.
 
    * [Using Verificarlo through its Docker image](#using-verificarlo-through-its-docker-image)
    * [Installation](#installation)
-      * [Example on x86_64 Ubuntu 14.04 release without Fortran support](#example-on-x86_64-ubuntu-1404-release-without-fortran-support)
-      * [Fortran support](#fortran-support)
+      * [Example on x86_64 Ubuntu 20.04 release with Fortran support](#example-on-x86_64-ubuntu-2004-release-with-fortran-support)
       * [Checking installation](#checking-installation)
    * [Usage](#usage)
    * [Examples and Tutorial](#examples-and-tutorial)
@@ -36,9 +35,9 @@ A tool for debugging and assessing floating point precision and reproducibility.
 
 ## Using Verificarlo through its Docker image
 
-A docker image is available at https://hub.docker.com/r/verificarlo/verificarlo/. 
+A docker image is available at https://hub.docker.com/r/verificarlo/verificarlo/.
 This image uses the latest git master version of Verificarlo and includes
-support for Fortran. It uses llvm-3.6.1 and gcc-4.9.
+support for Fortran. It uses llvm-7 and gcc-7.
 
 Example of usage with Monte Carlo arithmetic:
 
@@ -55,12 +54,12 @@ HERE
 
 $ docker pull verificarlo/verificarlo
 $ docker run -v "$PWD":/workdir verificarlo/verificarlo \
-   verificarlo test.c -o test
+   verificarlo-c test.c -o test
 $ docker run -v "$PWD":/workdir -e VFC_BACKENDS="libinterflop_mca.so" \
    verificarlo/verificarlo ./test
 999.99999999999795364
 $ docker run -v "$PWD":/workdir -e VFC_BACKENDS="libinterflop_mca.so" \
-   verificarlo/verificarlo ./test   
+   verificarlo/verificarlo ./test
 999.99999999999761258
 ```
 
@@ -69,63 +68,35 @@ $ docker run -v "$PWD":/workdir -e VFC_BACKENDS="libinterflop_mca.so" \
 Please ensure that Verificarlo's dependencies are installed on your system:
 
   * GNU mpfr library http://www.mpfr.org/
-  * LLVM, clang and opt from 3.3 up to 9.0.1, http://clang.llvm.org/
+  * LLVM, clang and opt from 4.0 up to 10.0.1, http://clang.llvm.org/
   * gcc from 4.9
-  * For Fortran support see section Fortran support
-  * python3 and NumPy
+  * flang for Fortran support
+  * python3 with numpy and bigfloat packages
   * autotools (automake, autoconf)
 
 Then run the following command inside verificarlo directory:
 
 ```bash
    $ ./autogen.sh
-   $ ./configure --without-dragonegg
+   $ ./configure --without-flang
    $ make
    $ sudo make install
 ```
 
-### Example on x86_64 Ubuntu 14.04 release without Fortran support
+### Example on x86_64 Ubuntu 20.04 release with Fortran support
 
-For example on an x86_64 Ubuntu 14.04 release, you should use the following
+For example on an x86_64 Ubuntu 20.04 release, you should use the following
 install procedure:
 
 ```bash
-   $ sudo apt-get install libmpfr-dev clang-3.3 llvm-3.3-dev dragonegg-4.9 \
-       gcc-4.9 gfortran-4.9 autoconf automake build-essential python3 python3-numpy
+   $ sudo apt-get install libmpfr-dev clang-7 flang-7 llvm-7-dev \
+       gcc-7 autoconf automake build-essential python3 python3-numpy python3-pip
+   $ sudo pip3 install bigfloat
    $ cd verificarlo/
    $ ./autogen.sh
-   $ ./configure \
-       --with-dragonegg=/usr/lib/gcc/x86_64-linux-gnu/4.9/plugin/dragonegg.so \
-       CC=gcc-4.9
-   $ make 
+   $ ./configure --with-flang CC=gcc-7 CXX=g++-7
+   $ make
    $ sudo make install
-```
-
-### Fortran support
-
-In the upcoming release Fortran support will be provided by `flang`. In the
-meantime, if you need Fortran support you can either use the provided [docker
-image](https://hub.docker.com/r/verificarlo/verificarlo/) or follow the
-instructions below to install `dragongegg.so` with a recent gcc.
-
-```bash
-   # Install gcc-4.9, gfortran-4.9 and llvm-3.6.1 with the following commands:
-   $ sudo apt install gcc-4.9 gcc-4.9-plugin-dev g++-4.9 gfortran-4.9 libgfortran-4.9-dev
-   $ wget http://releases.llvm.org/3.6.1/clang+llvm-3.6.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
-   $ tar xvf clang+llvm-3.6.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz llvm-3.6.1
-   $ export LLVM_INSTALL_PATH=$PWD/llvm-3.6.1
-
-   # Install dragonegg
-   $ git clone -b gcc-llvm-3.6 --depth=1 https://github.com/yohanchatelain/DragonEgg.git
-   $ cd DragonEgg
-   $ LLVM_CONFIG=${LLVM_INSTALL_PATH}/bin/llvm-config GCC=gcc-4.9 CXX=g++-4.9 make
-   $ export DRAGONEGG_PATH=$PWD/dragonegg.so
-   
-   # Install Verificarlo
-   $ cd verificarlo/
-   $ ./autogen.sh
-   $ ./configure --with-llvm=${LLVM_INSTALL_PATH} --with-dragonegg=${DRAGONEGG_PATH} CC=gcc-4.9 CXX=g++4.9
-   $ make && sudo make install
 ```
 
 ### Checking installation
@@ -150,12 +121,52 @@ Then you can run the test suite with,
    $ make installcheck
 ```
 
-If you disable dragonegg support during configure, Fortran tests will be
+If you disable flang support during configure, Fortran tests will be
 disabled and considered as passing the test.
 
-
-
 ## Usage
+
+
+To automatically instrument a program with Verificarlo you must compile it using
+the `verificarlo --linker=<linker>` command, where `<linker>` depends on the targeted language:
+
+
+* `verificarlo --linker=clang`   for C
+* `verificarlo --linker=clang++` for C++
+* `verificarlo --linker=flang`   for Fortran
+
+Verificarlo uses the linker `clang` by default.
+
+You can also use the provided wrappers to call `verificarlo` with the right linker:
+
+* `verificarlo-c` for C
+* `verificarlo-c++` for C++
+* `verificarlo-f` for Fortran
+
+First make sure that the verificarlo installation
+directory is in your PATH.
+
+Then you can use the `verificarlo-c`, `verificarlo-f` and `verificarlo-c++` commands to compile your programs.
+Either modify your makefile to use `verificarlo` as the compiler (`CC=verificarlo-c`,
+`FC=verificarlo-f` and `CXX=verificarlo-c++`) and linker (`LD=verificarlo --linker=<linker>`) or use the verificarlo command
+directly:
+
+```bash
+   $ verificarlo-c program.c -o ./program
+```
+
+If you are trying to compile a shared library, such as those built by the Cython
+extension to Python, you can then also set the shared linker environment variable
+(`LDSHARED='verificarlo --linker=<linker> -shared'`) to enable position-independent linking.
+
+When invoked with the `--verbose` flag, verificarlo provides detailed output of
+the instrumentation process.
+
+It is important to include the necessary link flags if you use extra libraries.
+For example, you should include `-lm` if you are linking against the math
+library.
+
+### Veritracer usage
 
 To automatically trace a program with Veritracer, you must compile it by using
 the `verificarlo --tracer` command.
@@ -170,19 +181,6 @@ directly:
 ```bash
    $ verificarlo --tracer *.c *.f90 -o ./program
 ```
-
-If you are trying to compile a shared library, such as those built by the Cython
-extension to Python, you can then also set the shared linker environment variable
-(`LDSHARED='verificarlo -shared'`) to enable position-independent linking.
-
-When invoked with the `--verbose` flag, verificarlo provides detailed output of
-the instrumentation process.
-
-It is important to include the necessary link flags if you use extra libraries.
-For example, you should include `-lm` if you are linking against the math
-library and include `-lstdc++` if you use functions in the standard C++
-library.
-
 ## Examples and Tutorial
 
 The `tests/` directory contains various examples of Verificarlo usage.
@@ -193,16 +191,16 @@ A [tutorial](https://github.com/verificarlo/verificarlo/wiki/Tutorials) is avail
 
 Once your program is compiled with Verificarlo, it can be instrumented with
 different floating-point backends.
-At least one backend must be selected when running your application, 
+At least one backend must be selected when running your application,
 
 ```bash
-   $ verificarlo *.c -o program
+   $ verificarlo-c *.c -o program
    $ ./program
    program: VFC_BACKENDS is empty, at least one backend should be provided
 ```
 
 Backends are distributed as dynamic libraries. They are loaded with the
-environment variable `VFC_BACKENDS`. 
+environment variable `VFC_BACKENDS`.
 
 ```bash
    $ VFC_BACKENDS="libinterflop_mca.so" ./program
@@ -221,9 +219,20 @@ after each backend,
 
 ```bash
    $ VFC_BACKENDS="libinterflop_ieee.so --debug; \
-                   libinterflop_mca.so --precision-binary64 10 --mode rr" \ 
+                   libinterflop_mca.so --precision-binary64 10 --mode rr" \
                    ./program"
 ```
+
+You could also use the environment variable `VFC_BACKENDS_FROM_FILE` to
+read the value of `VFC_BACKENDS` from a file, 
+
+```bash
+   $ echo "libinterflop_ieee.so --debug; \
+           libinterflop-mca.so --precision-binary64 10 --mode rr" > config.txt
+   $ export VFC_BACKENDS_FROM_FILE=$PWD/config.txt
+```
+
+> :warning: `VFC_BACKENDS` takes precedence over `VFC_BACKENDS_FROM_FILE`
 
 To suppress the messages when loading backends, export the
 environment variable `VFC_BACKENDS_SILENT_LOAD`.
@@ -239,7 +248,7 @@ To turn loading backends messages back on, unset the environment variable.
    $ unset VFC_BACKENDS_SILENT_LOAD
 ```
 
-To suppress the messages displayed by the logger, export the 
+To suppress the messages displayed by the logger, export the
 environment variable `VFC_BACKENDS_LOGGER`.
 
 ```bash
@@ -256,7 +265,7 @@ environment variable `VFC_BACKENDS_COLORED_LOGGER`.
 
 ### IEEE Backend (libinterflop_ieee.so)
 
-The IEEE backend implements straighforward IEEE-754 arithmetic. 
+The IEEE backend implements straighforward IEEE-754 arithmetic.
 It should have no effect on the output and behavior of your program.
 
 The options `--debug` and `--debug_binary` enable verbose output that print
@@ -285,19 +294,19 @@ Info [interflop_ieee]: Decimal 1.23457e-05 / 9.87654e+12 -> 1.25e-18
 
 VFC_BACKENDS="libinterflop_ieee.so --debug-binary --print-new-line" ./test
 Info [verificarlo]: loaded backend libinterflop_ieee.so
-Info [interflop_ieee]: Binary 
-+1.100111100100000011000001011001111111010000011 x 2^-17 - 
-+1.00011111011100011111010100010000111 x 2^43 -> 
+Info [interflop_ieee]: Binary
++1.100111100100000011000001011001111111010000011 x 2^-17 -
++1.00011111011100011111010100010000111 x 2^43 ->
 -1.00011111011100011111010100010000111 x 2^43
 
-Info [interflop_ieee]: Binary 
-+1.100111100100000011000001011001111111010000011 x 2^-17 * 
-+1.00011111011100011111010100010000111 x 2^43 -> 
+Info [interflop_ieee]: Binary
++1.100111100100000011000001011001111111010000011 x 2^-17 *
++1.00011111011100011111010100010000111 x 2^43 ->
 +1.110100010010001011111111111110000011000100100110111 x 2^26
 
-Info [interflop_ieee]: Binary 
-+1.100111100100000011000001011001111111010000011 x 2^-17 / 
-+1.00011111011100011111010100010000111 x 2^43 -> 
+Info [interflop_ieee]: Binary
++1.100111100100000011000001011001111111010000011 x 2^-17 /
++1.00011111011100011111010100010000111 x 2^43 ->
 +1.0111000011101111100001010101101010010010111010010101 x 2^-60
 ...
 ```
@@ -308,16 +317,21 @@ The MCA backends implements Montecarlo Arithmetic.  It uses quad type to
 compute MCA operations on doubles and double type to compute MCA operations
 on floats. It is much faster than the legacy MCA-MPFR backend.
 
-```
+```bash
 VFC_BACKENDS="libinterflop_mca.so --help" ./test
 test: verificarlo loaded backend libinterflop_mca.so
-Usage: libinterflop_mca.so [OPTION...] 
+Usage: libinterflop_mca.so [OPTION...]
 
   -m, --mode=MODE            select MCA mode among {ieee, mca, pb, rr}
       --precision-binary32=PRECISION
                              select precision for binary32 (PRECISION >= 0)
       --precision-binary64=PRECISION
                              select precision for binary64 (PRECISION >= 0)
+      --error-mode=ERR_MODE  select error mode among (rel, abs, all)
+      --max-abs-error-exponent=ERR_EXPONENT
+                             select the magnitude of the maximum allowed
+                             absolute error (this option is only used when
+                             error-mode={abs, all})
   -d, --daz                  denormals-are-zero: sets denormals inputs to zero
   -f, --ftz                  flush-to-zero: sets denormal output to zero
   -s, --seed=SEED            fix the random generator seed
@@ -352,8 +366,22 @@ for `n` runs in the directory `exp`, you should have:
 In Random Round mode, the exact operations in given virtual precision are
 preserved.
 
-The options `--daz` and `--ftz` flush subnormal numbers to 0.  
-The `--daz` (**Denormals-Are-Zero**) flushes subnormal inputs to 0.  
+The option `--error-mode=ERR_MODE` controls the way in which the error is
+interpreted. It accepts the following modes:
+
+ * `rel`: (default mode) the error is specified relative to the magnitude of
+ the floating-point number
+ * `abs`: the error threshold is specified as an absolute value, independent of
+the value of the floating-point number, to be interpreted as 2<sup>ERR_EXPONENT</sup>
+ * `all`: both relative and absolute modes are active simultaneously
+
+The option `--max-abs-error-exponent=ERR_EXPONENT` is used only when the option
+`--error-mode=ERR_MODE` is active and controls the magnitude of the error
+threshold, when in absolute error mode or all mode. The error thershold is set
+to 2<sup>ERR_EXPONENT</sup>.
+
+The options `--daz` and `--ftz` flush subnormal numbers to 0.
+The `--daz` (**Denormals-Are-Zero**) flushes subnormal inputs to 0.
 The `--ftz` (**Flush-To-Zero**) flushes subnormal output to 0.
 
 ```bash
@@ -379,14 +407,14 @@ MCA-MPFR backend accepts the same options than the MCA backend.
 ### Bitmask Backend (libinterflop_bitmask.so)
 
 The Bitmask backend implements a fast first order model of noise. It
-relies on bitmask operations to achieve low overhead. Unlike MCA backends, 
-the introduced noise is biased, which means that the expected value of the noise 
+relies on bitmask operations to achieve low overhead. Unlike MCA backends,
+the introduced noise is biased, which means that the expected value of the noise
 is not equal to 0 as explained in [Chatelain's thesis, section 2.3.2](https://tel.archives-ouvertes.fr/tel-02473301/document).
 
 ```
 VFC_BACKENDS="libinterflop_bitmask.so --help" ./test
 test: verificarlo loaded backend libinterflop_bitmask.so
-Usage: libinterflop_bitmask.so [OPTION...] 
+Usage: libinterflop_bitmask.so [OPTION...]
 
   -m, --mode=MODE            select BITMASK mode among {ieee, full, ib, ob}
   -o, --operator=OPERATOR    select BITMASK operator among {zero, one, rand}
@@ -445,7 +473,7 @@ operation performed.
 
 ```
 Info [verificarlo]: loaded backend libinterflop_cancellation.so
-Usage: libinterflop_cancellation.so [OPTION...] 
+Usage: libinterflop_cancellation.so [OPTION...]
 
   -s, --seed=SEED            Fix the random generator seed
   -t, --tolerance=TOLERANCE  Select tolerance (TOLERANCE >= 0)
@@ -488,6 +516,11 @@ Usage: libinterflop_vprec.so [OPTION...]
                              8)
       --range-binary64=RANGE select range for binary64 (0 < RANGE && RANGE <=
                              11)
+      --error-mode=ERR_MODE  select error mode among (rel, abs, all)
+      --max-abs-error-exponent=ERR_EXPONENT
+                             select the magnitude of the maximum allowed
+                             absolute error (this option is only used when
+                             error-mode={abs, all})
   -d, --daz                  denormals-are-zero: sets denormals inputs to zero
   -f, --ftz                  flush-to-zero: sets denormal output to zero
   -?, --help                 Give this help list
@@ -514,7 +547,21 @@ the new tested format for floating-point operations in double precision
 (respectively for single precision with --range-binary32).
 It accepts an integer value that represents the magnitude of the numbers.
 
-A detailed description of the backend is given [here](https://www.researchgate.net/profile/Yohan_Chatelain/publication/335232310_Automatic_Exploration_of_Reduced_Floating-Point_Representations_in_Iterative_Methods/links/5d8e18e9a6fdcc25549f95b3/Automatic-Exploration-of-Reduced-Floating-Point-Representations-in-Iterative-Methods.pdf).
+The option `--error-mode=ERR_MODE` controls the way in which the error is
+interpreted. It accepts the following modes:
+
+ * `rel`: (default mode) the error is specified relative to the magnitude of
+ the floating-point number
+ * `abs`: the error threshold is specified as an absolute value, independent of
+the value of the floating-point number, to be interpreted as 2<sup>ERR_EXPONENT</sup>
+ * `all`: both relative and absolute modes are active simultaneously
+
+The option `--max-abs-error-exponent=ERR_EXPONENT` is used only when the option
+`--error-mode=ERR_MODE` is active and controls the magnitude of the error
+threshold, when in absolute error mode or all mode. The error thershold is set
+to 2<sup>ERR_EXPONENT</sup>.
+
+A detailed description of the backend is given [here](https://hal.archives-ouvertes.fr/hal-02564972/document).
 
 The following example shows the computation with single precision and the simulation of the `bfloat16` format with VPREC:
 
@@ -531,18 +578,19 @@ If you only wish to instrument a specific function in your program, use the
 `--function` option:
 
 ```bash
-   $ verificarlo *.c -o ./program --function=specificfunction
+   $ verificarlo-c *.c -o ./program --function=specificfunction
 ```
 
-For more complex scenarios, a white-list / black-list mechanism is also
+For more complex scenarios, a included-list / excluded-list mechanism is also
 available through the options `--include-file INCLUSION-FILE` and
 `--exclude-file EXCLUSION-FILE`.
 
 `INCLUSION-FILE` and `EXCLUSION-FILE` are files specifying which modules and
 functions should be included or excluded from Verificarlo instrumentation.
 Each line has a module name followed by a function name. Both the module or
-function name can be replaced by the wildcard `*`. Empty lines or lines
-starting with `#` are ignored.
+function name can be replaced by the wildcard `*`. You can also use 
+the wildcard like a regex expression.
+Empty lines or lines starting with `#` are ignored.
 
 ```
 # include.txt
@@ -557,10 +605,127 @@ util f2
 # module3.c
 * f3
 module3 *
+
+# include.txt
+# this inclusion file will instrument any function starting by g in main.c
+# and all functions f in any module of the directory dir
+main.c g*
+dir/* *
 ```
 
 Inclusion and exclusion files can be used together, in that case inclusion
 takes precedence over exclusion.
+
+## Function instrumentation
+
+Verificarlo can instrument the functions of a code by using the flag `--inst-func`; this flag is required by some backends which can operate at the level of function calls. For example, VPREC takes advantage this feature to explore custom precision at function granularity. This is presented in the next section.
+
+```bash
+   $ verificarlo-c main.c -o main --inst-func
+```
+
+Verificarlo will instrument every call-site, inputs and outputs can be modified by the backends. Each call-site is represented by an ID composed of his file, the name of the called function and the line of the call. This feature is complementary to the standard instrumentation of arithmetic operations inside the functions made by verificarlo and can be used together to study the floating point precision of a code more precisely.
+
+## VPREC custom precision
+
+With the function instrumentation, VPREC backend allows you to customize the precision at the function granularity and the precision of every arguments of a called function. First, the code should be compiled with the function instrumentation flag.
+
+```bash
+   $ verificarlo-c main.c -o main --inst-func
+```
+
+Then you can execute your code with the VPREC backend and set a precision profiling output file with the `--prec-output-file` parameter. 
+
+```bash
+   $ export VFC_BACKENDS="libinterflop_vprec.so --prec-output-file=output.txt" ./main
+```
+
+In this file you can see information on the functions and on floating point arguments with the following structure: 
+
+```
+file/parent/name/line/id  isInt isLib useFloat  useDouble precision_binary64 range_binary64  precision_binary32  range_binary32  nb_inputs nb_outputs  nb_calls
+input:  arg_name  type  precision   range   smallest_value  biggest_value
+...
+input:  arg_name  type  precision   range   smallest_value  biggest_value
+output: arg_name  type  precision   range   smallest_value  biggest_value
+```
+
+Where:
+  - `file` is the file which contains the call of the function
+  - `parent` is the function name where the call is executed
+  - `name` is the name of the called function
+  - `line` is the line where the function is called in the source code
+  - `id` is a unique integer used for identification
+  - `isInt` is a boolean which indicates if the function come from an intrinsic
+  - `isLib` is a boolean which indicates if the function come from a library
+  - `useFloat` is a boolean which indicates if the function uses 32 bit float
+  - `useDouble` is a boolean which indicates if the function uses 64 bit float
+  - `precision_binary64` controls the length of the mantissa for a 64 bit float for operations inside the function
+  - `range_binary64` controls the length of the exponent for a 64 bit float for operations inside the function
+  - `precision_binary32` control the length of the mantissa for a 32 bit float for operations inside the function
+  - `range_binary32` control the length of the exponent for a 64 bit float for operations inside the function
+  - `nb_inputs` is the number of floating point inputs intercepted
+  - `nb_outputs` is the number of floating point outputs intercepted
+  - `nb_calls` is the number of calls to the function from this site
+  - `type` is the type of the argument (0 = float and 1 = double)
+  - `arg_name` is the name of the argument or his number
+  - `precision` is the length of the mantissa for this argument
+  - `range` is the length of the exponent for this argument
+  - `smallest_value` is the smallest value of this argument during execution
+  - `biggest_value` is the biggest value of this argument during execution
+
+Only floating point arguments are managed by vprec, so for example this code: 
+
+```c
+double print(int n, double a, double b) {
+  for (int i = 0; i < n; i++)   
+    printf("%lf %lf\n", a, b);
+  return a + b;
+}
+
+...
+
+double res = print(1, 2.0, 3.5);
+```
+will produce this profile file:
+
+```
+main.c/main/print/11/11 0 0 0 1 52  11  23  8 2 1 1
+# a 
+input:  a 1 52  11  2 2
+# b 
+input:  b 1 52  11  3 4
+# res
+output: return_value  1 52  11  5 6
+```
+
+You are now able to customize the length of the mantissa/exponent for each argument but also to set the internal precision for floating point operations in a function compiled with verificarlo.
+To do that you can change the desired field in the profile file and use it as an input with the following command:
+
+```bash
+   $ export VFC_BACKENDS="libinterflop_vprec.so --prec-input-file=output.txt --instrument=all" ./main
+```
+
+The `--instrument` parameters set the behavior of the backend:
+  - `arguments` apply given precisions to arguments only
+  - `operations` apply given precisions to arithmetic operations inside the function only
+  - `all` apply given given precisions to arithmetic operations inside the function and to arguments
+  - `none` (default) does not apply any custom precision
+
+The program is now executed with the given configuration.
+
+You can produce a log file to summarize the vprec backend activity during the execution by giving the name of the file with the `--prec-output-file` parameter. The produced file will have the following structure:
+
+```
+  enter in file/parent/name/line/id  precision_binary64 range_binary64  precision_binary32  range_binary32
+   - file/parent/name/line/id  input type  arg_name value_before_rounding  ->    value_after_rounding  (precision, range)
+   - file/parent/name/line/id  input type  arg_name value_before_rounding  ->    value_after_rounding  (precision, range)
+    
+   ...
+    
+  exit of file/parent/name/line/id precision_binary64 range_binary64  precision_binary32  range_binary32
+   - file/parent/name/line/id  output  type  return_value  value_before_rounding  ->    value_after_rounding  (precision, range)
+```
 
 ## Postprocessing
 
@@ -655,6 +820,39 @@ using a script such as `tests/test_ddebug_archimedes/vfc_dderrors.py`, which
 returns a [quickfix](http://vimdoc.sourceforge.net/htmldoc/quickfix.html)
 compatible output with the union of _ddmin_ instructions.
 
+## Find Optimal precision with vfc_precexp and vfc_report
+
+The ``vfc_precexp`` script tries to minimize the precision for each function call 
+of a code compiled with verificarlo. To use vfc_precexp, you need to compile your code
+with the ``--inst-func`` and to write two scripts as for the [delta-debug](#pinpointing-errors-with-delta-debug):
+
+   - A first script ``exrun <output_dir>``, is responsible for running the
+     program and writing its output inside the ``<output_dir>`` folder. 
+     During exploration the code can be broken so please think about adding 
+     a timeout when you are executing your code.
+
+   - A second script ``excmp <reference_dir> <current_dir>``, takes as
+     parameter two folders including respectively the outputs from a reference
+     run and from the current run. The `exmp` script must return
+     success when the deviation between the two runs is acceptable, and fail if
+     the deviation is unacceptable.
+
+Once those two scripts are written you can launch the execution with:
+```
+./vfc_precexp exrun excmp
+```
+If you're looking for the optimal precision for a set of functions:
+```
+./vfc_precexp exrun excmp function_1 function_2 ...
+```
+
+At the end of the exploration, a ``vfc_exp_data`` directory is created and you can 
+find explorations results in ``ArgumentsResults.csv `` for arguments only , 
+``OperationsResults.csv`` for internal operations only, ``AllArgsResults.csv`` 
+and ``AllOpsResults.csv`` for arguments and internal operations.
+
+You can produce an html report with the ``vfc_report`` script, this will produce a 
+``vfc_precexp_report.html`` in the ``vfc_exp_data`` directory.
 
 ## Unstable branch detection
 

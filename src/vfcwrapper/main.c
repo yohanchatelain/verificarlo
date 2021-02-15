@@ -53,10 +53,16 @@
 
 typedef double double2 __attribute__((ext_vector_type(2)));
 typedef double double4 __attribute__((ext_vector_type(4)));
+typedef double double8 __attribute__((ext_vector_type(8)));
+typedef double double16 __attribute__((ext_vector_type(16)));
 typedef float float2 __attribute__((ext_vector_type(2)));
 typedef float float4 __attribute__((ext_vector_type(4)));
+typedef float float8 __attribute__((ext_vector_type(8)));
+typedef float float16 __attribute__((ext_vector_type(16)));
 typedef int int2 __attribute__((ext_vector_type(2)));
 typedef int int4 __attribute__((ext_vector_type(4)));
+typedef int int8 __attribute__((ext_vector_type(8)));
+typedef int int16 __attribute__((ext_vector_type(16)));
 
 typedef struct interflop_backend_interface_t (*interflop_init_t)(
     int argc, char **argv, void **context);
@@ -77,12 +83,21 @@ void logger_info(const char *fmt, ...);
 void logger_warning(const char *fmt, ...);
 void logger_error(const char *fmt, ...);
 
-static char *dd_filter_path = NULL;
+static char *dd_exclude_path = NULL;
+static char *dd_include_path = NULL;
 static char *dd_generate_path = NULL;
 
-/* Hashset implementation for deltadebug */
+/* Function instrumentation prototypes */
 
-struct hashset_st {
+void vfc_init_func_inst();
+
+void vfc_quit_func_inst();
+
+/* Hashmap header */
+
+#define __VFC_HASHMAP_HEADER__
+
+struct vfc_hashmap_st {
   size_t nbits;
   size_t mask;
 
@@ -91,28 +106,65 @@ struct hashset_st {
   size_t nitems;
   size_t n_deleted_items;
 };
-typedef struct hashset_st *hashset_t;
 
-hashset_t hashset_create(void);
-void hashset_destroy(hashset_t set);
-size_t hashset_num_items(hashset_t set);
-int hashset_add(hashset_t set, void *item);
-int hashset_is_member(hashset_t set, void *item);
+typedef struct vfc_hashmap_st *vfc_hashmap_t;
+// allocate and initialize the map
+vfc_hashmap_t vfc_hashmap_create();
 
-hashset_t dd_must_instrument;
+// free the map
+void vfc_hashmap_destroy(vfc_hashmap_t map);
 
-void ddebug_generate_inclusion(char *dd_generate_path, hashset_t set) {
+// get the value at an index of a map
+size_t get_value_at(size_t *items, size_t i);
+
+// get the key at an index of a map
+size_t get_key_at(size_t *items, size_t i);
+
+// set the value at an index of a map
+void set_value_at(size_t *items, size_t value, size_t i);
+
+// set the key at an index of a map
+void set_key_at(size_t *items, size_t key, size_t i);
+
+// insert an element in the map
+void vfc_hashmap_insert(vfc_hashmap_t map, size_t key, void *item);
+
+// remove an element of the map
+void vfc_hashmap_remove(vfc_hashmap_t map, size_t key);
+
+// test if an element is in the map
+char vfc_hashmap_have(vfc_hashmap_t map, size_t key);
+
+// get an element of the map
+void *vfc_hashmap_get(vfc_hashmap_t map, size_t key);
+
+// get the number of elements in the map
+size_t vfc_hashmap_num_items(vfc_hashmap_t map);
+
+// Hash function for strings
+size_t vfc_hashmap_str_function(const char *id);
+
+// Free the hashmap
+void vfc_hashmap_free(vfc_hashmap_t map);
+
+/* dd_must_instrument is used to apply and generate include DD filters */
+/* dd_mustnot_instrument is used to apply exclude DD filters */
+vfc_hashmap_t dd_must_instrument;
+vfc_hashmap_t dd_mustnot_instrument;
+
+void ddebug_generate_inclusion(char *dd_generate_path, vfc_hashmap_t map) {
   int output = open(dd_generate_path, O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR);
   if (output == -1) {
     logger_error("cannot open DDEBUG_GEN file %s", dd_generate_path);
   }
-  for (int i = 0; i < set->capacity; i++) {
-    if (set->items[i] != 0 && set->items[i] != 1) {
+  for (int i = 0; i < map->capacity; i++) {
+    if (get_value_at(map->items, i) != 0 && get_value_at(map->items, i) != 1) {
       pid_t pid = fork();
       if (pid == 0) {
         char addr[19];
         char executable[64];
-        snprintf(addr, 19, "%p", (void *)(set->items[i] - CALL_OP_SIZE));
+        snprintf(addr, 19, "%p",
+                 (void *)(get_value_at(map->items, i) - CALL_OP_SIZE));
         snprintf(executable, 64, "/proc/%d/exe", getppid());
         dup2(output, 1);
         execlp("addr2line", "/usr/bin/addr2line", "-fpaCs", "-e", executable,
@@ -128,14 +180,25 @@ void ddebug_generate_inclusion(char *dd_generate_path, hashset_t set) {
   close(output);
 }
 
-__attribute__((destructor)) static void vfc_atexit(void) {
+__attribute__((destructor(0))) static void vfc_atexit(void) {
+
+  /* Send finalize message to backends */
+  for (int i = 0; i < loaded_backends; i++)
+    if (backends[i].interflop_exit_function)
+      backends[i].interflop_finalize(contexts[i]);
+
 #ifdef DDEBUG
   if (dd_generate_path) {
     ddebug_generate_inclusion(dd_generate_path, dd_must_instrument);
     logger_info("ddebug: generated complete inclusion file at %s\n",
                 dd_generate_path);
   }
-  hashset_destroy(dd_must_instrument);
+  vfc_hashmap_destroy(dd_must_instrument);
+  vfc_hashmap_destroy(dd_mustnot_instrument);
+#endif
+
+#ifdef INST_FUNC
+  vfc_quit_func_inst();
 #endif
 }
 
@@ -156,8 +219,31 @@ __attribute__((destructor)) static void vfc_atexit(void) {
                    "Include one backend in VFC_BACKENDS that provides it");    \
   } while (0)
 
+/* vfc_read_filter_file reads an inclusion/exclusion ddebug file and returns
+ * an address map */
+static void vfc_read_filter_file(const char *dd_filter_path,
+                                 vfc_hashmap_t map) {
+  FILE *input = fopen(dd_filter_path, "r");
+  if (input) {
+    void *addr;
+    char line[2048];
+    int lineno = 0;
+    while (fgets(line, sizeof line, input)) {
+      lineno++;
+      if (sscanf(line, "%p", &addr) == 1) {
+        vfc_hashmap_insert(map, (size_t)addr + CALL_OP_SIZE,
+                           addr + CALL_OP_SIZE);
+      } else {
+        logger_error(
+            "ddebug: error parsing VFC_DDEBUG_[INCLUDE/EXCLUDE] %s at line %d",
+            dd_filter_path, lineno);
+      }
+    }
+  }
+}
+
 /* vfc_init is run when loading vfcwrapper and initializes vfc backends */
-__attribute__((constructor)) static void vfc_init(void) {
+__attribute__((constructor(0))) static void vfc_init(void) {
 
   /* The vfcwrapper library constructor may be loaded multiple times.  This
    * happends for example, when a .so compiled with Verificarlo is loaded with
@@ -173,14 +259,48 @@ __attribute__((constructor)) static void vfc_init(void) {
     return;
   }
 
+  /* Initialize instumentation */
+#ifdef INST_FUNC
+  vfc_init_func_inst();
+#endif
+
   /* Initialize the logger */
   logger_init();
+
+  /* Parse VFC_BACKENDS_FROM_FILE */
+  char *vfc_backends_fromfile = NULL;
+  char *vfc_backends_fromfile_file = getenv("VFC_BACKENDS_FROM_FILE");
+  if (vfc_backends_fromfile_file != NULL) {
+    FILE *fi = fopen(vfc_backends_fromfile_file, "r");
+    if (fi == NULL) {
+      logger_error(
+          "Error while opening file pointed by VFC_BACKENDS_FROM_FILE: %s",
+          strerror(errno));
+    } else {
+      size_t len = 0;
+      ssize_t nread;
+      nread = getline(&vfc_backends_fromfile, &len, fi);
+      if (nread == -1) {
+        logger_error(
+            "Error while reading file pointed by VFC_BACKENDS_FROM_FILE: %s",
+            strerror(errno));
+      } else {
+        if (vfc_backends_fromfile[nread - 1] == '\n') {
+          vfc_backends_fromfile[nread - 1] = '\0';
+        }
+      }
+    }
+  }
 
   /* Parse VFC_BACKENDS */
   char *vfc_backends = getenv("VFC_BACKENDS");
   if (vfc_backends == NULL) {
-    logger_error(
-        "VFC_BACKENDS is empty, at least one backend should be provided");
+    if (vfc_backends_fromfile == NULL) {
+      logger_error(
+          "VFC_BACKENDS is empty, at least one backend should be provided");
+    } else {
+      vfc_backends = vfc_backends_fromfile;
+    }
   }
 
   /* Environnement variable to disable loading message */
@@ -196,7 +316,6 @@ __attribute__((constructor)) static void vfc_init(void) {
   char *semicolonptr;
   char *token = strtok_r(vfc_backends, ";", &semicolonptr);
   while (token) {
-
     /* Parse each backend arguments, argv[0] is the backend name */
     int backend_argc = 0;
     char *backend_argv[MAX_ARGS];
@@ -267,46 +386,49 @@ __attribute__((constructor)) static void vfc_init(void) {
 
 #ifdef DDEBUG
   /* Initialize ddebug */
-  dd_must_instrument = hashset_create();
-  dd_filter_path = getenv("VFC_DDEBUG_INCLUDE");
+  dd_must_instrument = vfc_hashmap_create();
+  dd_mustnot_instrument = vfc_hashmap_create();
+  dd_exclude_path = getenv("VFC_DDEBUG_EXCLUDE");
+  dd_include_path = getenv("VFC_DDEBUG_INCLUDE");
   dd_generate_path = getenv("VFC_DDEBUG_GEN");
-  if (dd_filter_path && dd_generate_path) {
+  if (dd_include_path && dd_generate_path) {
     logger_error(
         "VFC_DDEBUG_INCLUDE and VFC_DDEBUG_GEN should not be both defined "
         "at the same time");
   }
-  FILE *input = fopen(dd_filter_path, "r");
-  if (input) {
-    void *addr;
-    char line[2048];
-    int lineno = 0;
-    while (fgets(line, sizeof line, input)) {
-      lineno++;
-      if (sscanf(line, "%p", &addr) == 1) {
-        hashset_add(dd_must_instrument, addr + CALL_OP_SIZE);
-      } else {
-        logger_error("ddebug: error parsing VFC_DDEBUG_INCLUDE %s at line %d",
-                     dd_filter_path, lineno);
-      }
-    }
+  if (dd_include_path) {
+    vfc_read_filter_file(dd_include_path, dd_must_instrument);
     logger_info("ddebug: only %zu addresses will be instrumented\n",
-                hashset_num_items(dd_must_instrument));
+                vfc_hashmap_num_items(dd_must_instrument));
+  }
+  if (dd_exclude_path) {
+    vfc_read_filter_file(dd_exclude_path, dd_mustnot_instrument);
+    logger_info("ddebug: %zu addresses will not be instrumented\n",
+                vfc_hashmap_num_items(dd_mustnot_instrument));
   }
 #endif
 }
 
 /* Arithmetic wrappers */
 #ifdef DDEBUG
-/* When delta-debug run flags are passed*/
+/* When delta-debug run flags are passed, check filter rules,
+ *  - exclude rules are applied first and have priority
+ * */
 #define ddebug(operator)                                                       \
   void *addr = __builtin_return_address(0);                                    \
-  if (dd_filter_path) {                                                        \
-    if (!hashset_is_member(dd_must_instrument, addr)) {                        \
+  if (dd_exclude_path) {                                                       \
+    /* Ignore addr in exclude file */                                          \
+    if (vfc_hashmap_have(dd_mustnot_instrument, (size_t)addr)) {               \
       return a operator b;                                                     \
-    } else {                                                                   \
+    }                                                                          \
+  }                                                                            \
+  if (dd_include_path) {                                                       \
+    /* Ignore addr not in include file */                                      \
+    if (!vfc_hashmap_have(dd_must_instrument, (size_t)addr)) {                 \
+      return a operator b;                                                     \
     }                                                                          \
   } else if (dd_generate_path) {                                               \
-    hashset_add(dd_must_instrument, addr);                                     \
+    vfc_hashmap_insert(dd_must_instrument, (size_t)addr, addr);                \
   }
 
 #else
@@ -378,6 +500,42 @@ int _doublecmp(enum FCMP_PREDICATE p, double a, double b) {
     return c;                                                                  \
   }
 
+#define define_8x_wrapper(precision, operation)                                \
+  precision##8 _8x##precision##operation(precision##8 a, precision##8 b) {     \
+    precision##8 c;                                                            \
+    c[0] = _##precision##operation(a[0], b[0]);                                \
+    c[1] = _##precision##operation(a[1], b[1]);                                \
+    c[2] = _##precision##operation(a[2], b[2]);                                \
+    c[3] = _##precision##operation(a[3], b[3]);                                \
+    c[4] = _##precision##operation(a[4], b[4]);                                \
+    c[5] = _##precision##operation(a[5], b[5]);                                \
+    c[6] = _##precision##operation(a[6], b[6]);                                \
+    c[7] = _##precision##operation(a[7], b[7]);                                \
+    return c;                                                                  \
+  }
+
+#define define_16x_wrapper(precision, operation)                               \
+  precision##16 _16x##precision##operation(precision##16 a, precision##16 b) { \
+    precision##16 c;                                                           \
+    c[0] = _##precision##operation(a[0], b[0]);                                \
+    c[1] = _##precision##operation(a[1], b[1]);                                \
+    c[2] = _##precision##operation(a[2], b[2]);                                \
+    c[3] = _##precision##operation(a[3], b[3]);                                \
+    c[4] = _##precision##operation(a[4], b[4]);                                \
+    c[5] = _##precision##operation(a[5], b[5]);                                \
+    c[6] = _##precision##operation(a[6], b[6]);                                \
+    c[7] = _##precision##operation(a[7], b[7]);                                \
+    c[8] = _##precision##operation(a[8], b[8]);                                \
+    c[9] = _##precision##operation(a[9], b[9]);                                \
+    c[10] = _##precision##operation(a[10], b[10]);                             \
+    c[11] = _##precision##operation(a[11], b[11]);                             \
+    c[12] = _##precision##operation(a[12], b[12]);                             \
+    c[13] = _##precision##operation(a[13], b[13]);                             \
+    c[14] = _##precision##operation(a[14], b[14]);                             \
+    c[15] = _##precision##operation(a[15], b[15]);                             \
+    return c;                                                                  \
+  }
+
 define_2x_wrapper(float, add);
 define_2x_wrapper(float, sub);
 define_2x_wrapper(float, mul);
@@ -395,6 +553,24 @@ define_4x_wrapper(double, add);
 define_4x_wrapper(double, sub);
 define_4x_wrapper(double, mul);
 define_4x_wrapper(double, div);
+
+define_8x_wrapper(float, add);
+define_8x_wrapper(float, sub);
+define_8x_wrapper(float, mul);
+define_8x_wrapper(float, div);
+define_8x_wrapper(double, add);
+define_8x_wrapper(double, sub);
+define_8x_wrapper(double, mul);
+define_8x_wrapper(double, div);
+
+define_16x_wrapper(float, add);
+define_16x_wrapper(float, sub);
+define_16x_wrapper(float, mul);
+define_16x_wrapper(float, div);
+define_16x_wrapper(double, add);
+define_16x_wrapper(double, sub);
+define_16x_wrapper(double, mul);
+define_16x_wrapper(double, div);
 
 int2 _2xdoublecmp(enum FCMP_PREDICATE p, double2 a, double2 b) {
   int2 c;
@@ -425,5 +601,52 @@ int4 _4xfloatcmp(enum FCMP_PREDICATE p, float4 a, float4 b) {
   c[1] = _floatcmp(p, a[1], b[1]);
   c[2] = _floatcmp(p, a[2], b[2]);
   c[3] = _floatcmp(p, a[3], b[3]);
+  return c;
+}
+
+int8 _8xdoublecmp(enum FCMP_PREDICATE p, double8 a, double8 b) {
+  int8 c;
+  c[0] = _doublecmp(p, a[0], b[0]);
+  c[1] = _doublecmp(p, a[1], b[1]);
+  c[2] = _doublecmp(p, a[2], b[2]);
+  c[3] = _doublecmp(p, a[3], b[3]);
+  c[4] = _doublecmp(p, a[4], b[4]);
+  c[5] = _doublecmp(p, a[5], b[5]);
+  c[6] = _doublecmp(p, a[6], b[6]);
+  c[7] = _doublecmp(p, a[7], b[7]);
+  return c;
+}
+
+int8 _8xfloatcmp(enum FCMP_PREDICATE p, float8 a, float8 b) {
+  int8 c;
+  c[0] = _floatcmp(p, a[0], b[0]);
+  c[1] = _floatcmp(p, a[1], b[1]);
+  c[2] = _floatcmp(p, a[2], b[2]);
+  c[3] = _floatcmp(p, a[3], b[3]);
+  c[4] = _floatcmp(p, a[4], b[4]);
+  c[5] = _floatcmp(p, a[5], b[5]);
+  c[6] = _floatcmp(p, a[6], b[6]);
+  c[7] = _floatcmp(p, a[7], b[7]);
+  return c;
+}
+
+int16 _16xfloatcmp(enum FCMP_PREDICATE p, float16 a, float16 b) {
+  int16 c;
+  c[0] = _floatcmp(p, a[0], b[0]);
+  c[1] = _floatcmp(p, a[1], b[1]);
+  c[2] = _floatcmp(p, a[2], b[2]);
+  c[3] = _floatcmp(p, a[3], b[3]);
+  c[4] = _floatcmp(p, a[4], b[4]);
+  c[5] = _floatcmp(p, a[5], b[5]);
+  c[6] = _floatcmp(p, a[6], b[6]);
+  c[7] = _floatcmp(p, a[7], b[7]);
+  c[8] = _floatcmp(p, a[8], b[8]);
+  c[9] = _floatcmp(p, a[9], b[9]);
+  c[10] = _floatcmp(p, a[10], b[10]);
+  c[11] = _floatcmp(p, a[11], b[11]);
+  c[12] = _floatcmp(p, a[12], b[12]);
+  c[13] = _floatcmp(p, a[13], b[13]);
+  c[14] = _floatcmp(p, a[14], b[14]);
+  c[15] = _floatcmp(p, a[15], b[15]);
   return c;
 }

@@ -1,6 +1,6 @@
 # -*- mode: m4 -*-
 #
-# Copyright (c) 2014 University of Versailles
+# Copyright (c) 2014-2020 Verificarlo Contributors
 # Copyright (c) 2012, 2013 The University of Utah
 # Copyright (c) 2008 Andy Kitchen <agimbleinthewabe@gmail.com>
 #
@@ -59,7 +59,7 @@ AC_DEFUN([AX_LLVM],
   LLVM_VERSION=`$LLVM_CONFIG --version`
   AC_DEFINE_UNQUOTED([LLVM_VERSION], ["$LLVM_VERSION"], [The llvm version])
 
-  LLVM_VERSION_MAJOR=`echo $LLVM_VERSION | cut -d'.' -f1 | cut -c 1`
+  LLVM_VERSION_MAJOR=`echo $LLVM_VERSION | cut -d'.' -f1`
   AC_DEFINE_UNQUOTED([LLVM_VERSION_MAJOR], [$LLVM_VERSION_MAJOR], [The llvm major version])
 
   LLVM_VERSION_MINOR=`echo $LLVM_VERSION | cut -d'.' -f2 | cut -c 1`
@@ -84,11 +84,7 @@ AC_DEFUN([AX_LLVM],
   AC_DEFINE_UNQUOTED([LLVM_BINDIR], ["$LLVM_BINDIR"], [The llvm bin dir])
   LLVM_CPPFLAGS=`$LLVM_CONFIG --cxxflags | sed s/-Wcovered-switch-default// | sed s/-Werror=date-time// | sed s/-Wl,--no-keep-files-mapped// | sed s/-Wstring-conversion//`
   AC_DEFINE_UNQUOTED([LLVM_CPPFLAGS], ["$LLVM_CPPFLAGS"], [The llvm CPPFLAGS])
-  if test "$LLVM_VERSION_MINOR" -gt 4; then
-    LLVM_LDFLAGS="`$LLVM_CONFIG --ldflags` `$LLVM_CONFIG --system-libs`"
-  else
-    LLVM_LDFLAGS="`$LLVM_CONFIG --ldflags` `$LLVM_CONFIG --libs`"
-  fi
+  LLVM_LDFLAGS="`$LLVM_CONFIG --ldflags` `$LLVM_CONFIG --system-libs`"
   LLVM_LIBS=`$LLVM_CONFIG --libs $3`
   LLVM_LIBDIR=`$LLVM_CONFIG --libdir`
 
@@ -130,34 +126,5 @@ llvm::Module *M = new llvm::Module("test", context);]])],
       [cannot compile and link test program with selected LLVM])
   fi
 
-
-  # Check for dragonegg
-
-  AC_ARG_WITH([dragonegg],
-          AS_HELP_STRING([--with-dragonegg@<:@=DIR@:>@],
-              [PATH of dragonegg.so]),
-          [with_dragonegg="$withval"],
-          [with_dragonegg=yes])
-
-  if test "x$with_dragonegg" = "xno"; then
-    AC_MSG_WARN(
-      [--with-dragonegg=no was given. Disabling fortran support.])
-    DRAGONEGG_PATH=""
-  else
-    if test "x$with_dragonegg" = "xyes"; then
-      DRAGONEGG_PATH="$LLVM_LIBDIR/dragonegg.so"
-    else
-      DRAGONEGG_PATH="$with_dragonegg"
-    fi
-
-    if test -z "$DRAGONEGG_PATH"; then
-        AC_MSG_ERROR(
-                [dragonegg.so could not be found at $with_dragonegg_path. Disabling fortran support.])
-        DRAGONEGG_PATH=""
-    fi
-  fi
-  AC_DEFINE_UNQUOTED([DRAGONEGG_PATH], ["$DRAGONEGG_PATH"], [The dragonegg.so path])
-
-  AC_SUBST(DRAGONEGG_PATH)
   AC_SUBST(LLVM_BINDIR)
 ])

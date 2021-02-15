@@ -7,26 +7,12 @@ set -e
 # single precision
 export VFC_BACKENDS="libinterflop_mca.so --precision-binary32 23"
 
-METHOD=EXPANDED
-if [ $# -eq 1 ]; then
-    METHOD=$1
-fi
-
-case "${METHOD}" in
-    EXPANDED) ;;
-    FACTORED) ;;
-    HORNER) ;; 
-    *)
-	echo "Inexsting method $1, choose between {EXPANDED|FACTORED|HORNER}"
-	exit 1
-esac
-	    
-verificarlo tchebychev.c -o tchebychev
+verificarlo-c tchebychev.c -o tchebychev
 
 # Run 15 iterations of tchebychev for all values in [.0:1.0:.01]
 echo "z y" > $METHOD
-# for z in $(seq 0.0 0.01 1.0); do 
-for z in $(seq 0.75 0.001 1.0); do # For zooming on the interesting part 
+# for z in $(seq 0.0 0.01 1.0); do
+for z in $(seq 0.75 0.001 1.0); do # For zooming on the interesting part
     for i in $(seq 1 15); do
         ./tchebychev $z $METHOD >> $METHOD
     done
