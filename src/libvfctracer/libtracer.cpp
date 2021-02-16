@@ -1,23 +1,22 @@
 /********************************************************************************
  *                                                                              *
- *  This file is part of Verificarlo.                                           *
+ *  This file is part of Verificarlo. *
  *                                                                              *
- *  Copyright (c) 2018                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
+ *  Copyright (c) 2018 * Universite de Versailles St-Quentin-en-Yvelines * CMLA,
+ *Ecole Normale Superieure de Cachan                                 *
  *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
+ *  Verificarlo is free software: you can redistribute it and/or modify * it
+ *under the terms of the GNU General Public License as published by        * the
+ *Free Software Foundation, either version 3 of the License, or           * (at
+ *your option) any later version.                                         *
  *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
+ *  Verificarlo is distributed in the hope that it will be useful, * but WITHOUT
+ *ANY WARRANTY; without even the implied warranty of              *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the * GNU General
+ *Public License for more details.                                *
  *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
+ *  You should have received a copy of the GNU General Public License * along
+ *with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
  *                                                                              *
  ********************************************************************************/
 
@@ -47,12 +46,30 @@
 #include <set>
 #include <unordered_map>
 
-#if LLVM_VERSION_MINOR <= 6
-#define CREATE_CALL2(func, op1, op2) (builder.CreateCall2(func, op1, op2, ""))
-#define CREATE_STRUCT_GEP(i, p) (builder.CreateStructGEP(i, p))
+#if LLVM_VERSION_MAJOR < 5
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type *)NULL)
+typedef llvm::Constant *_LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 9
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::Constant *_LLVMFunctionType;
 #else
-#define CREATE_CALL2(func, op1, op2) (builder.CreateCall(func, {op1, op2}, ""))
-#define CREATE_STRUCT_GEP(i, p) (builder.CreateStructGEP(nullptr, i, p, ""))
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::FunctionCallee _LLVMFunctionType;
 #endif
 
 using namespace llvm;
@@ -78,8 +95,9 @@ static cl::opt<bool> VfclibBlackList("vfclibblack-list",
                                      cl::value_desc("BlackList"),
                                      cl::init(false));
 
-#if LLVM_VERSION_MAJOR == 4
-auto binaryOpt = clEnumValN(vfctracerFormat::BinaryId, "binary", "Binary format");
+#if LLVM_VERSION_MAJOR >= 4
+auto binaryOpt =
+    clEnumValN(vfctracerFormat::BinaryId, "binary", "Binary format");
 auto textOpt = clEnumValN(vfctracerFormat::TextId, "text", "Text format");
 auto formatValue = cl::values(binaryOpt, textOpt);
 static cl::opt<vfctracerFormat::FormatId>
@@ -101,7 +119,7 @@ static cl::opt<vfctracerFormat::FormatId> VfclibFormat(
     cl::values(clEnumValN(vfctracerFormat::BinaryId, "binary", "Binary format"),
                clEnumValN(vfctracerFormat::TextId, "text", "Text format"),
                NULL) // sentinel
-    );
+);
 static cl::opt<vfctracer::optTracingLevel> VfclibTracingLevel(
     "vfclibtracer-level", cl::desc("Tracing Level"),
     cl::value_desc("TracingLevel"),
@@ -109,7 +127,7 @@ static cl::opt<vfctracer::optTracingLevel> VfclibTracingLevel(
                clEnumValN(vfctracer::temporary, "temporary",
                           "Allows to trace temporary variables"),
                NULL) // sentinel
-    );
+);
 #endif
 
 static cl::opt<bool> VfclibBacktrace("vfclibtracer-backtrace",
@@ -183,8 +201,8 @@ struct VfclibTracer : public ModulePass {
             dyn_cast<vfctracerData::VectorData>(D))
       backtraceFunctionName += "_x" + std::to_string(VD->getVectorSize());
 
-    Constant *hookFunc = M->getOrInsertFunction(backtraceFunctionName, voidTy,
-                                                locInfoType, (Type *)0);
+    Constant *hookFunc = GET_OR_INSERT_FUNCTION((*M), backtraceFunctionName,
+                                                voidTy, locInfoType);
 
     IRBuilder<> builder(D->getData());
     /* For FP operations, need to insert the probe after the instruction */
@@ -233,8 +251,10 @@ struct VfclibTracer : public ModulePass {
     bool modified = false;
     for (Instruction &ii : B) {
       vfctracerData::Data *D = vfctracerData::CreateData(&ii);
-      if (D == nullptr || not D->isValidOperation() || not D->isValidDataType())
+      if (D == nullptr or not D->isValidOperation() or
+          not D->isValidDataType()) {
         continue;
+      }
       modified |= insertProbe(Fmt, *D);
       if (VfclibBacktrace && modified)
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 8
@@ -246,7 +266,7 @@ struct VfclibTracer : public ModulePass {
     // M.dump();
     return modified;
   };
-    
+
   bool runOnFunction(Module &M, Function &F, vfctracerFormat::Format &Fmt) {
     if (VfclibInstVerbose) {
       errs() << "In Function: ";
@@ -267,7 +287,7 @@ struct VfclibTracer : public ModulePass {
 
     vfctracerFormat::Format *Fmt =
         vfctracerFormat::CreateFormat(M, VfclibFormat);
-    
+
     // Find the list of functions to instrument
     // Instrumentation adds stubs to mcalib function which we
     // never want to instrument.  Therefore it is important to
@@ -293,7 +313,7 @@ struct VfclibTracer : public ModulePass {
     return modified;
   }
 };
-}
+} // namespace
 
 char VfclibTracer::ID = 0;
 static RegisterPass<VfclibTracer> X("vfclibtracer", "veritracer pass", false,

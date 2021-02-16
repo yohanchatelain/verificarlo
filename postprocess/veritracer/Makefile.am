@@ -2,4 +2,4 @@ all-local:
 	$(PYTHON) setup.py build
 
 install:
-	$(PYTHON) setup.py install --prefix=${prefix} 
+	pip3 install . --prefix=${prefix} 

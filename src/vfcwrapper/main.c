@@ -26,9 +26,11 @@
 #include <dlfcn.h>
 #include <err.h>
 #include <errno.h>
+#include <execinfo.h>
 #include <fcntl.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +88,36 @@ void logger_error(const char *fmt, ...);
 static char *dd_exclude_path = NULL;
 static char *dd_include_path = NULL;
 static char *dd_generate_path = NULL;
+
+/* File for outputting values produced by veritracer */
+#define SIZE_MAX_BACKTRACE 128
+
+static FILE *trace_FILE_ptr = NULL;
+static FILE *backtrace_FILE_ptr = NULL;
+static int backtrace_fd = -1;
+static void *backtrace_buffer[SIZE_MAX_BACKTRACE];
+static char string_buffer[SIZE_MAX_BACKTRACE];
+static const char trace_filename[] = "veritracer.dat";
+static const char backtrace_filename[] = "backtrace.dat";
+static const char backtrace_separator[] = "###\n";
+
+/* vfc tracer functions */
+void vfc_tracer(void) {
+  trace_FILE_ptr = fopen(trace_filename, "wb");
+  if (trace_FILE_ptr == NULL)
+    errx(EXIT_FAILURE, "Could not open %s : %s\n", trace_filename,
+         strerror(errno));
+
+  backtrace_FILE_ptr = fopen(backtrace_filename, "w");
+  if (backtrace_FILE_ptr == NULL)
+    errx(EXIT_FAILURE, "Could not open %s : %s\n", backtrace_filename,
+         strerror(errno));
+
+  backtrace_fd = fileno(backtrace_FILE_ptr);
+  if (backtrace_fd == -1)
+    errx(EXIT_FAILURE, "Could not open %s : %s\n", backtrace_filename,
+         strerror(errno));
+}
 
 /* Function instrumentation prototypes */
 
@@ -262,6 +294,10 @@ __attribute__((constructor(0))) static void vfc_init(void) {
   /* Initialize instumentation */
 #ifdef INST_FUNC
   vfc_init_func_inst();
+#endif
+
+#ifdef VFCTRACER
+  vfc_tracer();
 #endif
 
   /* Initialize the logger */

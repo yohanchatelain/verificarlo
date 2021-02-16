@@ -1,25 +1,26 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
+import veritracer.launch
+import veritracer.analyze
+import veritracer.plot
 import argparse
 import sys
 
 import warnings
 warnings.filterwarnings("ignore")
 
-import veritracer_plot
-import veritracer_analyze
 # import veritracer_jitter
-import veritracer_launch
 
 veritracer_plugins = {}
 
-parser = argparse.ArgumentParser(description="veritracer command line", prog="veritracer")
+parser = argparse.ArgumentParser(
+    description="veritracer command line", prog="veritracer")
 subparsers = parser.add_subparsers(help="Call veritracer modules", dest="mode")
 
-veritracer_plot.init_module(subparsers, veritracer_plugins)
-veritracer_analyze.init_module(subparsers, veritracer_plugins)
+veritracer.plot.init_module(subparsers, veritracer_plugins)
+veritracer.analyze.init_module(subparsers, veritracer_plugins)
 # veritracer_jitter.init_module(subparsers, veritracer_plugins)
-veritracer_launch.init_module(subparsers, veritracer_plugins)
+veritracer.launch.init_module(subparsers, veritracer_plugins)
 
 if __name__ == "__main__":
     args = parser.parse_args()

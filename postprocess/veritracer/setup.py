@@ -10,7 +10,7 @@ if 'install' in argv:
     prefix_arg = [arg for arg in argv if arg.find('--prefix') != -1]
     prefix = "" if prefix_arg == [] else prefix_arg[0].split('=')[1]
     pkg_path = "/lib/python{major}.{minor}/site-packages/".format(major=sys.version_info.major,
-                                                              minor=sys.version_info.minor)
+                                                                  minor=sys.version_info.minor)
     pythonpath = prefix + os.sep + pkg_path
     os.environ["PYTHONPATH"] = pythonpath
 
@@ -18,7 +18,5 @@ setup(name='veritracer',
       version='0.1',
       description='veritracer: context-enriched floating point tracer',
       scripts=['bin/veritracer'],
-      packages=['veritracer','veritracer.veritracer_format'],
+      packages=['veritracer', 'veritracer.format'],
       zip_safe=False)
-
-    

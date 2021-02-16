@@ -2,27 +2,29 @@
 
 check_success() {
     if (( $? != 0 )); then
-	echo "Test ${1} failed"
-	exit 1
+        echo "Test ${1} failed"
+        exit 1
     fi
     echo -e "Test ${1} successed\n"
 }
 
 check_fail() {
     if (( $? == 0 )); then
-	echo "Test ${1} failed"
-	exit 1
+        echo "Test ${1} failed"
+        exit 1
     fi
     echo -e "Test ${1} successed\n"
 }
 
 compile() {
-    verificarlo --tracer --tracer-level=temporary test.c -o test 
+    verificarlo --tracer --tracer-level=temporary test.c -o test
 }
 
 clean() {
     rm -rf .vtrace tmp locationInfo.map empty
 }
+
+export VFC_BACKENDS="libinterflop_mca.so"
 
 clean
 compile
@@ -30,7 +32,7 @@ compile
 veritracer analyze
 check_fail 1
 
-veritracer launch --jobs=10 --binary=./test 
+veritracer launch --jobs=10 --binary=./test
 veritracer analyze
 check_success 2
 

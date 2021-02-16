@@ -1,23 +1,22 @@
 /********************************************************************************
  *                                                                              *
- *  This file is part of Verificarlo.                                           *
+ *  This file is part of Verificarlo. *
  *                                                                              *
- *  Copyright (c) 2018                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
+ *  Copyright (c) 2018 * Universite de Versailles St-Quentin-en-Yvelines * CMLA,
+ *Ecole Normale Superieure de Cachan                                 *
  *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
+ *  Verificarlo is free software: you can redistribute it and/or modify * it
+ *under the terms of the GNU General Public License as published by        * the
+ *Free Software Foundation, either version 3 of the License, or           * (at
+ *your option) any later version.                                         *
  *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
+ *  Verificarlo is distributed in the hope that it will be useful, * but WITHOUT
+ *ANY WARRANTY; without even the implied warranty of              *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the * GNU General
+ *Public License for more details.                                *
  *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
+ *  You should have received a copy of the GNU General Public License * along
+ *with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
  *                                                                              *
  ********************************************************************************/
 
@@ -54,8 +53,9 @@ static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
                                        cl::value_desc("Verbose"),
                                        cl::init(false));
 
-#if LLVM_VERSION_MAJOR == 4
-auto binaryOpt = clEnumValN(vfctracerFormat::BinaryId, "binary", "Binary format");
+#if LLVM_VERSION_MAJOR >= 4
+auto binaryOpt =
+    clEnumValN(vfctracerFormat::BinaryId, "binary", "Binary format");
 auto textOpt = clEnumValN(vfctracerFormat::TextId, "text", "Text format");
 auto formatValue = cl::values(binaryOpt, textOpt);
 static cl::opt<vfctracerFormat::FormatId>
@@ -76,7 +76,7 @@ static cl::opt<vfctracerFormat::FormatId> VfclibFormat(
     cl::values(clEnumValN(vfctracerFormat::BinaryId, "binary", "Binary format"),
                clEnumValN(vfctracerFormat::TextId, "text", "Text format"),
                NULL) // sentinel
-    );
+);
 static cl::opt<vfctracer::optTracingLevel> VfclibTracingLevel(
     "vfclibtracer-level", cl::desc("Tracing Level"),
     cl::value_desc("TracingLevel"),
@@ -84,7 +84,7 @@ static cl::opt<vfctracer::optTracingLevel> VfclibTracingLevel(
                clEnumValN(vfctracer::temporary, "temporary",
                           "Allows to trace temporary variables"),
                NULL) // sentinel
-    );
+);
 #endif
 
 static cl::opt<bool> VfclibBacktrace("vfclibtracer-backtrace",
@@ -98,7 +98,7 @@ static cl::opt<bool> VfclibDebug("vfclibtracer-debug",
                                  cl::init(false));
 
 namespace {
-  
+
 struct VfclibTracerProbe : public ModulePass {
   static char ID;
   std::unordered_map<uint64_t, std::string> locationInfoMap;
@@ -116,20 +116,23 @@ struct VfclibTracerProbe : public ModulePass {
     }
   }
 
-  void raiseErrorMsg(vfctracerData::Data * D, const std::string &msg = "") {
+  void raiseErrorMsg(vfctracerData::Data *D, const std::string &msg = "") {
     errs() << "Error while checking vfc_probe argument\n";
-    if (D) D->dump(); else errs() << "nullptr\n";
+    if (D)
+      D->dump();
+    else
+      errs() << "nullptr\n";
     errs() << msg << "\n";
-    exit(1);    
+    exit(1);
   }
 
-  void raiseErrorMsg(Instruction * I, const std::string &msg = "") {
+  void raiseErrorMsg(Instruction *I, const std::string &msg = "") {
     errs() << "Error while checking vfc_probe argument\n";
     errs() << *I << "\n";
     errs() << msg << "\n";
-    exit(1);    
+    exit(1);
   }
-  
+
   bool insertBacktraceCall(Module *M, Function *F, Instruction *I,
                            vfctracerFormat::Format *Fmt,
                            vfctracerData::Data *D) {
@@ -163,7 +166,7 @@ struct VfclibTracerProbe : public ModulePass {
     if (not D.isValidDataType())
       raiseErrorMsg(&D, "is not a valid type or is a temporary variable");
     if (VfclibInstVerbose)
-      vfctracer::VerboseMessage(D,"-probe");
+      vfctracer::VerboseMessage(D, "-probe");
     Constant *probeFunction = Fmt.CreateProbeFunctionPrototype(D);
     CallInst *probeCallInst = Fmt.InsertProbeFunctionCall(D, probeFunction);
     if (probeCallInst == nullptr) {
@@ -173,37 +176,41 @@ struct VfclibTracerProbe : public ModulePass {
     return true;
   }
 
-  void eraseVfcProbeCall(std::vector<vfctracerData::Data*> &toErase) {
+  void eraseVfcProbeCall(std::vector<vfctracerData::Data *> &toErase) {
     for (auto &D : toErase)
-      D->getData()->eraseFromParent();      
+      D->getData()->eraseFromParent();
   }
-  
+
   bool runOnBasicBlock(Module &M, BasicBlock &B, vfctracerFormat::Format &Fmt) {
-    std::vector<vfctracerData::Data*> toErase;
+    std::vector<vfctracerData::Data *> toErase;
     bool modified = false;
     for (Instruction &ii : B) {
       if (CallInst *callInst = dyn_cast<CallInst>(&ii))
-	  if (opcode::isProbeOp(callInst)) {	    
-	    vfctracerData::Data *D = vfctracerData::CreateData(callInst);
-	    if (D == nullptr) continue;
-	    if (not D->isValidOperation() || not D->isValidDataType()) {
-	      raiseErrorMsg(D, "Data is not a valid operation or not a valid data type");
-	    }
-	    modified |= insertProbe(Fmt, *D);
-	    if (modified) toErase.push_back(D);
-	    if (VfclibBacktrace && modified){
+        if (opcode::isProbeOp(callInst)) {
+          vfctracerData::Data *D = vfctracerData::CreateData(callInst);
+          if (D == nullptr)
+            continue;
+          if (not D->isValidOperation() || not D->isValidDataType()) {
+            raiseErrorMsg(
+                D, "Data is not a valid operation or not a valid data type");
+          }
+          modified |= insertProbe(Fmt, *D);
+          if (modified)
+            toErase.push_back(D);
+          if (VfclibBacktrace && modified) {
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 8
-	      insertBacktraceCall(&M, ii.getParent()->getParent(), &ii, &Fmt, D);
+            insertBacktraceCall(&M, ii.getParent()->getParent(), &ii, &Fmt, D);
 #else
-	      insertBacktraceCall(&M, ii.getFunction(), &ii, &Fmt, D);
+            insertBacktraceCall(&M, ii.getFunction(), &ii, &Fmt, D);
 #endif
-	    }
-	  }      
+          }
+        }
     }
-    if (modified) eraseVfcProbeCall(toErase);      
+    if (modified)
+      eraseVfcProbeCall(toErase);
     return modified;
   };
-  
+
   bool runOnFunction(Module &M, Function &F, vfctracerFormat::Format &Fmt) {
     if (VfclibInstVerbose) {
       errs() << "In Function: ";
@@ -223,10 +230,10 @@ struct VfclibTracerProbe : public ModulePass {
 
     vfctracerFormat::Format *Fmt =
         vfctracerFormat::CreateFormat(M, VfclibFormat);
-    
+
     std::vector<Function *> functions;
     for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-        functions.push_back(&*F);
+      functions.push_back(&*F);
     }
 
     // Finds functions with vfc_probe functions
@@ -234,15 +241,15 @@ struct VfclibTracerProbe : public ModulePass {
     for (auto &F : functions) {
       modified |= runOnFunction(M, *F, *Fmt);
     }
-    
+
     // Dump hash value
     vfctracer::dumpMapping(mappingFile);
     // runOnModule must return true if the pass modifies the IR
     return modified;
   }
 };
-}
+} // namespace
 
 char VfclibTracerProbe::ID = 0;
-static RegisterPass<VfclibTracerProbe> X("vfclibtracer-probe", "veritracer probes pass", false,
-                                    false);
+static RegisterPass<VfclibTracerProbe>
+    X("vfclibtracer-probe", "veritracer probes pass", false, false);

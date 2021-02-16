@@ -140,6 +140,7 @@ def linker_mode(sources, options, output, args):
     extra_args += "-DINST_FCMP " if args.inst_fcmp else ""
     extra_args += "-DDDEBUG " if args.ddebug else ""
     extra_args += "-DINST_FUNC " if args.inst_func else ""
+    extra_args += "-DVFCTRACER " if args.tracer else ""
 
     shell('{clang} -c -O3 -Wno-varargs {extra_args} -o .vfcwrapper.o {vfcwrapper} -I {mcalib_includes}'.format(
         clang=clang,
@@ -240,10 +241,10 @@ def compiler_mode(sources, options, output, args):
 
         if args.tracer:
             extra_args_tracer = ''
-            extra_args_tracer += '-vfclibtracer-format=' + args.tracer_format
-            extra_args_tracer += '-vfclibtracer-backtrace' if args.tracer_backtrace else ''
-            extra_args_tracer += '-vfclibtracer-debug' if args.tracer_debug_mode else ''
-            extra_args_tracer += '-vfclibtracer-level=' + args.tracer_level
+            extra_args_tracer += ' -vfclibtracer-format=' + args.tracer_format
+            extra_args_tracer += ' -vfclibtracer-backtrace' if args.tracer_backtrace else ''
+            extra_args_tracer += ' -vfclibtracer-debug' if args.tracer_debug_mode else ''
+            extra_args_tracer += ' -vfclibtracer-level=' + args.tracer_level
 
             shell(
                 f'{opt} -S -load {libvfctracer_probe} -vfclibtracer-probe {extra_args_tracer} {ir.name} -o {ins.name}')
@@ -276,7 +277,6 @@ def compiler_mode(sources, options, output, args):
             ins=ins.name
         ))
 
-        ins = ir
         if not output:
             basename_output = '-o ' + basename + '.o'
         else:

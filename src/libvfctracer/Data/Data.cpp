@@ -1,23 +1,22 @@
 /********************************************************************************
  *                                                                              *
- *  This file is part of Verificarlo.                                           *
+ *  This file is part of Verificarlo. *
  *                                                                              *
- *  Copyright (c) 2018                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
+ *  Copyright (c) 2018 * Universite de Versailles St-Quentin-en-Yvelines * CMLA,
+ *Ecole Normale Superieure de Cachan                                 *
  *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
+ *  Verificarlo is free software: you can redistribute it and/or modify * it
+ *under the terms of the GNU General Public License as published by        * the
+ *Free Software Foundation, either version 3 of the License, or           * (at
+ *your option) any later version.                                         *
  *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
+ *  Verificarlo is distributed in the hope that it will be useful, * but WITHOUT
+ *ANY WARRANTY; without even the implied warranty of              *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the * GNU General
+ *Public License for more details.                                *
  *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
+ *  You should have received a copy of the GNU General Public License * along
+ *with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
  *                                                                              *
  ********************************************************************************/
 
@@ -33,7 +32,6 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <sstream>
@@ -78,23 +76,19 @@ Data::Data(Instruction *I, DataId id) : Id(id) {
       basePointerType = nullptr;
     }
     break;
-  case opcode::Fops::CALLINST:
-    {
+  case opcode::Fops::CALLINST: {
     llvm::CallInst *callInst = dyn_cast<llvm::CallInst>(I);
     baseType = callInst->getArgOperand(0)->getType();
     basePointerType = callInst->getArgOperand(0)->getType();
-    }
-    break;    
+  } break;
   default:
     baseType = data->getType();
     basePointerType = baseType->getPointerTo();
   }
 }
 
-Module* Data::getModule() {
-  return M;
-}
-  
+Module *Data::getModule() { return M; }
+
 void Data::dump() {
   if (isa<vfctracerData::ScalarData>(this))
     errs() << "[ScalarData]\n";
@@ -102,7 +96,7 @@ void Data::dump() {
     errs() << "[VectorData]\n";
   else if (isa<vfctracerData::ProbeData>(this))
     errs() << "[ProbeData]\n";
-    
+
   errs() << "Data: " << *getData() << "\n"
          << "OpCode: " << opcode::fops_str(opcode::getOpCode(data)) << "\n"
          << "RawName: " << getRawName() << "\n"
@@ -132,11 +126,12 @@ std::string Data::getOriginalLine() {
     MDNode *N = data->getMetadata("dbg");
     MDNode *N1 = vfctracer::findVar(data, F);
     MDNode *N2 = vfctracer::findVar(data->getOperand(1), F);
-    if (not N) N = N1 == nullptr ? N2 : N1;
-    
+    if (not N)
+      N = N1 == nullptr ? N2 : N1;
+
     if (N) {
       unsigned line = 0, column = 0;
-      std::string File;      
+      std::string File;
 /* Try to get information about the address variable */
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR < 7
       DIVariable Loc(N);
@@ -145,12 +140,12 @@ std::string Data::getOriginalLine() {
 #else
       if (DILocalVariable *DILocVar = dyn_cast<DILocalVariable>(N)) {
         line = DILocVar->getLine();
-	File = DILocVar->getFilename();
+        File = DILocVar->getFilename();
       }
       if (DILocation *DILocVar = dyn_cast<DILocation>(N)) {
         line = DILocVar->getLine();
-	column = DILocVar->getColumn();
-	File = DILocVar->getFilename();
+        column = DILocVar->getColumn();
+        File = DILocVar->getFilename();
       }
 
 #endif
@@ -169,7 +164,8 @@ std::string Data::getOriginalLine() {
     }
 #else
     DebugLoc Loc = data->getDebugLoc();
-    if (not Loc) return originalLine;
+    if (not Loc)
+      return originalLine;
     unsigned line = Loc->getLine();
     std::string Line = std::to_string(line);
     unsigned column = Loc->getColumn();
@@ -177,7 +173,6 @@ std::string Data::getOriginalLine() {
     std::string File = Loc->getFilename();
     std::string Dir = Loc->getDirectory();
     originalLine = File + " " + Line + "." + Column;
-
 
 #endif
   }
@@ -233,8 +228,7 @@ bool Data::isValidDataType() const {
       return true;
     else
       return false;
-  }
-  else
+  } else
     return false;
 }
 
@@ -243,14 +237,18 @@ Data *CreateData(Instruction *I) {
   /* Checks if instruction is well formed */
   if (I->getParent() == nullptr)
     return nullptr; /* Instruction is not currently inserted into a BasicBlock
-                       */
+                     */
   if (I->getParent()->getParent() == nullptr)
     return nullptr; /* Instruction is not currently inserted into a function*/
+
+  if (opcode::isRetOp(I) and I->getType()->isVoidTy()) {
+    return nullptr;
+  }
 
   /* Avoid returning call instruction other than vfc_probe */
   if (opcode::isCallOp(I) && not opcode::isProbeOp(I))
     return nullptr;
-  
+
   if (opcode::isVectorOp(I))
     return new vfctracerData::VectorData(I);
   else if (opcode::isProbeOp(I))
@@ -258,4 +256,4 @@ Data *CreateData(Instruction *I) {
   else
     return new vfctracerData::ScalarData(I);
 }
-}
+} // namespace vfctracerData

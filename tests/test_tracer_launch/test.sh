@@ -2,22 +2,22 @@
 
 check_success() {
     if (( $? != 0 )); then
-	echo "Test ${1} failed"
-	exit 1
+        echo "Test ${1} failed"
+        exit 1
     fi
     echo "Test ${1} successed"
 }
 
 check_fail() {
     if (( $? == 0 )); then
-	echo "Test ${1} failed"
-	exit 1
+        echo "Test ${1} failed"
+        exit 1
     fi
     echo "Test ${1} successed"
 }
 
 compile() {
-    verificarlo --tracer test.c -o test 
+    verificarlo --tracer test.c -o test
 }
 
 clean() {
@@ -27,6 +27,7 @@ clean() {
 clean
 compile
 
+export VFC_BACKENDS="libinterflop_mca.so"
 
 veritracer launch --jobs=1 --binary=./test
 check_success 1

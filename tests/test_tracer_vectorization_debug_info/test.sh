@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-export VERIFICARLO_PRECISION=53
+export VFC_BACKENDS="libinterflop_mca.so"
 
 function_to_inst=sum_kahan
 
@@ -48,6 +48,8 @@ if (( $( grep "f" locationInfo.map | wc -l ) <= 0 )); then
 fi
 
 rm -rf tmp hashf.0
+
+
 veritracer launch --jobs=10 --binary="./test 10" --prefix-dir=tmp
 veritracer analyze --prefix-dir=tmp
 grep f.0 locationInfo.map | cut -d':' -f1 > hashf.0

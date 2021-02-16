@@ -1,23 +1,22 @@
 /********************************************************************************
  *                                                                              *
- *  This file is part of Verificarlo.                                           *
+ *  This file is part of Verificarlo. *
  *                                                                              *
- *  Copyright (c) 2018                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
+ *  Copyright (c) 2018 * Universite de Versailles St-Quentin-en-Yvelines * CMLA,
+ *Ecole Normale Superieure de Cachan                                 *
  *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
+ *  Verificarlo is free software: you can redistribute it and/or modify * it
+ *under the terms of the GNU General Public License as published by        * the
+ *Free Software Foundation, either version 3 of the License, or           * (at
+ *your option) any later version.                                         *
  *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
+ *  Verificarlo is distributed in the hope that it will be useful, * but WITHOUT
+ *ANY WARRANTY; without even the implied warranty of              *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the * GNU General
+ *Public License for more details.                                *
  *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
+ *  You should have received a copy of the GNU General Public License * along
+ *with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
  *                                                                              *
  ********************************************************************************/
 
@@ -155,10 +154,11 @@ bool isIgnoreOp(const Instruction *I) {
 
 bool isVectorOp(Instruction &I) {
   Type *ty = nullptr;
-  if (isStoreOp(I) or isRetOp(I))
+  if (isStoreOp(I) or isRetOp(I)) {
     ty = I.getOperand(0)->getType();
-  else
+  } else {
     ty = I.getType();
+  }
   return ty->isVectorTy();
 }
 
@@ -171,29 +171,27 @@ bool isVectorOp(const Instruction *I) {
   return ty->isVectorTy();
 }
 
-bool isCallOp(const Instruction *I) {
-  return isa<llvm::CallInst>(I);
-}
+bool isCallOp(const Instruction *I) { return isa<llvm::CallInst>(I); }
 
-bool isCallOp(const Instruction &I) {
-  return isa<llvm::CallInst>(I);
-}
-  
+bool isCallOp(const Instruction &I) { return isa<llvm::CallInst>(I); }
+
 bool isProbeOp(const Instruction *I) {
-  if (const CallInst *callInst = dyn_cast<CallInst>(I)) 
+  if (const CallInst *callInst = dyn_cast<CallInst>(I))
     if (Function *fun = callInst->getCalledFunction())
-      return isCallOp(I) && (fun->getName().find(vfctracer::vfcProbeName) != std::string::npos);
-  return false;  
-}
-
-bool isProbeOp(const Instruction &I) {
-  if (const CallInst *callInst = dyn_cast<CallInst>(&I)) 
-    if (Function *fun = callInst->getCalledFunction())
-      return isCallOp(I) && (fun->getName().find(vfctracer::vfcProbeName) != std::string::npos);
+      return isCallOp(I) && (fun->getName().find(vfctracer::vfcProbeName) !=
+                             std::string::npos);
   return false;
 }
 
-bool isCallFunOp(const Instruction *I, const std::string & functionName) {
+bool isProbeOp(const Instruction &I) {
+  if (const CallInst *callInst = dyn_cast<CallInst>(&I))
+    if (Function *fun = callInst->getCalledFunction())
+      return isCallOp(I) && (fun->getName().find(vfctracer::vfcProbeName) !=
+                             std::string::npos);
+  return false;
+}
+
+bool isCallFunOp(const Instruction *I, const std::string &functionName) {
   if (const CallInst *callInst = dyn_cast<CallInst>(I)) {
     Function *fun = callInst->getCalledFunction();
     return isCallOp(I) && fun->getName() == functionName;
@@ -202,13 +200,13 @@ bool isCallFunOp(const Instruction *I, const std::string & functionName) {
   }
 }
 
-bool isCallFunOp(const Instruction &I, const std::string & functionName) {
+bool isCallFunOp(const Instruction &I, const std::string &functionName) {
   if (const CallInst *callInst = dyn_cast<CallInst>(&I)) {
     Function *fun = callInst->getCalledFunction();
     return isCallOp(I) && fun->getName() == functionName;
   } else {
     return false;
-  }  
+  }
 }
 
 std::string fops_str(Fops op) {
@@ -235,4 +233,4 @@ std::string fops_str(Fops op) {
     llvm_unreachable("Bad Fops");
   }
 }
-}
+} // namespace opcode

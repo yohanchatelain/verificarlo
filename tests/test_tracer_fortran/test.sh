@@ -6,14 +6,14 @@ ROOT_PATH=$PWD
 LANGUAGE="FORTRAN"
 
 if grep "DRAGONEGG_PATH \"\"" ../../config.h > /dev/null; then
-	echo "this test is not run when using --without-dragonegg"
-	exit 0
+    echo "this test is not run when using --without-dragonegg"
+    exit 0
 fi
 
-check_exit_code() {    
+check_exit_code() {
     if [ $? != 0 ]; then
-       echo "${1}"
-       exit 1
+        echo "${1}"
+        exit 1
     fi
 }
 
@@ -44,62 +44,64 @@ veritracer_launch(){
 
 
 for FP_TYPE in "DOUBLE" "FLOAT"; do
-
+    
     for FMT in "binary" "text"; do
-	
-
-	cd $ROOT_PATH
-	    
-	rm -rf ${LANGUAGE}
-	rm locationInfo.map
-
-	echo "${LANGUAGE} ${FP_TYPE} ${FMT}"
-
-	if [ $LANGUAGE == "C" ]; then
-	    SOURCE_FILE=muller.c
-	elif [ $LANGUAGE == "FORTRAN" ]; then
-	    SOURCE_FILE=muller.f90
-	else
-	    echo "Unknow LANGUAGE ${LANGUAGE}"
-	    exit 1
-	fi
-	
-	FUNCTION_FILE=functions_to_inst_${LANGUAGE}.txt
-	echo " verificarlo -DNITER=${ITER} -D ${FP_TYPE} --functions-file=$FUNCTION_FILE --tracer --tracer-format=${FMT} --tracer-backtrace  ${SOURCE_FILE} -o muller_${FP_TYPE}_${FMT}_${LANGUAGE} -lm --verbose"
-	verificarlo -DNITER=${ITER} -D ${FP_TYPE} --functions-file=${FUNCTION_FILE} --tracer --tracer-format=${FMT} --tracer-backtrace  ${SOURCE_FILE} -o muller_${FP_TYPE}_${FMT}_${LANGUAGE} -lm --verbose --tracer-debug-mode --tracer-level=temporary 
-	
-	check_exit_code "Error with verificarlo compilation"
-
-	export VERIFICARLO_BACKEND=QUAD
-
-	if [[ ${FP_TYPE} == "DOUBLE" ]]; then
-	    export VERIFICARLO_PRECISION=53
-	else
-	    export VERIFICARLO_PRECISION=24
-	fi
-
-	EXP_PATH=${PWD}/${LANGUAGE}/${FP_TYPE}/${FMT}/${VERIFICARLO_PRECISION}bits/	   
-	BINARY_PATH=./muller_${FP_TYPE}_${FMT}_${LANGUAGE}
-	
-	veritracer_launch ${SAMPLES} ${EXP_PATH} ${BINARY_PATH} 
-	veritracer_analyze $FMT $EXP_PATH
-
-	if [ "$LANGUAGE" == "FORTRAN" ]; then
-	    HASH_MULLER_1=$(grep "ret" locationInfo.map | grep "44.0" | cut -d':' -f1)
-	    HASH_MULLER_2=$(grep "ret" locationInfo.map | grep "52.0" | cut -d':' -f1)
-	else
-	    HASH_MULLER_1=$(grep "muller1" locationInfo.map | grep "u_k$" | cut -d':' -f1)
-	    HASH_MULLER_2=$(grep "muller2" locationInfo.map | grep "x$" | cut -d':' -f1)
-	fi
-
-	echo "Hash muller1 ${HASH_MULLER_1}"
-	echo "Hash muller2 ${HASH_MULLER_2}"
-
-	OUTPUT_1="muller1_${FP_TYPE}_${FMT}_${LANGUAGE}.png"
-	OUTPUT_2="muller2_${FP_TYPE}_${FMT}_${LANGUAGE}.png"
-
-	veritracer_plot ${EXP_PATH} ${HASH_MULLER_1} ${OUTPUT_1}
-	veritracer_plot ${EXP_PATH} ${HASH_MULLER_2} ${OUTPUT_2}
-
+        
+        
+        cd $ROOT_PATH
+        
+        rm -rf ${LANGUAGE}
+        rm locationInfo.map
+        
+        echo "${LANGUAGE} ${FP_TYPE} ${FMT}"
+        
+        if [ $LANGUAGE == "C" ]; then
+            SOURCE_FILE=muller.c
+            elif [ $LANGUAGE == "FORTRAN" ]; then
+            SOURCE_FILE=muller.f90
+        else
+            echo "Unknow LANGUAGE ${LANGUAGE}"
+            exit 1
+        fi
+        
+        FUNCTION_FILE=functions_to_inst_${LANGUAGE}.txt
+        echo " verificarlo -DNITER=${ITER} -D ${FP_TYPE} --functions-file=$FUNCTION_FILE --tracer --tracer-format=${FMT} --tracer-backtrace  ${SOURCE_FILE} -o muller_${FP_TYPE}_${FMT}_${LANGUAGE} -lm --verbose"
+        verificarlo-f -DNITER=${ITER} -D ${FP_TYPE} --include-file=${FUNCTION_FILE} --tracer --tracer-format=${FMT} --tracer-backtrace  ${SOURCE_FILE} -o muller_${FP_TYPE}_${FMT}_${LANGUAGE} -lm --verbose --tracer-debug-mode --tracer-level=temporary
+        
+        check_exit_code "Error with verificarlo compilation"
+        
+        export VERIFICARLO_BACKEND=QUAD
+        
+        if [[ ${FP_TYPE} == "DOUBLE" ]]; then
+            export VERIFICARLO_PRECISION=53
+        else
+            export VERIFICARLO_PRECISION=24
+        fi
+        
+        export VFC_BACKENDS="libinterflop_mca.so --precision-binary64=${VERIFICARLO_PRECISION} --precision-binary32=${VERIFICARLO_PRECISION}"
+        
+        EXP_PATH=${PWD}/${LANGUAGE}/${FP_TYPE}/${FMT}/${VERIFICARLO_PRECISION}bits/
+        BINARY_PATH=./muller_${FP_TYPE}_${FMT}_${LANGUAGE}
+        
+        veritracer_launch ${SAMPLES} ${EXP_PATH} ${BINARY_PATH}
+        veritracer_analyze $FMT $EXP_PATH
+        
+        if [ "$LANGUAGE" == "FORTRAN" ]; then
+            HASH_MULLER_1=$(grep "u_k" locationInfo.map | cut -d':' -f1)
+            HASH_MULLER_2=$(grep "x" locationInfo.map | cut -d':' -f1)
+        else
+            HASH_MULLER_1=$(grep "muller1" locationInfo.map | grep "u_k$" | cut -d':' -f1)
+            HASH_MULLER_2=$(grep "muller2" locationInfo.map | grep "x$" | cut -d':' -f1)
+        fi
+        
+        echo "Hash muller1 ${HASH_MULLER_1}"
+        echo "Hash muller2 ${HASH_MULLER_2}"
+        
+        OUTPUT_1="muller1_${FP_TYPE}_${FMT}_${LANGUAGE}.png"
+        OUTPUT_2="muller2_${FP_TYPE}_${FMT}_${LANGUAGE}.png"
+        
+        veritracer_plot ${EXP_PATH} ${HASH_MULLER_1} ${OUTPUT_1}
+        veritracer_plot ${EXP_PATH} ${HASH_MULLER_2} ${OUTPUT_2}
+        
     done
 done

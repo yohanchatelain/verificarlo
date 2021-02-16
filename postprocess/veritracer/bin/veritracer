@@ -1,2 +1,2 @@
 #!/bin/bash
-exec python2 -m veritracer "$@"
+exec python3 -m veritracer "$@"

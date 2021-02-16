@@ -1,23 +1,22 @@
 /********************************************************************************
  *                                                                              *
- *  This file is part of Verificarlo.                                           *
+ *  This file is part of Verificarlo. *
  *                                                                              *
- *  Copyright (c) 2018                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
+ *  Copyright (c) 2018 * Universite de Versailles St-Quentin-en-Yvelines * CMLA,
+ *Ecole Normale Superieure de Cachan                                 *
  *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
+ *  Verificarlo is free software: you can redistribute it and/or modify * it
+ *under the terms of the GNU General Public License as published by        * the
+ *Free Software Foundation, either version 3 of the License, or           * (at
+ *your option) any later version.                                         *
  *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
+ *  Verificarlo is distributed in the hope that it will be useful, * but WITHOUT
+ *ANY WARRANTY; without even the implied warranty of              *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the * GNU General
+ *Public License for more details.                                *
  *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
+ *  You should have received a copy of the GNU General Public License * along
+ *with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
  *                                                                              *
  ********************************************************************************/
 
@@ -44,16 +43,30 @@
 #include <set>
 #include <unordered_map>
 
-#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR <= 6
-#define CREATE_CALL2(func, op1, op2) (builder.CreateCall2(func, op1, op2, ""))
+#if LLVM_VERSION_MAJOR < 5
 #define CREATE_CALL3(func, op1, op2, op3)                                      \
-  (builder.CreateCall3(func, op1, op2, op3, ""))
-#define CREATE_STRUCT_GEP(i, p) (builder.CreateStructGEP(i, p))
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type *)NULL)
+typedef llvm::Constant *_LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 9
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::Constant *_LLVMFunctionType;
 #else
-#define CREATE_CALL2(func, op1, op2) (builder.CreateCall(func, {op1, op2}, ""))
 #define CREATE_CALL3(func, op1, op2, op3)                                      \
-  (builder.CreateCall(func, {op1, op2, op3}, ""))
-#define CREATE_STRUCT_GEP(i, p) (builder.CreateStructGEP(nullptr, i, p, ""))
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::FunctionCallee _LLVMFunctionType;
 #endif
 
 #include "../vfctracer.hxx"
@@ -69,37 +82,36 @@ namespace vfctracerFormat {
 Constant *BinaryFmt::CreateProbeFunctionPrototype(Data &D) {
 
   const std::string dataTypeName = D.getDataTypeName();
-  std::string probeFunctionName = vfctracer::probePrefixName +
-                                  dataTypeName +
-                                  vfctracer::binarySuffixName;
-  
+  std::string probeFunctionName =
+      vfctracer::probePrefixName + dataTypeName + vfctracer::binarySuffixName;
+
   if (isa<vfctracerData::ProbeData>(D))
     probeFunctionName += "_ptr";
-  
+
   Type *returnType = Type::getVoidTy(M->getContext());
   Type *valueType = D.getDataType();
   Type *valuePtrType = D.getDataPtrType();
   Type *locInfoType = getLocInfoType(D);
   Constant *probeFunc =
-      M->getOrInsertFunction(probeFunctionName, returnType, valueType,
-                             valuePtrType, locInfoType, (Type *)0);
+      GET_OR_INSERT_FUNCTION((*M), probeFunctionName, returnType, valueType,
+                             valuePtrType, locInfoType);
 
   return probeFunc;
 }
 
 CallInst *BinaryFmt::InsertProbeFunctionCall(Data &D, Value *probeFunc) {
 
-  IRBuilder<> builder(D.getData());
+  IRBuilder<> Builder(D.getData());
   /* For FP operations, we need to insert the probe after the instruction */
   if (opcode::isFPOp(D.getData()))
-    builder.SetInsertPoint(D.getData()->getNextNode());
-      
+    Builder.SetInsertPoint(D.getData()->getNextNode());
+
   Value *value = D.getValue();
   if (value->getType() != D.getDataType()) {
     errs() << "Value type and Data type do not match\n";
     errs() << *value->getType() << " != " << *D.getDataType() << "\n";
   }
-  
+
   Value *valuePtr = D.getAddress();
   Value *locInfoValue = getOrCreateLocInfoValue(D);
   CallInst *callInst = nullptr;
@@ -115,14 +127,14 @@ Type *BinaryFmt::getLocInfoType(Data &D) {
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     ArrayType *arrayLocInfoType = ArrayType::get(int64Ty, vectorSize);
     return PointerType::get(arrayLocInfoType, 0);
-  } else {    
+  } else {
     llvm_unreachable("Unknow Data type");
   }
 }
 
 Type *BinaryFmt::getLocInfoType(Data *D) {
   if (isa<ScalarData>(D) || isa<ProbeData>(D)) {
-    return Type::getInt64Ty(M->getContext());    
+    return Type::getInt64Ty(M->getContext());
   } else if (VectorData *VD = dyn_cast<VectorData>(D)) {
     unsigned vectorSize = VD->getVectorSize();
     Type *int64Ty = Type::getInt64Ty(M->getContext());
@@ -140,14 +152,15 @@ Value *BinaryFmt::getOrCreateLocInfoValue(Data &D) {
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     Constant *locInfoValue = ConstantInt::get(int64Ty, keyLocInfo, false);
     return locInfoValue;
-  } else if (ProbeData *PD = dyn_cast<ProbeData>(&D)){
+  } else if (ProbeData *PD = dyn_cast<ProbeData>(&D)) {
     std::string locInfo = vfctracer::getLocInfo(PD);
     uint64_t keyLocInfo = vfctracer::getOrInsertLocInfoValue(PD, locInfo);
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     Constant *locInfoValue = ConstantInt::get(int64Ty, keyLocInfo, false);
-    return locInfoValue;    
+    return locInfoValue;
   } else if (VectorData *VD = dyn_cast<VectorData>(&D)) {
-    std::string locInfoGVname = "arrayLocInfoGV." + VD->getVariableName() + "." + VD->getRawName();
+    std::string locInfoGVname =
+        "arrayLocInfoGV." + VD->getVariableName() + "." + VD->getRawName();
     GlobalVariable *arrayLocInfoGV = M->getGlobalVariable(locInfoGVname);
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     if (arrayLocInfoGV == nullptr) {
@@ -156,7 +169,8 @@ Value *BinaryFmt::getOrCreateLocInfoValue(Data &D) {
       std::vector<Constant *> locInfoKeyVector;
       for (unsigned int i = 0; i < VD->getVectorSize(); ++i) {
         std::string ext = "." + std::to_string(i) + "." + VD->getRawName();
-        uint64_t keyLocInfo = vfctracer::getOrInsertLocInfoValue(VD, locInfo, ext);
+        uint64_t keyLocInfo =
+            vfctracer::getOrInsertLocInfoValue(VD, locInfo, ext);
         Constant *locInfoValue = ConstantInt::get(int64Ty, keyLocInfo, false);
         locInfoKeyVector.push_back(locInfoValue);
       }
@@ -187,15 +201,16 @@ Value *BinaryFmt::getOrCreateLocInfoValue(Data *D) {
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     Constant *locInfoValue = ConstantInt::get(int64Ty, keyLocInfo, false);
     return locInfoValue;
-  } else if (ProbeData *PD = dyn_cast<ProbeData>(D)){
+  } else if (ProbeData *PD = dyn_cast<ProbeData>(D)) {
     errs() << "probe\n";
     std::string locInfo = vfctracer::getLocInfo(PD);
     uint64_t keyLocInfo = vfctracer::getOrInsertLocInfoValue(PD, locInfo);
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     Constant *locInfoValue = ConstantInt::get(int64Ty, keyLocInfo, false);
-    return locInfoValue;    
+    return locInfoValue;
   } else if (VectorData *VD = dyn_cast<VectorData>(D)) {
-    std::string locInfoGVname = "arrayLocInfoGV." + VD->getVariableName() + "." + VD->getRawName();
+    std::string locInfoGVname =
+        "arrayLocInfoGV." + VD->getVariableName() + "." + VD->getRawName();
     GlobalVariable *arrayLocInfoGV = M->getGlobalVariable(locInfoGVname);
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     if (arrayLocInfoGV == nullptr) {
@@ -204,7 +219,8 @@ Value *BinaryFmt::getOrCreateLocInfoValue(Data *D) {
       std::vector<Constant *> locInfoKeyVector;
       for (unsigned int i = 0; i < VD->getVectorSize(); ++i) {
         std::string ext = "." + std::to_string(i) + "." + VD->getRawName();
-        uint64_t keyLocInfo = vfctracer::getOrInsertLocInfoValue(VD, locInfo, ext);
+        uint64_t keyLocInfo =
+            vfctracer::getOrInsertLocInfoValue(VD, locInfo, ext);
         Constant *locInfoValue = ConstantInt::get(int64Ty, keyLocInfo, false);
         locInfoKeyVector.push_back(locInfoValue);
       }
@@ -228,4 +244,4 @@ Value *BinaryFmt::getOrCreateLocInfoValue(Data *D) {
   }
 }
 
-}
+} // namespace vfctracerFormat

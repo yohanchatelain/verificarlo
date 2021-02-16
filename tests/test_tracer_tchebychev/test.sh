@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export VFC_BACKENDS="libinterflop_mca.so"
+
 make
 veritracer launch --jobs=16 --binary="tchebychev EXPANDED 100 > /dev/null" --force
 veritracer analyze --format=binary
