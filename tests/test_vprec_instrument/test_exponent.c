@@ -25,11 +25,11 @@ static void print_float(float f) {
 }
 
 static void print_log(double *d, float *f, char *log) {
-  if (d != NULL) {
+  if (d != NULL){
     print_double(*d);
-  } else if (f != NULL) {
+  }else if (f != NULL){
     print_float(*f);
-  } else {
+  }else{
     fprintf(stderr, "undefined real size\n");
   }
 
@@ -45,27 +45,29 @@ static union {
   double f;
 } t_64;
 
-double Fdouble(double a) {
-  // print_double(a);
+double Fdouble(double a)
+{
+  //print_double(a);
   print_log(&a, NULL, " <= Input");
 
   double zero = 0.0;
   double c = a + zero;
 
-  // print_double(c);
+  //print_double(c);
   print_log(&c, NULL, " <= Internal Operation");
 
   return t_64.f;
 }
 
-float Ffloat(float a) {
-  // print_float(a);
+float Ffloat(float a)
+{
+  //print_float(a);
   print_log(NULL, &a, " <= Input");
 
   float zero = 0.0;
   float c = a + zero;
 
-  // print_float(c);
+  //print_float(c);
   print_log(NULL, &c, " <= Internal Operation");
 
   return t_32.f;
@@ -78,12 +80,12 @@ int main(int argc, char const *argv[]) {
 
   float f = Ffloat(t_32.f);
 
-  // print_float(f);
+  //print_float(f);
   print_log(NULL, &f, " <= Output");
 
   double d = Fdouble(t_64.f);
 
-  // print_double(d);
+  //print_double(d);
   print_log(&d, NULL, " <= Output");
 
   return 0;
