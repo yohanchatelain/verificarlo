@@ -5,7 +5,7 @@
 #define ONE 1.0
 #define ZERO 0.0
 
-void CNAME(FLOAT *DA, FLOAT *DB, FLOAT *C, FLOAT *S){
+void CNAME(FLOAT *DA, FLOAT *DB, FLOAT *C, FLOAT *S) {
   long double da = *DA;
   long double db = *DB;
   long double c;
@@ -17,7 +17,8 @@ void CNAME(FLOAT *DA, FLOAT *DB, FLOAT *C, FLOAT *S){
   long double scale = ada + adb;
 
   roe = db;
-  if (ada > adb) roe = da;
+  if (ada > adb)
+    roe = da;
 
   if (scale == ZERO) {
     *C = ONE;
@@ -26,15 +27,16 @@ void CNAME(FLOAT *DA, FLOAT *DB, FLOAT *C, FLOAT *S){
     *DB = ZERO;
   } else {
     r = sqrt(da * da + db * db);
-    if (roe < 0) r = -r;
+    if (roe < 0)
+      r = -r;
     c = da / r;
     s = db / r;
     z = ONE;
     if (da != ZERO) {
-      if (ada > adb){
-	z = s;
+      if (ada > adb) {
+        z = s;
       } else {
-	z = ONE / c;
+        z = ONE / c;
       }
     }
 

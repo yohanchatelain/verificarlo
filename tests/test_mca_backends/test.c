@@ -1,6 +1,6 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "../../src/common/float_const.h"
 
@@ -19,21 +19,20 @@ typedef union {
 } binary32;
 
 double get_rand_double() {
-  binary64 b64 = { .s64 = mrand48() % DOUBLE_PLUS_INF };
+  binary64 b64 = {.s64 = mrand48() % DOUBLE_PLUS_INF};
   return b64.f64;
 }
 
 float get_rand_float() {
-  binary32 b32 = { .s32 = rand() % FLOAT_PLUS_INF };
+  binary32 b32 = {.s32 = rand() % FLOAT_PLUS_INF};
   return b32.f32;
 }
 
-#define FMT(X) _Generic((X), double : "%.13a", float: "%.6a")
-#define GET_RAND(X) _Generic((X), double: get_rand_double, float: get_rand_float)
+#define FMT(X) _Generic((X), double : "%.13a", float : "%.6a")
+#define GET_RAND(X)                                                            \
+  _Generic((X), double : get_rand_double, float : get_rand_float)
 
-REAL operate(REAL a, REAL b) {
-  return a OPERATION b;
-}
+REAL operate(REAL a, REAL b) { return a OPERATION b; }
 
 REAL get_rand() {
   typeof(REAL) x;
@@ -47,7 +46,7 @@ REAL get_rand() {
 static void do_test(char *fmt, REAL a, REAL b) {
   int i;
   for (i = 0; i < SAMPLES; i++) {
-    printf(fmt, a, b, operate(a,b));
+    printf(fmt, a, b, operate(a, b));
   }
 }
 
@@ -62,7 +61,7 @@ int main(void) {
   sprintf(fmt, "%s %s %s = %s\n", flt_fmt, STR_OPERATION, flt_fmt, flt_fmt);
   /* Test with NB_ITER different random operands */
   int i;
-  for (i=0; i<NB_ITER; i ++) {
+  for (i = 0; i < NB_ITER; i++) {
     do_test(fmt, get_rand(), get_rand());
   }
 

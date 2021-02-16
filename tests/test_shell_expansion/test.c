@@ -1,4 +1,2 @@
-#include<stdio.h>
-int main() {
-  printf("%s\n", PLATFORM);
-}
+#include <stdio.h>
+int main() { printf("%s\n", PLATFORM); }

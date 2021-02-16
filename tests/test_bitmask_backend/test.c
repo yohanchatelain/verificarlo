@@ -15,12 +15,12 @@ typedef union {
 } binary32;
 
 double get_rand_double() {
-  binary64 b64 = {.s64 = mrand48() % DOUBLE_PLUS_INF };
+  binary64 b64 = {.s64 = mrand48() % DOUBLE_PLUS_INF};
   return b64.f64;
 }
 
 float get_rand_float() {
-  binary32 b32 = {.s32 = rand() % FLOAT_PLUS_INF };
+  binary32 b32 = {.s32 = rand() % FLOAT_PLUS_INF};
   return b32.f32;
 }
 
@@ -36,7 +36,7 @@ REAL get_rand() {
 
 static void do_test(REAL a, REAL b) {
   for (int i = 0; i < SAMPLES; i++) {
-    printf("%.13a\n", operate(a,b));
+    printf("%.13a\n", operate(a, b));
   }
 }
 

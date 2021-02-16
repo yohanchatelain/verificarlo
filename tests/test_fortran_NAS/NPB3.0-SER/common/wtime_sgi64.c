@@ -1,10 +1,10 @@
-#include <sys/types.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <sys/immu.h>
 #include <sys/mman.h>
 #include <sys/syssgi.h>
-#include <sys/immu.h>
-#include <errno.h>
-#include <stdio.h>
+#include <sys/types.h>
 
 /* The following works on SGI Power Challenge systems */
 
@@ -17,15 +17,12 @@ double resolution;
 /* address_t is an integer type big enough to hold an address */
 typedef unsigned long address_t;
 
+void timer_init() {
 
-
-void timer_init() 
-{
-  
   int fd;
   char *virt_addr;
   address_t phys_addr, page_offset, pagemask, pagebase_addr;
-  
+
   pagemask = getpagesize() - 1;
   errno = 0;
   phys_addr = syssgi(SGI_QUERY_CYCLECNTR, &cycleval);
@@ -42,15 +39,14 @@ void timer_init()
   virt_addr = virt_addr + page_offset;
   iotimer_addr = (iotimer_t *)virt_addr;
   /* cycleval in picoseconds to this gives resolution in seconds */
-  resolution = 1.0e-12*cycleval; 
+  resolution = 1.0e-12 * cycleval;
   base_counter = *iotimer_addr;
 }
 
-void wtime_(double *time) 
-{
+void wtime_(double *time) {
   static int initialized = 0;
   volatile iotimer_t counter_value;
-  if (!initialized) { 
+  if (!initialized) {
     timer_init();
     initialized = 1;
   }
@@ -58,17 +54,13 @@ void wtime_(double *time)
   *time = (double)counter_value * resolution;
 }
 
-
-void wtime(double *time) 
-{
+void wtime(double *time) {
   static int initialized = 0;
   volatile iotimer_t counter_value;
-  if (!initialized) { 
+  if (!initialized) {
     timer_init();
     initialized = 1;
   }
   counter_value = *iotimer_addr - base_counter;
   *time = (double)counter_value * resolution;
 }
-
-

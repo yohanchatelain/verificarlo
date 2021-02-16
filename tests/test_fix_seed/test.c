@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define REAL double
 #define N_ITER 100
@@ -13,11 +13,10 @@ int main(void) {
   REAL sum = 0.0;
 
   /* Sum 0.1 N_ITER time */
-  for (i=0; i<N_ITER; i ++) {
+  for (i = 0; i < N_ITER; i++) {
     sum += 0.1;
     fprintf(stderr, "%.13a\n", sum);
   }
-
 
   return 0;
 }

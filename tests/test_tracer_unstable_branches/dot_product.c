@@ -1,6 +1,6 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 /* #include "libeft.h" */
 
 #ifdef FLOAT
@@ -21,16 +21,19 @@
 
 REAL SQRT(REAL x) {
   if (x < 0.0) {
-    fprintf(stderr, "Error while computing the square root of a negative number "REAL_FMT, x);
+    fprintf(
+        stderr,
+        "Error while computing the square root of a negative number " REAL_FMT,
+        x);
     exit(1);
   }
   return SQRTF(x);
 }
 
-__attribute__ ((noinline)) REAL randf(REAL a, REAL b) {
+__attribute__((noinline)) REAL randf(REAL a, REAL b) {
   /* real in [0,1] */
-  REAL r = (REAL)rand()/(REAL)RAND_MAX;
-  return (b-a)*r + a;
+  REAL r = (REAL)rand() / (REAL)RAND_MAX;
+  return (b - a) * r + a;
 }
 
 void shuffle_vector(int n, REAL x[n]) {
@@ -44,16 +47,16 @@ void shuffle_vector(int n, REAL x[n]) {
 }
 
 void print_vector(int n, REAL x[n], char *msg) {
-  printf("--%s--\n",msg);
+  printf("--%s--\n", msg);
   for (int i = 0; i < n; i++)
-    printf("%+.17e\n",x[i]);
+    printf("%+.17e\n", x[i]);
   printf("-----\n");
 }
 
 REAL naive_dot_product(int n, REAL x[n], REAL y[n]) {
   REAL res = 0.0;
   for (int i = 0; i < n; i++)
-    res += x[i]*y[i];
+    res += x[i] * y[i];
   return res;
 }
 
@@ -61,20 +64,20 @@ void gen_ill_dot(int n, REAL x[n], REAL y[n]) {
   for (int i = 0; i < n; i++) {
     x[i] = 0.1 * i;
     y[i] = 0.01 * i * i;
-  }   
+  }
 }
 
-void gen_well_dot(int n, REAL x[n], REAL y[n]){
+void gen_well_dot(int n, REAL x[n], REAL y[n]) {
   for (int i = 0; i < n; i++) {
-    x[i] = randf(0,1);
-    y[i] = randf(0,1);
-  }  
+    x[i] = randf(0, 1);
+    y[i] = randf(0, 1);
+  }
 }
 
-void gen_zero_dot(int n, REAL x[n], REAL y[n]){
+void gen_zero_dot(int n, REAL x[n], REAL y[n]) {
   for (int i = 0; i < n; i++) {
-    x[i] = randf(-1,1);
-    y[i] = POW(-1,i)*(1/(x[i]));
+    x[i] = randf(-1, 1);
+    y[i] = POW(-1, i) * (1 / (x[i]));
   }
 }
 
@@ -85,34 +88,34 @@ void init(int n, REAL x[n], REAL init) {
 
 void dot_zero(int n, REAL x[n], REAL y[n]) {
   REAL dot_naive, dot_accurate;
-  gen_zero_dot(n,x,y);
-  dot_naive = naive_dot_product(n,x,y);
+  gen_zero_dot(n, x, y);
+  dot_naive = naive_dot_product(n, x, y);
 }
 
 void dot_well(int n, REAL x[n], REAL y[n]) {
   REAL dot_naive, dot_accurate;
-  gen_well_dot(n,x,y);
-  dot_naive = naive_dot_product(n,x,y);
+  gen_well_dot(n, x, y);
+  dot_naive = naive_dot_product(n, x, y);
 }
 
-int main(int argc, char * argv[]) {
+int main(int argc, char *argv[]) {
 
   if (argc != 2) {
     fprintf(stderr, "1 arg expected\n");
     return 1;
   }
-  
+
   int n = atoi(argv[1]);
   REAL c = 10;
-  REAL x[n],y[n];
-  init(n,x,0);
-  init(n,y,0);
-  
-  for (int i = 0 ; i < 50; i++) {
+  REAL x[n], y[n];
+  init(n, x, 0);
+  init(n, y, 0);
+
+  for (int i = 0; i < 50; i++) {
     if (rand() % 2 == 0)
-      dot_zero(n,x,y);
+      dot_zero(n, x, y);
     else
-      dot_well(n,x,y);
+      dot_well(n, x, y);
   }
   return 0;
 }

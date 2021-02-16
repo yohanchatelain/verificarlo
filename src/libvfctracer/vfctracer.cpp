@@ -1,23 +1,22 @@
 /********************************************************************************
  *                                                                              *
- *  This file is part of Verificarlo.                                           *
+ *  This file is part of Verificarlo. *
  *                                                                              *
- *  Copyright (c) 2018                                                          *
- *     Universite de Versailles St-Quentin-en-Yvelines                          *
- *     CMLA, Ecole Normale Superieure de Cachan                                 *
+ *  Copyright (c) 2018 * Universite de Versailles St-Quentin-en-Yvelines * CMLA,
+ *Ecole Normale Superieure de Cachan                                 *
  *                                                                              *
- *  Verificarlo is free software: you can redistribute it and/or modify         *
- *  it under the terms of the GNU General Public License as published by        *
- *  the Free Software Foundation, either version 3 of the License, or           *
- *  (at your option) any later version.                                         *
+ *  Verificarlo is free software: you can redistribute it and/or modify * it
+ *under the terms of the GNU General Public License as published by        * the
+ *Free Software Foundation, either version 3 of the License, or           * (at
+ *your option) any later version.                                         *
  *                                                                              *
- *  Verificarlo is distributed in the hope that it will be useful,              *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of              *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
- *  GNU General Public License for more details.                                *
+ *  Verificarlo is distributed in the hope that it will be useful, * but WITHOUT
+ *ANY WARRANTY; without even the implied warranty of              *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the * GNU General
+ *Public License for more details.                                *
  *                                                                              *
- *  You should have received a copy of the GNU General Public License           *
- *  along with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
+ *  You should have received a copy of the GNU General Public License * along
+ *with Verificarlo.  If not, see <http://www.gnu.org/licenses/>.        *
  *                                                                              *
  ********************************************************************************/
 
@@ -65,22 +64,24 @@ locinfomap locInfoMap = {};
 std::hash<std::string> locInfoHasher;
 optTracingLevel tracingLevel;
 
-uint64_t getOrInsertLocInfoValue(Data &D, std::string &locInfo, std::string ext) {
+uint64_t getOrInsertLocInfoValue(Data &D, std::string &locInfo,
+                                 std::string ext) {
   std::string rawName = D.getRawName();
   std::string locInfoExt = locInfo + ext;
-  uint64_t hashLocInfo = locInfoHasher(locInfoExt+rawName);
+  uint64_t hashLocInfo = locInfoHasher(locInfoExt + rawName);
   locInfoMap[hashLocInfo] = locInfoExt;
   return hashLocInfo;
 }
 
-uint64_t getOrInsertLocInfoValue(Data *D, std::string &locInfo, std::string ext) {
+uint64_t getOrInsertLocInfoValue(Data *D, std::string &locInfo,
+                                 std::string ext) {
   std::string rawName = D->getRawName();
   std::string locInfoExt = locInfo + ext;
-  uint64_t hashLocInfo = locInfoHasher(locInfoExt+rawName);
+  uint64_t hashLocInfo = locInfoHasher(locInfoExt + rawName);
   locInfoMap[hashLocInfo] = locInfoExt;
   return hashLocInfo;
 }
-    
+
 std::string getBaseTypeName(Type *baseType) {
   if (baseType->isPointerTy()) {
     PointerType *ptrTy = cast<PointerType>(baseType);
@@ -178,14 +179,16 @@ void VerboseMessage(Data &D, const std::string &msg) {
 }
 
 std::string getLocInfo(Data &D) {
-  std::string locInfo = D.getDataTypeName() + " ; " + D.getFunctionName() + " ; " +
-                        D.getOriginalLine() + " ; " + D.getVariableName();
+  std::string locInfo = D.getDataTypeName() + " ; " + D.getFunctionName() +
+                        " ; " + D.getOriginalLine() + " ; " +
+                        D.getVariableName();
   return locInfo;
 }
 
 std::string getLocInfo(Data *D) {
-  std::string locInfo = D->getDataTypeName() + " ; " + D->getFunctionName() + " ; " +
-                        D->getOriginalLine() + " ; " + D->getVariableName();
+  std::string locInfo = D->getDataTypeName() + " ; " + D->getFunctionName() +
+                        " ; " + D->getOriginalLine() + " ; " +
+                        D->getVariableName();
   return locInfo;
 }
 
@@ -198,8 +201,9 @@ void dumpMapping(std::ofstream &mappingFile) {
 }
 
 void ltrim(std::string &s) {
-  s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-                                  [](int ch) { return !std::isspace(ch) && ch!=0; }));
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
+            return !std::isspace(ch) && ch != 0;
+          }));
 }
 
 /* Ugly hack to redirect a raw_fd_ostream (errs()) into a string */
@@ -292,16 +296,16 @@ std::string getOriginalName(const Value *V) {
     }
     std::string to_return = (nameVector.empty()) ? "" : nameVector.front();
 
-    if (opcode::isFPOp(I) && nameVector.size() == 2) {      
+    if (opcode::isFPOp(I) && nameVector.size() == 2) {
       to_return = nameVector[0] + opcode::getOpStr(I) + nameVector[1];
     } else {
       for (unsigned int i = 1; i < nameVector.size(); i++)
-	to_return += "," + nameVector[i];
+        to_return += "," + nameVector[i];
     }
-    
+
     if (not to_return.empty())
       return to_return;
   }
   return vfctracer::temporaryVariableName;
 }
-}
+} // namespace vfctracer

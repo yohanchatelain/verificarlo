@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 REAL perform_bin_op(REAL a, REAL b, char op) {
-  switch(op){
+  switch (op) {
   case '+':
     return (a) + (b);
   case '-':
@@ -12,12 +12,12 @@ REAL perform_bin_op(REAL a, REAL b, char op) {
   case '/':
     return (a) / (b);
   default:
-    fprintf(stderr, "Bad op %c\n",op);
+    fprintf(stderr, "Bad op %c\n", op);
     exit(EXIT_FAILURE);
   }
 }
 
-int main(int argc, char * argv[]) {
+int main(int argc, char *argv[]) {
 
   if (argc != 4) {
     fprintf(stderr, "3 arguments expected: a b op\n");
@@ -28,9 +28,9 @@ int main(int argc, char * argv[]) {
   REAL b = strtod(argv[2], NULL);
   char op = argv[3][0];
 
-  REAL c = perform_bin_op(a,b,op);
+  REAL c = perform_bin_op(a, b, op);
 
-  printf("%a\n",c);
+  printf("%a\n", c);
 
   return 0;
 }

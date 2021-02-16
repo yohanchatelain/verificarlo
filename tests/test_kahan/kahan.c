@@ -4,12 +4,12 @@
 ** Computes sums using the Kahan correction algorithm.
 */
 
+#include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h> /* for rand() */
+#include <time.h>   /* for time() */
 #include <unistd.h> /* for getpid() */
-#include <time.h> /* for time() */
-#include <math.h>
-#include <assert.h>
 /* construct REAL "type," depending on desired precision */
 #ifdef DOUBLE
 #define REAL double
@@ -26,111 +26,104 @@ REAL ABS(REAL);
 #define ABS(x) fabsf(x) /* single-precision version */
 #endif
 
-__attribute__ ((noinline))  REAL sum_kahan(const REAL f[],int N)
-{
-/*
-** Implementation of the Kahan summation algorithm, taken from the
-** following Wikipedia entry:
-** http://en.wikipedia.org/wiki/Kahan_summation_algorithm
-*/
+__attribute__((noinline)) REAL sum_kahan(const REAL f[], int N) {
+  /*
+  ** Implementation of the Kahan summation algorithm, taken from the
+  ** following Wikipedia entry:
+  ** http://en.wikipedia.org/wiki/Kahan_summation_algorithm
+  */
 
-    REAL sum = f[0];
-    REAL c = 0.0,y,t;
-    int i;
+  REAL sum = f[0];
+  REAL c = 0.0, y, t;
+  int i;
 
-    for (i=1;i<N;i++) {
-        y = f[i] - c;
-        t = sum + y;
-        c = (t - sum) - y;
-        sum = t;
-    }
+  for (i = 1; i < N; i++) {
+    y = f[i] - c;
+    t = sum + y;
+    c = (t - sum) - y;
+    sum = t;
+  }
 
-    return sum;
+  return sum;
 }
 
-
 /* __attribute__ ((noinline))  REAL sum_naive(REAL f[], int N) */
-  float sum_naive(float f[], int N)
-{
+float sum_naive(float f[], int N) {
 
   /* REAL sum = 0.0, sum2, sum4; */
   float sum = 0.0;
   int i;
 
-  for (i=0;i<N;i++) {
-    f[i] = f[i]+f[i];
+  for (i = 0; i < N; i++) {
+    f[i] = f[i] + f[i];
     /* sum += f[i]+f[i]; */
   }
 
   return sum;
 }
 
+void fill_array(REAL f[], int N) {
+  /* fill array with random values between 0 and 1 */
 
-void fill_array(REAL f[],int N)
-{
-/* fill array with random values between 0 and 1 */
+  int i;
 
-    int i;
-
-    for (i=0;i<N;i++)
-        f[i] = (REAL) rand()/RAND_MAX;
+  for (i = 0; i < N; i++)
+    f[i] = (REAL)rand() / RAND_MAX;
 }
 
-void show_sums(const REAL f[],int N)
-{
-    REAL rSumKahan = sum_kahan(f,N);
+void show_sums(const REAL f[], int N) {
+  REAL rSumKahan = sum_kahan(f, N);
 
-    assert(rSumKahan > 0.0); /* to ensure no division by zero */
+  assert(rSumKahan > 0.0); /* to ensure no division by zero */
 
 #ifdef DOUBLE
-    printf("Kahan = %.16e\n", rSumKahan);
+  printf("Kahan = %.16e\n", rSumKahan);
 #else
-    printf("Kahan = %.7e\n", rSumKahan);
+  printf("Kahan = %.7e\n", rSumKahan);
 #endif
-
 }
 
-int main(int argc,char *argv[])
-{
-    printf("Kahan summation algorithm.\n");
+int main(int argc, char *argv[]) {
+  printf("Kahan summation algorithm.\n");
 
-/* check arguments */
+  /* check arguments */
 
-    if (argc != 2) {
-        fprintf(stderr,"Usage: %s array-size.\n",argv[0]);
-        return 1;
-    }
+  if (argc != 2) {
+    fprintf(stderr, "Usage: %s array-size.\n", argv[0]);
+    return 1;
+  }
 
-    int N = atoi(argv[1]);
+  int N = atoi(argv[1]);
 
-    if (N < 1) {
-        fprintf(stderr,"Array size must be positive.\n");
-        return 1;
-    }
+  if (N < 1) {
+    fprintf(stderr, "Array size must be positive.\n");
+    return 1;
+  }
 
-/* show relevant compile-time options, if any */
+  /* show relevant compile-time options, if any */
 
-    printf("Compile-time options: ");
+  printf("Compile-time options: ");
 #ifdef DOUBLE
-    printf("DOUBLE");
+  printf("DOUBLE");
 #else
-    printf("none");
+  printf("none");
 #endif
-    printf(".\n");
+  printf(".\n");
 
-/* seed the random number generator based on the current time and process IDs */
+  /* seed the random number generator based on the current time and process IDs
+   */
 
-    //unsigned int seed =  time(NULL)%getpid() + getppid();
-    unsigned int seed = 0;
-    srand(seed);
-    printf("Random number seed = %i.\n",seed);
+  // unsigned int seed =  time(NULL)%getpid() + getppid();
+  unsigned int seed = 0;
+  srand(seed);
+  printf("Random number seed = %i.\n", seed);
 
-/* assign space to array */
+  /* assign space to array */
 
-    REAL f[N];
-    printf("Input: array size = %i.\n",N);
+  REAL f[N];
+  printf("Input: array size = %i.\n", N);
 
-    fill_array(f,N);
-    show_sums(f,N);
-    return 0;
+  fill_array(f, N);
+  show_sums(f, N);
+  return 0;
 }
