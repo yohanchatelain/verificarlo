@@ -218,6 +218,7 @@ void _veritracer_probe_binary64_binary(double value, double *value_ptr,
   fmt.value_ptr = value_ptr;
   fmt.hash_LI = hash_LI;
   fmt.value = value;
+  fprintf(stderr, "Writing %f into %p\n", value, trace_FILE_ptr);
   fwrite(&fmt, sizeof_binary64_fmt, 1, trace_FILE_ptr);
 }
 
@@ -289,4 +290,41 @@ void get_backtrace_x4(uint64_t hash_LI[4]) {
   sprintf(string_buffer, "%020lu.%020lu.%020lu.%020lu%s", hash_LI[0],
           hash_LI[1], hash_LI[2], hash_LI[3], backtrace_separator);
   write(backtrace_fd, string_buffer, sizeof(string_buffer) - 1);
+}
+
+int file_exist(const char *filename) {
+  struct stat buffer;
+  return stat(trace_filename, &buffer) == 0;
+}
+
+/* vfc tracer functions */
+void vfc_tracer_init(void) {
+  char *mode = NULL;
+  mode = (file_exist(trace_filename)) ? "ab" : "wb";
+  trace_FILE_ptr = fopen(trace_filename, mode);
+  if (trace_FILE_ptr == NULL)
+    errx(EXIT_FAILURE, "Could not open %s : %s\n", trace_filename,
+         strerror(errno));
+
+  mode = (file_exist(backtrace_filename)) ? "a" : "w";
+  backtrace_FILE_ptr = fopen(backtrace_filename, mode);
+  if (backtrace_FILE_ptr == NULL)
+    errx(EXIT_FAILURE, "Could not open %s : %s\n", backtrace_filename,
+         strerror(errno));
+
+  backtrace_fd = fileno(backtrace_FILE_ptr);
+  if (backtrace_fd == -1)
+    errx(EXIT_FAILURE, "Could not open %s : %s\n", backtrace_filename,
+         strerror(errno));
+}
+
+void vfc_tracer_exit(void) {
+  if (trace_FILE_ptr != NULL) {
+    fflush(trace_FILE_ptr);
+    fclose(trace_FILE_ptr);
+  }
+  if (backtrace_FILE_ptr != NULL) {
+    fflush(backtrace_FILE_ptr);
+    fclose(backtrace_FILE_ptr);
+  }
 }

@@ -92,7 +92,6 @@ static char *dd_generate_path = NULL;
 
 /* File for outputting values produced by veritracer */
 #define SIZE_MAX_BACKTRACE 128
-
 static FILE *trace_FILE_ptr = NULL;
 static FILE *backtrace_FILE_ptr = NULL;
 static int backtrace_fd = -1;
@@ -102,23 +101,9 @@ static const char trace_filename[] = "veritracer.dat";
 static const char backtrace_filename[] = "backtrace.dat";
 static const char backtrace_separator[] = "###\n";
 
-/* vfc tracer functions */
-void vfc_tracer(void) {
-  trace_FILE_ptr = fopen(trace_filename, "wb");
-  if (trace_FILE_ptr == NULL)
-    errx(EXIT_FAILURE, "Could not open %s : %s\n", trace_filename,
-         strerror(errno));
-
-  backtrace_FILE_ptr = fopen(backtrace_filename, "w");
-  if (backtrace_FILE_ptr == NULL)
-    errx(EXIT_FAILURE, "Could not open %s : %s\n", backtrace_filename,
-         strerror(errno));
-
-  backtrace_fd = fileno(backtrace_FILE_ptr);
-  if (backtrace_fd == -1)
-    errx(EXIT_FAILURE, "Could not open %s : %s\n", backtrace_filename,
-         strerror(errno));
-}
+int file_exist(const char *);
+void vfc_tracer_init(void);
+void vfc_tracer_exit(void);
 
 /* Function instrumentation prototypes */
 
@@ -233,6 +218,10 @@ __attribute__((destructor(0))) static void vfc_atexit(void) {
 #ifdef INST_FUNC
   vfc_quit_func_inst();
 #endif
+
+#ifdef VFCTRACER
+  vfc_tracer_exit();
+#endif
 }
 
 /* Checks that a least one of the loaded backend implements the chosen
@@ -298,7 +287,7 @@ __attribute__((constructor(0))) static void vfc_init(void) {
 #endif
 
 #ifdef VFCTRACER
-  vfc_tracer();
+  vfc_tracer_init();
 #endif
 
   /* Initialize the logger */
