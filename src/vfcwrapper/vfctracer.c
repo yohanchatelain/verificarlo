@@ -218,7 +218,6 @@ void _veritracer_probe_binary64_binary(double value, double *value_ptr,
   fmt.value_ptr = value_ptr;
   fmt.hash_LI = hash_LI;
   fmt.value = value;
-  fprintf(stderr, "Writing %f into %p\n", value, trace_FILE_ptr);
   fwrite(&fmt, sizeof_binary64_fmt, 1, trace_FILE_ptr);
 }
 
