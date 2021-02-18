@@ -31,6 +31,31 @@
 
 #include "../Data/Data.hxx"
 
+#if LLVM_VERSION_MAJOR < 5
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__, (Type *)NULL)
+typedef llvm::Constant *_LLVMFunctionType;
+#elif LLVM_VERSION_MAJOR < 9
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::Constant *_LLVMFunctionType;
+#else
+#define CREATE_CALL3(func, op1, op2, op3)                                      \
+  (Builder.CreateCall(func, {op1, op2, op3}, ""))
+#define CREATE_CALL2(func, op1, op2) (Builder.CreateCall(func, {op1, op2}, ""))
+#define CREATE_STRUCT_GEP(t, i, p) (Builder.CreateStructGEP(t, i, p, ""))
+#define GET_OR_INSERT_FUNCTION(M, name, res, ...)                              \
+  M.getOrInsertFunction(name, res, __VA_ARGS__)
+typedef llvm::FunctionCallee _LLVMFunctionType;
+#endif
 namespace vfctracerFormat {
 
 enum FormatId { BinaryId, TextId };
@@ -51,10 +76,11 @@ public:
   virtual llvm::Type *getLocInfoType(vfctracerData::Data *D) = 0;
   virtual llvm::Value *getOrCreateLocInfoValue(vfctracerData::Data &D) = 0;
   virtual llvm::Value *getOrCreateLocInfoValue(vfctracerData::Data *D) = 0;
-  virtual llvm::Constant *
+  virtual _LLVMFunctionType
   CreateProbeFunctionPrototype(vfctracerData::Data &D) = 0;
-  virtual llvm::CallInst *InsertProbeFunctionCall(vfctracerData::Data &D,
-                                                  llvm::Value *probeFunc) = 0;
+  virtual llvm::CallInst *
+  InsertProbeFunctionCall(vfctracerData::Data &D,
+                          _LLVMFunctionType probeFunc) = 0;
 };
 
 class BinaryFmt : public Format {
@@ -64,9 +90,9 @@ public:
   llvm::Type *getLocInfoType(vfctracerData::Data *D);
   llvm::Value *getOrCreateLocInfoValue(vfctracerData::Data &D);
   llvm::Value *getOrCreateLocInfoValue(vfctracerData::Data *D);
-  llvm::Constant *CreateProbeFunctionPrototype(vfctracerData::Data &D);
+  _LLVMFunctionType CreateProbeFunctionPrototype(vfctracerData::Data &D);
   llvm::CallInst *InsertProbeFunctionCall(vfctracerData::Data &D,
-                                          llvm::Value *probeFunc);
+                                          _LLVMFunctionType probeFunc);
 };
 
 class TextFmt : public Format {
@@ -76,9 +102,9 @@ public:
   llvm::Type *getLocInfoType(vfctracerData::Data *D);
   llvm::Value *getOrCreateLocInfoValue(vfctracerData::Data &D);
   llvm::Value *getOrCreateLocInfoValue(vfctracerData::Data *D);
-  llvm::Constant *CreateProbeFunctionPrototype(vfctracerData::Data &D);
+  _LLVMFunctionType CreateProbeFunctionPrototype(vfctracerData::Data &D);
   llvm::CallInst *InsertProbeFunctionCall(vfctracerData::Data &D,
-                                          llvm::Value *probeFunc);
+                                          _LLVMFunctionType probeFunc);
 };
 
 Format *CreateFormat(llvm::Module &M, vfctracerFormat::FormatId optFmt);

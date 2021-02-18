@@ -28,7 +28,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/TypeBuilder.h"
+// #include "llvm/IR/TypeBuilder.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/CommandLine.h"
@@ -201,17 +201,21 @@ struct VfclibTracer : public ModulePass {
             dyn_cast<vfctracerData::VectorData>(D))
       backtraceFunctionName += "_x" + std::to_string(VD->getVectorSize());
 
-    Constant *hookFunc = GET_OR_INSERT_FUNCTION((*M), backtraceFunctionName,
-                                                voidTy, locInfoType);
+    _LLVMFunctionType hookFunc = GET_OR_INSERT_FUNCTION(
+        (*M), backtraceFunctionName, voidTy, locInfoType);
 
     IRBuilder<> builder(D->getData());
     /* For FP operations, need to insert the probe after the instruction */
     if (opcode::isFPOp(D->getData()))
       builder.SetInsertPoint(D->getData()->getNextNode());
+#if LLVM_VERSION_MAJOR < 9
     if (Function *fun = dyn_cast<Function>(hookFunc))
       builder.CreateCall(cast<Function>(fun), locInfoValue, "");
     else
       llvm_unreachable("Hook function cannot be cast into function type");
+#else
+    builder.CreateCall(hookFunc, locInfoValue, "");
+#endif
     return true;
   }
 
@@ -238,7 +242,7 @@ struct VfclibTracer : public ModulePass {
       return false;
     if (VfclibInstVerbose)
       vfctracer::VerboseMessage(D);
-    Constant *probeFunction = Fmt.CreateProbeFunctionPrototype(D);
+    _LLVMFunctionType probeFunction = Fmt.CreateProbeFunctionPrototype(D);
     CallInst *probeCallInst = Fmt.InsertProbeFunctionCall(D, probeFunction);
     if (probeCallInst == nullptr) {
       errs() << "Error while instrumenting variable " + variableName;

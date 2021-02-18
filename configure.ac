@@ -197,8 +197,10 @@ AC_CONFIG_FILES([Makefile
 AC_CONFIG_FILES([verificarlo.in \
 		tests/test_bitmask_backend/test.sh \
 		tests/test_fortran/test.sh \
-		tests/test_fortran_NAS/test.sh],
+		tests/test_fortran_NAS/test.sh \
+      tests/test_tracer_fortran/test.sh],
 		[chmod +x tests/test_bitmask_backend/test.sh \
 		tests/test_fortran/test.sh \
-		tests/test_fortran_NAS/test.sh])
+		tests/test_fortran_NAS/test.sh \
+      tests/test_tracer_fortran/test.sh])
 AC_OUTPUT

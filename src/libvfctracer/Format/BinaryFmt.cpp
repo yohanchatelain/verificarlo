@@ -29,7 +29,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/TypeBuilder.h"
+// #include "llvm/IR/TypeBuilder.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/CommandLine.h"
@@ -79,7 +79,7 @@ using namespace vfctracerData;
 
 namespace vfctracerFormat {
 
-Constant *BinaryFmt::CreateProbeFunctionPrototype(Data &D) {
+_LLVMFunctionType BinaryFmt::CreateProbeFunctionPrototype(Data &D) {
 
   const std::string dataTypeName = D.getDataTypeName();
   std::string probeFunctionName =
@@ -92,14 +92,15 @@ Constant *BinaryFmt::CreateProbeFunctionPrototype(Data &D) {
   Type *valueType = D.getDataType();
   Type *valuePtrType = D.getDataPtrType();
   Type *locInfoType = getLocInfoType(D);
-  Constant *probeFunc =
+  _LLVMFunctionType probeFunc =
       GET_OR_INSERT_FUNCTION((*M), probeFunctionName, returnType, valueType,
                              valuePtrType, locInfoType);
 
   return probeFunc;
 }
 
-CallInst *BinaryFmt::InsertProbeFunctionCall(Data &D, Value *probeFunc) {
+CallInst *BinaryFmt::InsertProbeFunctionCall(Data &D,
+                                             _LLVMFunctionType probeFunc) {
 
   IRBuilder<> Builder(D.getData());
   /* For FP operations, we need to insert the probe after the instruction */
