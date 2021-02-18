@@ -57,7 +57,7 @@ for FP_TYPE in "DOUBLE" "FLOAT"; do
         cd $ROOT_PATH
         
         rm -rf ${LANGUAGE}
-        rm locationInfo.map
+        rm -f locationInfo.map
         
         echo "${LANGUAGE} ${FP_TYPE} ${FMT}"
         
