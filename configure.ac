@@ -190,11 +190,5 @@ AC_CONFIG_FILES([Makefile
                  tests/paths.sh
                 ])
 
-AC_CONFIG_FILES([verificarlo.in \
-		tests/test_bitmask_backend/test.sh \
-		tests/test_fortran/test.sh \
-		tests/test_fortran_NAS/test.sh],
-		[chmod +x tests/test_bitmask_backend/test.sh \
-		tests/test_fortran/test.sh \
-		tests/test_fortran_NAS/test.sh])
+AC_CONFIG_FILES([verificarlo.in])
 AC_OUTPUT
