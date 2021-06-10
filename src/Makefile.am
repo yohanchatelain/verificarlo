@@ -5,5 +5,4 @@ pkgpython_PYTHON=ddebug/__init__.py \
 								 ddebug/DD.py \
 								 ddebug/DD_exec_stat.py \
 								 ddebug/DD_stoch.py \
-								 ddebug/dd_config.py \
-								 clang_options_parser/clang_options_parser.py
+								 ddebug/dd_config.py
