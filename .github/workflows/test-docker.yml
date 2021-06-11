@@ -9,7 +9,7 @@ on:
 jobs:
   # Run tests.
   test-16.04:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-16_04
     strategy:
       matrix:
         llvm: ["4.0", "5.0"]
@@ -25,7 +25,7 @@ jobs:
           fi
 
   test-20.04:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-20_04
     strategy:
       matrix:
         llvm: ["6.0","7","8","9","10","11"]
