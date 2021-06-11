@@ -30,7 +30,8 @@ RUN cd /tmp/ &&\
     cd /tmp/Python-3.7.9/ &&\
     CC=gcc-5 CXX=g++-5 ./configure || cat config.log &&\
     make &&\
-    make install 
+    make install &&\
+    update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.7 20
 
 RUN python3.7 -m pip install bigfloat pandas numpy
 
