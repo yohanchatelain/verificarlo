@@ -8,7 +8,7 @@ on:
 
 jobs:
   # Run tests.
-  test:
+  test-16.04:
     runs-on: ubuntu-16.04
     strategy:
       matrix:
@@ -24,7 +24,7 @@ jobs:
             docker build . --file Dockerfile-16.04 --build-arg LLVM_VERSION=${{ matrix.llvm }}
           fi
 
-  test:
+  test-20.04:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
