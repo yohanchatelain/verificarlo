@@ -9,14 +9,33 @@ on:
 jobs:
   # Run tests.
   test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-16.04
+    strategy:
+      matrix:
+        llvm: ["4.0", "5.0"]
     steps:
       - uses: actions/checkout@v2
       - name: Run tests
         run: |
           if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
+            docker-compose --file docker-compose.test.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }}
             docker-compose --file docker-compose.test.yml run sut
           else
-            docker build . --file Dockerfile
+            docker build . --file Dockerfile-16.04 --build-arg LLVM_VERSION=${{ matrix.llvm }}
+          fi
+
+  test:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        llvm: ["6.0","7","8","9","10","11"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run tests
+        run: |
+          if [ -f docker-compose.test.yml ]; then
+            docker-compose --file docker-compose.test.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }}
+            docker-compose --file docker-compose.test.yml run sut
+          else
+            docker build . --file Dockerfile --build-arg LLVM_VERSION=${{ matrix.llvm }}
           fi
