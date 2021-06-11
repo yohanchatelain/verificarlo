@@ -1,4 +1,4 @@
 sut:
   build: .
   command: make -C /build/verificarlo installcheck
-  dockerfile: Dockerfile
+  dockerfile: Dockerfile-16.04
