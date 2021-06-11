@@ -18,7 +18,7 @@ jobs:
       - name: Run tests
         run: |
           if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test-16.04.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }}
+            docker-compose --file docker-compose.test-16.04.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }} --build-arg BUILD_WITHOUT_FLANG=True
             docker-compose --file docker-compose.test-16.04.yml run sut
           else
             docker build . --file Dockerfile-16.04 --build-arg LLVM_VERSION=${{ matrix.llvm }}
@@ -34,7 +34,11 @@ jobs:
       - name: Run tests
         run: |
           if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }}
+            if [ ${{ matrix.llvm == 7 }}]; then
+              docker-compose --file docker-compose.test.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }}
+            else
+              docker-compose --file docker-compose.test.yml build --build-arg LLVM_VERSION=${{ matrix.llvm }} --build-arg BUILD_WITHOUT_FLANG=True
+            fi
             docker-compose --file docker-compose.test.yml run sut
           else
             docker build . --file Dockerfile --build-arg LLVM_VERSION=${{ matrix.llvm }}
