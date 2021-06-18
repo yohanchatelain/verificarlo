@@ -36,7 +36,7 @@ verificarlo-c --verbose -c --include-file include.txt a.c 2> a
 did_instrument f1 a
 did_not_instrument f2 a
 
-echo "SUBTEST 3 : more complex include-list only"
+echo "SUBTEST 3: more complex include-list only"
 cat > include.txt <<HERE
 a f1
 b f2
@@ -48,7 +48,7 @@ did_not_instrument f2 a
 did_not_instrument f1 b
 did_instrument f2 b
 
-echo "SUBTEST 4 : exclude-list only"
+echo "SUBTEST 4: exclude-list only"
 cat > exclude.txt <<HERE
 a f1
 * f2
@@ -60,7 +60,7 @@ did_not_instrument f1 a
 did_not_instrument f2 b
 did_instrument f1 b
 
-echo "SUBTEST 5 : include-list and exclude-list"
+echo "SUBTEST 5: include-list and exclude-list"
 cat > include.txt <<HERE
 b f2
 HERE
@@ -74,7 +74,7 @@ did_instrument f2 b
 did_instrument f1 a
 did_instrument f1 b
 
-echo "SUBTEST 6 : --function and --exclude / --include are not compatible"
+echo "SUBTEST 6: --function and --exclude / --include are not compatible"
 if verificarlo-c --verbose -c --exclude-file exclude.txt --function f1 a.c ; then
     echo "THIS SHOULD FAIL"
     exit 1

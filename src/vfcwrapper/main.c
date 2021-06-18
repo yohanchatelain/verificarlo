@@ -285,6 +285,8 @@ void parse_vfc_backends_env(char **vfc_backends, char **vfc_backends_env) {
           }
         }
       }
+    } else {
+      sprintf(*vfc_backends_env, "VFC_BACKENDS");
     }
   }
 }
