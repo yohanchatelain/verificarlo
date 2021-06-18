@@ -3,7 +3,7 @@ set -e
 
 source ../paths.sh
 
-if [ -z "${FLANG}" ]; then
+if [ -z "${FLANG_PATH}" ]; then
     echo "this test is not run when not using --with-flang"
     exit 0
 fi
