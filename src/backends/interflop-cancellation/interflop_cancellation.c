@@ -62,10 +62,8 @@ static void _set_tolerance(int tolerance) { TOLERANCE = tolerance; }
 
 static void _set_warning(bool warning) { WARN = warning; }
 
-/* global thread id access lock */
-static pthread_mutex_t global_tid_lock = PTHREAD_MUTEX_INITIALIZER;
 /* global thread identifier */
-static unsigned long long int global_tid = 0;
+static pid_t global_tid = 0;
 
 /* helper data structure to centralize the data used for random number
  * generation */
@@ -73,11 +71,9 @@ static __thread rng_state_t rng_state;
 
 /* noise = rand * 2^(exp) */
 static inline double _noise_binary64(const int exp, rng_state_t *rng_state) {
-  const double d_rand =
-      _get_rand(rng_state, &global_tid_lock, &global_tid) - 0.5;
-
+  const double d_rand = _get_rand(rng_state, &global_tid) - 0.5;
   binary64 b64 = {.f64 = d_rand};
-  b64.ieee.exponent = b64.ieee.exponent + exp;
+  b64.ieee.exponent += exp;
   return b64.f64;
 }
 
@@ -101,7 +97,7 @@ static inline double _noise_binary64(const int exp, rng_state_t *rng_state) {
       _init_rng_state_struct(&RNG_STATE, ((t_context *)CTX)->choose_seed,      \
                              (unsigned long long)(((t_context *)CTX)->seed),   \
                              false);                                           \
-      *Z = *Z + _noise_binary64(e_n, &RNG_STATE);                              \
+      *Z += _noise_binary64(e_n, &RNG_STATE);                                  \
     }                                                                          \
   })
 

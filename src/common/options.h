@@ -28,9 +28,10 @@
 /* Data type used to hold information required by the RNG */
 typedef struct rng_state {
   bool choose_seed;
-  unsigned long long int seed;
+  uint64_t seed;
   bool random_state_valid;
-  struct drand48_data random_state;
+  // struct drand48_data random_state;
+  uint64_t random_state[2];
 } rng_state_t;
 
 /* A macro to simplify the generation of calls for interflop hook functions */
@@ -80,8 +81,10 @@ typedef struct rng_state {
 /* @param seed the user-provided seed for the RNG */
 /* @param random_state_valid whether RNG internal state has been initialized */
 void _init_rng_state_struct(rng_state_t *rng_state, bool choose_seed,
-                            unsigned long long int seed,
-                            bool random_state_valid);
+                            uint64_t seed, bool random_state_valid);
+
+void _init_random_state(rng_state_t *random_state,
+                        unsigned long long int *global_tid);
 
 /* Get a new identifier for the calling thread */
 /* Generic threads can have inconsistent identifiers, assigned by the system, */
@@ -91,8 +94,7 @@ void _init_rng_state_struct(rng_state_t *rng_state, bool choose_seed,
 /* Unique TID */
 /* @param global_tid pointer to the unique TID */
 /* @return a new unique identifier for each calling thread*/
-unsigned long long int _get_new_tid(pthread_mutex_t *global_tid_lock,
-                                    unsigned long long int *global_tid);
+unsigned long long int _get_new_tid(pid_t *global_tid);
 
 /* Returns a 64-bit unsigned integer r (0 <= r < 2^64) */
 /* Manages the internal state of the RNG, if necessary */
@@ -101,9 +103,7 @@ unsigned long long int _get_new_tid(pthread_mutex_t *global_tid_lock,
 /* Unique TID */
 /* @param global_tid pointer to the unique TID */
 /* @return a 64-bit unsigned integer r (0 <= r < 2^64) */
-uint64_t _get_rand_uint64(rng_state_t *rng_state,
-                          pthread_mutex_t *global_tid_lock,
-                          unsigned long long int *global_tid);
+uint64_t _get_rand_uint64(rng_state_t *rng_state, pid_t *global_tid);
 
 /* Returns a 32-bit unsigned integer r (0 <= r < 2^32) */
 /* Manages the internal state of the RNG, if necessary */
@@ -112,9 +112,7 @@ uint64_t _get_rand_uint64(rng_state_t *rng_state,
  * Unique TID */
 /* @param global_tid pointer to the unique TID */
 /* @return a 32-bit unsigned integer r (0 <= r < 2^32) */
-uint32_t _get_rand_uint32(rng_state_t *rng_state,
-                          pthread_mutex_t *global_tid_lock,
-                          unsigned long long int *global_tid);
+uint32_t _get_rand_uint32(rng_state_t *rng_state, pid_t *global_tid);
 
 /* Returns a random double in the (0,1) open interval */
 /* Manages the internal state of the RNG, if necessary */
@@ -123,8 +121,7 @@ uint32_t _get_rand_uint32(rng_state_t *rng_state,
 /* Unique TID */
 /* @param global_tid pointer to the unique TID */
 /* @return a floating point number r (0.0 < r < 1.0) */
-double _get_rand(rng_state_t *rng_state, pthread_mutex_t *global_tid_lock,
-                 unsigned long long int *global_tid);
+double _get_rand(rng_state_t *rng_state, pid_t *global_tid);
 
 /* Returns a bool for determining whether an operation should skip */
 /* perturbation. false -> perturb; true -> skip. */
@@ -133,7 +130,6 @@ double _get_rand(rng_state_t *rng_state, pthread_mutex_t *global_tid_lock,
 /* @param rng_state pointer to the structure holding all the RNG-related data */
 /* @return false -> perturb; true -> skip */
 bool _mca_skip_eval(const float sparsity, rng_state_t *rng_state,
-                    pthread_mutex_t *global_tid_lock,
-                    unsigned long long int *global_tid);
+                    pid_t *global_tid);
 
 #endif /* __OPTIONS_H__ */

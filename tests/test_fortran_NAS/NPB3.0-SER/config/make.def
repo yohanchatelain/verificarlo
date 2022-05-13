@@ -30,7 +30,7 @@
 
 F77 	= verificarlo-f
 FLINK	= verificarlo-f
-F_LIB    =  -lm
+F_LIB    =  -limf
 
 #---------------------------------------------------------------------------
 # These macros are passed to the compiler 

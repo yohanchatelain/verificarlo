@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = libinterflop_mca_int.la
 libinterflop_mca_int_la_SOURCES = interflop_mca_int.c ../../common/logger.c ../../common/options.c
-libinterflop_mca_int_la_CFLAGS = -DBACKEND_HEADER="interflop_mca_int"
+libinterflop_mca_int_la_CFLAGS = -DBACKEND_HEADER="interflop_mca_int" # -O3 -march=native
 if WALL_CFLAGS
 libinterflop_mca_int_la_CFLAGS += -Wall -Wextra
 endif
