@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/syscall.h> // for getting the thread id
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -128,12 +129,7 @@ bool is_logger_colored(void) {
   }
 }
 
-pid_t get_tid() {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
-  return gettid();
-#pragma GCC diagnostic pop
-}
+pid_t get_tid() { return syscall(__NR_gettid); }
 
 void _error() {
   int errsv = errno;

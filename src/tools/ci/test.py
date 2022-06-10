@@ -1,26 +1,27 @@
-##############################################################################\
- #                                                                           #\
- #  This file is part of the Verificarlo project,                            #\
- #  under the Apache License v2.0 with LLVM Exceptions.                      #\
- #  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception.                 #\
- #  See https://llvm.org/LICENSE.txt for license information.                #\
- #                                                                           #\
- #                                                                           #\
- #  Copyright (c) 2015                                                       #\
- #     Universite de Versailles St-Quentin-en-Yvelines                       #\
- #     CMLA, Ecole Normale Superieure de Cachan                              #\
- #                                                                           #\
- #  Copyright (c) 2018                                                       #\
- #     Universite de Versailles St-Quentin-en-Yvelines                       #\
- #                                                                           #\
- #  Copyright (c) 2019-2021                                                  #\
- #     Verificarlo Contributors                                              #\
- #                                                                           #\
- #############################################################################
+# \
+#                                                                           #\
+#  This file is part of the Verificarlo project,                            #\
+#  under the Apache License v2.0 with LLVM Exceptions.                      #\
+#  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception.                 #\
+#  See https://llvm.org/LICENSE.txt for license information.                #\
+#                                                                           #\
+#                                                                           #\
+#  Copyright (c) 2015                                                       #\
+#     Universite de Versailles St-Quentin-en-Yvelines                       #\
+#     CMLA, Ecole Normale Superieure de Cachan                              #\
+#                                                                           #\
+#  Copyright (c) 2018                                                       #\
+#     Universite de Versailles St-Quentin-en-Yvelines                       #\
+#                                                                           #\
+#  Copyright (c) 2019-2021                                                  #\
+#     Verificarlo Contributors                                              #\
+#                                                                           #\
+#############################################################################
 
 # This script reads the vfc_tests_config.json file and executes tests accordingly
 # It will also generate a ... .vfcrunh5 file with the results of the run
 
+from zmq import exc
 from .test_data_processing import data_processing, validate_deterministic_probe
 import pandas as pd
 import numpy as np
@@ -385,16 +386,26 @@ def run_tests(config):
 
     # Combine all separate executions in one dataframe
     if len(data) > 0:
-        data = pd.concat(data, sort=False, ignore_index=True)
+
+        try:
+            data = pd.concat(data, sort=False, ignore_index=True)
+        except TypeError:
+            data = pd.concat(data, ignore_index=True)
+
         data = data.groupby(["test", "variable", "vfc_backend"]
                             ).values.apply(list).reset_index()
 
         data = data.set_index(
             ["test", "variable", "vfc_backend"]).sort_index()
-        checks_data = pd.concat(
-            checks_data,
-            sort=False,
-            ignore_index=True)
+        try:
+            checks_data = pd.concat(
+                checks_data,
+                sort=False,
+                ignore_index=True)
+        except TypeError:
+            checks_data = pd.concat(
+                checks_data,
+                ignore_index=True)
         checks_data = checks_data.drop_duplicates(
             subset=['test', 'variable', 'vfc_backend'])
         checks_data = checks_data.reset_index()
