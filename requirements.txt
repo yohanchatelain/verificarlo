@@ -1,0 +1,10 @@
+numpy 
+pandas 
+matplotlib 
+setuptools
+scipy
+GitPython
+bigfloat
+tables
+jinja2
+bokeh
