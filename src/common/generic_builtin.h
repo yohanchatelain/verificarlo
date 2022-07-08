@@ -48,5 +48,4 @@
 #define CTZ(X)                                                                 \
   _Generic(X, uint32_t : __builtin_ctz(X), uint64_t : __builtin_ctzl(X))
 
-
 #endif /* __GENERIC_BUILTIN_H__ */
