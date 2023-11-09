@@ -242,6 +242,7 @@ AC_CONFIG_FILES([Makefile
                  src/common/Makefile
                  src/libvfcinstrument/Makefile
                  src/libvfcfuncinstrument/Makefile
+                 src/libvfcinstrumentonline/Makefile
                  src/vfcwrapper/Makefile
                  src/backends/Makefile
                  tests/Makefile

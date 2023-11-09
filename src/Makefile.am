@@ -1,2 +1,2 @@
-SUBDIRS=common libvfcfuncinstrument libvfcinstrument vfcwrapper backends
+SUBDIRS=common libvfcfuncinstrument libvfcinstrument libvfcinstrumentonline vfcwrapper backends
 include_HEADERS= common/vfc_probes.h

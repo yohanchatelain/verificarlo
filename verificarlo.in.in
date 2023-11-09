@@ -35,6 +35,8 @@ libinterflop_stdlib_include = "@INTERFLOP_INCLUDEDIR@"
 libinterflop_stdlib_lib = "@INTERFLOP_LIBDIR@"
 libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
+libvfcinstrumentonline = LIBDIR + "/libvfcinstrumentonline.so"
+librand = LIBDIR + "/librand.so"
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + "vfcwrapper.c"
@@ -159,7 +161,13 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 
 
 def linker_mode(sources, options, libraries, output, args):
-    vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
+    if args.online_instrumentation:
+        vfcwrapper_o = ""
+        rand = " -lrand "
+    else:
+        vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
+        compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
+        rand = ""
 
     compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
 
@@ -179,12 +187,12 @@ def linker_mode(sources, options, libraries, output, args):
 
         if args.static:
             cmd = (
-                f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
+                f"{output} {sources} {options} {libraries} {vfcwrapper_o} {rand} "
                 f" -static -lgmp -lm -ldl {interflop_stdlib_flags} "
             )
         else:
             cmd = (
-                f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
+                f"{output} {sources} {options} {libraries} {vfcwrapper_o} {rand} "
                 f" {mcalib_options} -ldl {interflop_stdlib_flags} "
             )
 
@@ -288,12 +296,17 @@ def compiler_mode(sources, options, output, args):
             ir = ins
             ins = get_tmp_filename(basename, ".3.ll", args)
 
+        if args.online_instrumentation:
+            libvfcinst = libvfcinstrumentonline
+        else:
+            libvfcinst = libvfcinstrument
+
         # Apply MCA instrumentation pass
         # For LLVM >= 13 we fallback to the legacy pass manager
         if 13 <= int(llvm_version) < 17:
             shell(
                 (
-                    f"{opt} -S -enable-new-pm=0  -load {libvfcinstrument} "
+                    f"{opt} -S -enable-new-pm=0  -load {libvfcinst} "
                     f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
                     f" -vfclibinst {extra_args} {selectfunction} "
                     f" {ir.name} -o {ins.name}"
@@ -302,7 +315,7 @@ def compiler_mode(sources, options, output, args):
         else:
             shell(
                 (
-                    f"{opt} -S -load {libvfcinstrument} "
+                    f"{opt} -S -load {libvfcinst} "
                     f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
                     f" -vfclibinst {extra_args} {selectfunction} "
                     f" {ir.name} -o {ins.name}"
@@ -379,6 +392,9 @@ if __name__ == "__main__":
         "--emit-llvm",
         action="store_true",
         help="emit an LLVM bitcode with the instrumentation built-in",
+    )
+    parser.add_argument(
+        "--online-instrumentation", action="store_true", help="Online instrumentation"
     )
 
     args, other = parser.parse_known_args()
