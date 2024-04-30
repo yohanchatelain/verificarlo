@@ -36,7 +36,7 @@ libinterflop_stdlib_lib = "@INTERFLOP_LIBDIR@"
 libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
 libvfcinstrumentonline = LIBDIR + "/libvfcinstrumentonline.so"
-librand = LIBDIR + "/librand.so"
+librand = LIBDIR + "/libinterflop_rng.so"
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + "vfcwrapper.c"
@@ -168,8 +168,6 @@ def linker_mode(sources, options, libraries, output, args):
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
         compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
         rand = ""
-
-    compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
 
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         sources = " ".join([os.path.splitext(s)[0] + ".o" for s in sources])
