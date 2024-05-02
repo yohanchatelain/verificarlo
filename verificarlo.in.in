@@ -23,8 +23,8 @@ from __future__ import print_function
 
 import argparse
 import os
-import sys
 import subprocess
+import sys
 import tempfile
 
 PACKAGE_STRING = "@PACKAGE_STRING@"
@@ -36,7 +36,6 @@ libinterflop_stdlib_lib = "@INTERFLOP_LIBDIR@"
 libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
 libvfcinstrumentonline = LIBDIR + "/libvfcinstrumentonline.so"
-librand = LIBDIR + "/libinterflop_rng.so"
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + "vfcwrapper.c"
@@ -133,9 +132,9 @@ def parse_extra_args(args):
     return sources, " ".join(options), " ".join(libraries)
 
 
-def shell(cmd):
+def shell(cmd, verbose=False):
     try:
-        if args.show_cmd:
+        if verbose:
             print(cmd)
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
@@ -157,17 +156,16 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
         f"{clang} -O3 {march_flag} -g {internal_options} {extra_args} "
         f"{source} -I{libinterflop_stdlib_include} -o {output} "
     )
-    shell(cmd)
+    shell(cmd, verbose=args.verbose)
 
 
 def linker_mode(sources, options, libraries, output, args):
     if args.online_instrumentation:
         vfcwrapper_o = ""
-        rand = " -lrand "
+        libraries += " -lrand "
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
         compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
-        rand = ""
 
     with tempfile.NamedTemporaryFile(mode="w+") as f:
         sources = " ".join([os.path.splitext(s)[0] + ".o" for s in sources])
@@ -185,12 +183,12 @@ def linker_mode(sources, options, libraries, output, args):
 
         if args.static:
             cmd = (
-                f"{output} {sources} {options} {libraries} {vfcwrapper_o} {rand} "
+                f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
                 f" -static -lgmp -lm -ldl {interflop_stdlib_flags} "
             )
         else:
             cmd = (
-                f"{output} {sources} {options} {libraries} {vfcwrapper_o} {rand} "
+                f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
                 f" {mcalib_options} -ldl {interflop_stdlib_flags} "
             )
 
@@ -199,14 +197,14 @@ def linker_mode(sources, options, libraries, output, args):
         linker = linkers[args.linker]
         if args.show_cmd:
             print(f"{linker} {cmd}")
-        shell(f"{linker} @{f.name}")
+        shell(f"{linker} @{f.name}", verbose=args.verbose)
 
 
 # Do not instrument
 def compile_only(sources, options, output, args):
     compiler = linkers[args.linker]
     sources = " ".join(sources)
-    shell(f"{compiler} {sources} {options} {output}")
+    shell(f"{compiler} {sources} {options} {output}", verbose=args.verbose)
 
 
 def get_tmp_name(prefix, suffix):
@@ -225,11 +223,50 @@ def get_tmp_filename(prefix, suffix, args):
     return tmp
 
 
+def get_llvm_pass_manager():
+    if 13 <= int(llvm_version) < 17:
+        return "-enable-new-pm=0"
+    return ""
+
+
+# Apply function's instrumentation pass
+def apply_function_instrumentation_pass(ir, ins, args):
+    enable_new_pm = get_llvm_pass_manager()
+    shell(
+        f"{opt} -S {enable_new_pm} -load {libvfcfuncinstrument} -vfclibfunc {ir.name} -o {ins.name}",
+        verbose=args.verbose,
+    )
+
+
+# Apply MCA instrumentation pass
+def apply_mca_instrumentation_pass(
+    ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
+):
+    if args.online_instrumentation:
+        libvfcinst = libvfcinstrumentonline
+    else:
+        libvfcinst = libvfcinstrument
+        extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
+
+    enable_new_pm = get_llvm_pass_manager()
+    shell(
+        (
+            f"{opt} -S {enable_new_pm}  -load {libvfcinst} "
+            f" -vfclibinst {extra_args} {selectfunction} "
+            f" {ir.name} -o {ins.name}"
+        ),
+        verbose=args.verbose,
+    )
+
+
 def compiler_mode(sources, options, output, args):
     extra_args = "-static " if args.static else "-fPIC "
 
-    vfcwrapper_ir = get_tmp_filename(".vfcwrapper", ".ll", args)
-    compile_vfcwrapper(vfcwrapper, vfcwrapper_ir.name, args, emit_llvm=True)
+    if not args.online_instrumentation:
+        vfcwrapper_ir = get_tmp_filename(".vfcwrapper", ".ll", args)
+        compile_vfcwrapper(vfcwrapper, vfcwrapper_ir.name, args, emit_llvm=True)
+    else:
+        vfcwrapper_ir = None
 
     for source in sources:
         basename = os.path.splitext(source)[0]
@@ -239,7 +276,7 @@ def compiler_mode(sources, options, output, args):
         compiler = linkers[args.linker]
         include = f" -I {mcalib_includes} "
 
-        debug = "-g" if args.inst_func or args.ddebug else ""
+        debug = " -g " if args.inst_func or args.ddebug else ""
 
         if is_assembly(source):
             if not output:
@@ -251,7 +288,8 @@ def compiler_mode(sources, options, output, args):
 
         # Compile to ir (fortran uses flang, c uses clang)
         shell(
-            f"{compiler} -c -S {debug} {source} {include} -emit-llvm {COMPILE_EXTRA_FLAGS} {options} -o {ir.name}"
+            f"{compiler} -c -S {debug} {source} {include} -emit-llvm {COMPILE_EXTRA_FLAGS} {options} -o {ir.name}",
+            verbose=args.verbose,
         )
 
         selectfunction = ""
@@ -261,7 +299,13 @@ def compiler_mode(sources, options, output, args):
             if args.include_file:
                 selectfunction = "-vfclibinst-include-file " + args.include_file
             if args.exclude_file:
-                selectfunction += " -vfclibinst-exclude-file " + args.exclude_file
+                selectfunction += "-vfclibinst-exclude-file " + args.exclude_file
+
+        if args.inst_func:
+            # Apply function's instrumentation pass
+            apply_function_instrumentation_pass(ir, ins, args)
+            ir = ins
+            ins = get_tmp_filename(basename, ".3.ll", args)
 
         extra_args = ""
 
@@ -300,42 +344,27 @@ def compiler_mode(sources, options, output, args):
             libvfcinst = libvfcinstrument
 
         # Apply MCA instrumentation pass
-        # For LLVM >= 13 we fallback to the legacy pass manager
-        if 13 <= int(llvm_version) < 17:
-            shell(
-                (
-                    f"{opt} -S -enable-new-pm=0  -load {libvfcinst} "
-                    f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
-                    f" -vfclibinst {extra_args} {selectfunction} "
-                    f" {ir.name} -o {ins.name}"
-                )
-            )
-        else:
-            shell(
-                (
-                    f"{opt} -S -load {libvfcinst} "
-                    f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
-                    f" -vfclibinst {extra_args} {selectfunction} "
-                    f" {ir.name} -o {ins.name}"
-                )
-            )
+        apply_mca_instrumentation_pass(
+            ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
+        )
 
-        if not output:
-            # Use a temporary file to store the object
-            # to avoid race conditions
-            cmd_output = " -o " + basename + ".o"
-        else:
-            cmd_output = output
+        cmd_output = output if output else " -o " + basename + ".o"
 
         if not args.emit_llvm:
             # Produce object file
-            shell(f"{compiler} -c {cmd_output} {ins.name} {options}")
+            shell(
+                f"{compiler} -c {cmd_output} {ins.name} {options}", verbose=args.verbose
+            )
         else:
             # Produce a bc file with the wrapper bc linked in.
-            shell(f"{llvm_link} {ins.name} {vfcwrapper_ir.name} {cmd_output}")
+            vfcwrapper_ir_name = vfcwrapper_ir.name if vfcwrapper_ir else ""
+            shell(
+                f"{llvm_link} {ins.name} {vfcwrapper_ir_name} {cmd_output}",
+                verbose=args.verbose,
+            )
 
 
-if __name__ == "__main__":
+def parse_args():
     parser = NoPrefixParser(
         description="Compiles a program replacing floating point operation with calls to the mcalib (Montecarlo Arithmetic)."
     )
@@ -399,6 +428,12 @@ if __name__ == "__main__":
 
     sources, llvm_options, libraries = parse_extra_args(other)
 
+    return args, sources, llvm_options, libraries
+
+
+def main():
+    args, sources, llvm_options, libraries = parse_args()
+
     # check input files
     if (args.E or args.S or args.c) and len(sources) > 1 and args.o:
         fail("cannot specify -o when generating multiple output files")
@@ -424,3 +459,7 @@ if __name__ == "__main__":
             fail("no input files")
         compiler_mode(sources, llvm_options, "", args)
         linker_mode(sources, llvm_options, libraries, output, args)
+
+
+if __name__ == "__main__":
+    main()

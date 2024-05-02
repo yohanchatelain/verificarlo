@@ -66,10 +66,10 @@ static cl::opt<std::string> VfclibInstExcludeFile(
     cl::desc("Do not instrument modules / functions in file ExcludeNameFile "),
     cl::value_desc("ExcludeNameFile"), cl::init(""));
 
-static cl::opt<std::string>
-    VfclibInstVfcwrapper("vfclibinst-vfcwrapper-file",
-                         cl::desc("Name of the vfcwrapper IR file "),
-                         cl::value_desc("VfcwrapperIRFile"), cl::init(""));
+// static cl::opt<std::string>
+//     VfclibInstVfcwrapper("vfclibinst-vfcwrapper-file",
+//                          cl::desc("Name of the vfcwrapper IR file "),
+//                          cl::value_desc("VfcwrapperIRFile"), cl::init(""));
 
 static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
                                        cl::desc("Activate verbose mode"),
@@ -77,7 +77,7 @@ static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
                                        cl::init(false));
 
 /* pointer that hold the vfcwrapper Module */
-static Module *vfcwrapperM = nullptr;
+// static Module *vfcwrapperM = nullptr;
 
 namespace {
 // Define an enum type to classify the floating points operations
@@ -220,21 +220,21 @@ struct VfclibInst : public ModulePass {
   }
 
   /* Load vfcwrapper.ll Module */
-  void loadVfcwrapperIR(Module &M) {
-    SMDiagnostic err;
-    std::unique_ptr<Module> _M =
-        parseIRFile(VfclibInstVfcwrapper, err, M.getContext());
-    if (_M.get() == nullptr) {
-      err.print(VfclibInstVfcwrapper.c_str(), errs());
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-    vfcwrapperM = _M.release();
-  }
+  // void loadVfcwrapperIR(Module &M) {
+  //   SMDiagnostic err;
+  //   std::unique_ptr<Module> _M =
+  //       parseIRFile(VfclibInstVfcwrapper, err, M.getContext());
+  //   if (_M.get() == nullptr) {
+  //     err.print(VfclibInstVfcwrapper.c_str(), errs());
+  //     report_fatal_error("libVFCInstrument fatal error");
+  //   }
+  //   vfcwrapperM = _M.release();
+  // }
 
   bool runOnModule(Module &M) {
     bool modified = false;
 
-    loadVfcwrapperIR(M);
+    // loadVfcwrapperIR(M);
 
     // Parse both included and excluded function set
     std::regex includeFunctionRgx =

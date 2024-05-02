@@ -18,6 +18,7 @@ check_executable() {
     fi
 }
 
+declare -A op_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
 optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
@@ -26,7 +27,7 @@ export VFC_BACKENDS_LOGGER=False
 # It compares that results are equivalents up to the bit.
 # parallel --header : "verificarlo-c --function=operator --verbose -D REAL={type} -D SAMPLES=$SAMPLES {optimizations} test.c -o test_{type} -lm" ::: type float double ::: optimizations '-O0' '-O1' '-O2' '-O3' '-Ofast'
 
-parallel --header : "make type={type} optimization={optimization} samples=$SAMPLES" ::: type float double ::: optimization "${optimizations[@]}"
+parallel --header : "make type={type} optimization={optimization}" ::: type float double ::: optimization "${optimizations[@]}"
 
 for optim in "${optimizations[@]}"; do
     check_executable test_float_${optim}
@@ -36,8 +37,13 @@ done
 for type in float double; do
     for op in "+" "-" "x" "/"; do
         for optim in "${optimizations[@]}"; do
-            ./test_float_${optim} $op 0.1 0.1 >tmp.float.${op}.${optim}.txt
-            ./test_double_${optim} $op 0.1 0.1 >tmp.double.${op}.${optim}.txt
+            op_name=${op_name[$op]}
+            for type in float double; do
+                rm -f tmp.${type}.${op_name}.${optim}.txt
+                for i in $(seq 1 $SAMPLES); do
+                    ./test_${type}_${optim} $op 0.1 0.2 >>tmp.${type}.${op_name}.${optim}.txt
+                done
+            done
         done
     done
 done
@@ -47,8 +53,23 @@ done
 cat >check_status.py <<HERE
 import numpy as np
 import sys
-np.loadtxt(sys.argv[1])
+with open(sys.argv[1]) as fi:
+    x = [float.fromhex(l.strip()) for l in fi]
+    print(int(len(set(x)) == 1))
 HERE
+
+for value in *.txt; do
+    status=$(python3 check_status.py $value)
+    if [ $status -eq 0 ]; then
+        echo "Success!"
+        echo "File $value passed"
+    else
+        echo "Failed!"
+        echo "File $value failed"
+        sort -u $value
+        exit 1
+    fi
+done
 
 # cat >check_status.py <<HERE
 # import sys
