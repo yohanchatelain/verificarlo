@@ -20,10 +20,6 @@ uint64_t next_seed(uint64_t seed_state) {
   return z ^ (z >> 31);
 }
 
-// static inline uint64_t rotl(const uint64_t x, int k) {
-//   return (x << k) | (x >> (64 - k));
-// }
-
 #define rotl(x, k) ((x) << (k)) | ((x) >> (64 - (k)))
 
 uint64_t get_rand_uint64(void) {

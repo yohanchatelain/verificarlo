@@ -2,7 +2,7 @@
 
 set -e
 
-SAMPLES=100
+export SAMPLES=100
 
 check_status() {
     if [[ $? != 0 ]]; then
@@ -18,75 +18,56 @@ check_executable() {
     fi
 }
 
-declare -A op_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
 optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-# Test operates at different precisions, and different operands.
-# It compares that results are equivalents up to the bit.
-# parallel --header : "verificarlo-c --function=operator --verbose -D REAL={type} -D SAMPLES=$SAMPLES {optimizations} test.c -o test_{type} -lm" ::: type float double ::: optimizations '-O0' '-O1' '-O2' '-O3' '-Ofast'
+parallel --header : "make --silent type={type} optimization={optimization}" ::: type float double ::: optimization "${optimizations[@]}"
 
-parallel --header : "make type={type} optimization={optimization}" ::: type float double ::: optimization "${optimizations[@]}"
+run_test() {
+    declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
 
-for optim in "${optimizations[@]}"; do
-    check_executable test_float_${optim}
-    check_executable test_double_${optim}
-done
+    local type="$1"
+    local optimization="$2"
+    local op="$3"
+    local op_name=${operation_name[$op]}
 
-for type in float double; do
-    for op in "+" "-" "x" "/"; do
-        for optim in "${optimizations[@]}"; do
-            op_name=${op_name[$op]}
-            for type in float double; do
-                rm -f tmp.${type}.${op_name}.${optim}.txt
-                for i in $(seq 1 $SAMPLES); do
-                    ./test_${type}_${optim} $op 0.1 0.2 >>tmp.${type}.${op_name}.${optim}.txt
-                done
-            done
-        done
+    local bin=test_${type}_${optimization}
+    local file=tmp.$type.$op_name.$optimization.txt
+
+    echo "Running test $type $op $optimization $op_name"
+
+    rm -f $file
+
+    for i in $(seq 1 $SAMPLES); do
+        ./$bin $op 0.1 0.2 >>$file
     done
-done
 
-# parallel -j $(nproc) <run_parallel
-
-cat >check_status.py <<HERE
-import numpy as np
-import sys
-with open(sys.argv[1]) as fi:
-    x = [float.fromhex(l.strip()) for l in fi]
-    print(int(len(set(x)) == 1))
-HERE
-
-for value in *.txt; do
-    status=$(python3 check_status.py $value)
-    if [ $status -eq 0 ]; then
-        echo "Success!"
-        echo "File $value passed"
-    else
+    if [[ $? != 0 ]]; then
         echo "Failed!"
-        echo "File $value failed"
-        sort -u $value
         exit 1
     fi
-done
 
-# cat >check_status.py <<HERE
-# import sys
-# import glob
-# paths=glob.glob('tmp.*/output.txt')
-# ret=sum([int(open(f).readline().strip()) for f in paths]) if paths != []  else 1
-# print(ret)
-# HERE
+    # Check if we have variabilities
+    if [[ $(sort -u $file | wc -l) == 1 ]]; then
+        echo "Failed!"
+        echo "File $file failed"
+        sort -u $file
+        exit 1
+    fi
+}
 
-status=$(python3 check_status.py)
+export -f run_test
 
-if [ $status -eq 0 ]; then
-    echo "Success!"
-else
+parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} " \
+    ::: type float double \
+    ::: op "+" "-" "x" "/" \
+    ::: optimization "${optimizations[@]}"
+
+if [[ $? != 0 ]]; then
     echo "Failed!"
+    exit 1
+else
+    echo "Success!"
+    exit 0
 fi
-
-rm -rf tmp.*
-
-exit $status
