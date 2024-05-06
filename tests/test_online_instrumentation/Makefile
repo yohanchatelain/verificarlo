@@ -8,8 +8,8 @@ endif
 
 
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL=$(type) $(optimization) --function=operator --online-instrumentation # --show-cmd --verbose
-LDFLAGS=--online-instrumentation
+CFLAGS=-g -Wall -DREAL=$(type) $(optimization) --function=operator --online-instrumentation=up-down # --show-cmd --verbose
+LDFLAGS=--online-instrumentation=up-down
 SOURCE=test.c
 BINARY=test_$(type)_$(optimization)
 

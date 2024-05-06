@@ -244,6 +244,7 @@ def apply_mca_instrumentation_pass(
 ):
     if args.online_instrumentation:
         libvfcinst = libvfcinstrumentonline
+        extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
@@ -413,7 +414,7 @@ def parse_args():
         "--linker",
         choices=linkers.keys(),
         default=default_linker,
-        help="linker to use, {dl} by default".format(dl=default_linker),
+        help=f"linker to use, {default_linker} by default",
     )
     parser.add_argument(
         "--emit-llvm",
@@ -421,7 +422,12 @@ def parse_args():
         help="emit an LLVM bitcode with the instrumentation built-in",
     )
     parser.add_argument(
-        "--online-instrumentation", action="store_true", help="Online instrumentation"
+        "--online-instrumentation",
+        action="store",
+        choices=["up-down", "sr"],
+        type=str,
+        default="up-down",
+        help="Online instrumentation. (mode: up-down, sr)",
     )
 
     args, other = parser.parse_known_args()

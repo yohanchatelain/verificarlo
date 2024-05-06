@@ -76,6 +76,11 @@ static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
                                        cl::value_desc("Verbose"),
                                        cl::init(false));
 
+static cl::opt<std::string>
+    VfclibInstMode("vfclibinst-mode",
+                   cl::desc("Instrumentation mode: up-down or sr"),
+                   cl::value_desc("Mode"), cl::init("up-down"));
+
 /* pointer that hold the vfcwrapper Module */
 // static Module *vfcwrapperM = nullptr;
 
@@ -349,9 +354,40 @@ struct VfclibInst : public ModulePass {
     }
   }
 
-  /* Replace arithmetic instructions with MCA */
-  Value *replaceArithmeticWithMCACall(IRBuilder<> &Builder, Instruction *I,
-                                      std::set<User *> &users) {
+  std::string sr_hook_name(Instruction &I) {
+    switch (I.getOpcode()) {
+    case Instruction::FAdd:
+      return "add2";
+    case Instruction::FSub:
+      // In LLVM IR the FSub instruction is used to represent FNeg
+      return "sub2";
+    case Instruction::FMul:
+      return "mul2";
+    case Instruction::FDiv:
+      return "div2";
+    }
+  }
+
+  Value *insertSROpCall(IRBuilder<> &Builder, Instruction *I) {
+    Module *M = I->getModule();
+    std::string typestring = validTypesMap[I->getType()->getTypeID()];
+    std::string srName = sr_hook_name(*I) + "_" + typestring;
+    FunctionType *funcType =
+        FunctionType::get(I->getType(), {I->getType(), I->getType()}, false);
+    FunctionCallee SR = M->getOrInsertFunction(srName, funcType);
+    return Builder.CreateCall(SR, {I->getOperand(0), I->getOperand(1)});
+  }
+
+  Value *replaceArithmeticWithMCACall_SR(IRBuilder<> &Builder, Instruction *I,
+                                         std::set<User *> &users) {
+    Type *fpAsIntTy = getFPAsIntType(I->getType());
+    Value *value = insertSROpCall(Builder, I);
+    return value;
+  }
+
+  Value *replaceArithmeticWithMCACall_UpOrDown(IRBuilder<> &Builder,
+                                               Instruction *I,
+                                               std::set<User *> &users) {
     Type *fpAsIntTy = getFPAsIntType(I->getType());
     Value *randomBit = insertRNGCall(Builder, I);
     users.insert(static_cast<User *>(randomBit));
@@ -361,6 +397,19 @@ struct VfclibInst : public ModulePass {
     Value *newResult = Builder.CreateAdd(FPAsInt, randomBit, "add_noise");
     Value *newFP = Builder.CreateBitCast(newResult, I->getType(), "new_fp");
     return newFP;
+  }
+
+  /* Replace arithmetic instructions with MCA */
+  Value *replaceArithmeticWithMCACall(IRBuilder<> &Builder, Instruction *I,
+                                      std::set<User *> &users) {
+    if (VfclibInstMode == "up-down") {
+      return replaceArithmeticWithMCACall_UpOrDown(Builder, I, users);
+    } else if (VfclibInstMode == "sr") {
+      return replaceArithmeticWithMCACall_SR(Builder, I, users);
+    } else {
+      errs() << "Unsupported mode: " << VfclibInstMode << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
   }
 
   Value *replaceWithMCACall(Module &M, Instruction *I, Fops opCode,
