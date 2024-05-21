@@ -8,6 +8,18 @@
 
 #include "interflop/common/float_utils.h"
 
+#ifdef DEBUG
+#include <stdio.h>
+#define debug_print(fmt, ...)                                                  \
+  do {                                                                         \
+    fprintf(stderr, fmt, __VA_ARGS__);                                         \
+  } while (0)
+#else
+#define debug_print(fmt, ...)                                                  \
+  do {                                                                         \
+  } while (0)
+#endif
+
 #define __INTERNAL_RNG_STATE xoroshiro_state
 
 typedef uint64_t xoroshiro_state[2];
@@ -74,72 +86,117 @@ __attribute__((constructor)) static void init(void) {
   rng_state[1] = next_seed(seed);
 }
 
-uint32_t get_exponent_b64(double x) { return _get_exponent_binary64(x); }
-uint32_t get_exponent_b32(float x) { return _get_exponent_binary32(x); }
+uint32_t get_exponent_b64(double x) {
+  debug_print("%s\n", "=== get_exponent_b64 ===");
+  debug_print("\tx: %+.13a\n", x);
+  debug_print("\texp: %d\n", _get_exponent_binary64(x));
+  debug_print("%s\n", "=== get_exponent_b64 ===");
+  return _get_exponent_binary64(x);
+}
+uint32_t get_exponent_b32(float x) {
+  debug_print("%s\n", "=== get_exponent_b32 ===");
+  debug_print("\tx: %+.13a\n", x);
+  debug_print("\texp: %d\n", _get_exponent_binary32(x));
+  debug_print("%s\n", "=== get_exponent_b32 ===");
+
+  return _get_exponent_binary32(x);
+}
 
 double predecessor_b64(double x) {
+  debug_print("%s\n", "=== predecessor_b64 ===");
+  debug_print("\tx:      %+.13a\n", x);
   uint64_t x_bits = *(uint64_t *)&x;
   x_bits--;
+  debug_print("\tpre(x): %+.13a\n", *(double *)&x_bits);
+  debug_print("%s\n", "=== predecessor_b64 ===");
   return *(double *)&x_bits;
 }
 
 float predecessor_b32(float x) {
+  debug_print("%s\n", "=== predecessor_b32 ===");
+  debug_print("\tx:      %+.13a\n", x);
   uint32_t x_bits = *(uint32_t *)&x;
   x_bits--;
+  debug_print("\tpre(x): %+.13a\n", *(float *)&x_bits);
+  debug_print("%s\n", "=== predecessor_b32 ===");
   return *(float *)&x_bits;
 }
 
 double abs_b64(double x) {
+  debug_print("%s\n", "=== abs_b64 ===");
+  debug_print("\tx:      %+.13a\n", x);
   uint64_t x_bits = *(uint64_t *)&x;
   x_bits &= 0x7FFFFFFFFFFFFFFF;
+  debug_print("\tabs(x): %+.13a\n", *(double *)&x_bits);
+  debug_print("%s\n", "=== abs_b64 ===");
   return *(double *)&x_bits;
 }
 
 float abs_b32(float x) {
+  debug_print("%s\n", "=== abs_b32 ===");
+  debug_print("\tx:      %+.13a\n", x);
   uint32_t x_bits = *(uint32_t *)&x;
   x_bits &= 0x7FFFFFFF;
+  debug_print("\tabs(x): %+.13a\n", *(float *)&x_bits);
+  debug_print("%s\n", "=== abs_b32 ===");
   return *(float *)&x_bits;
 }
 
 double pow2_b64(uint32_t n) {
+  debug_print("%s\n", "=== pow2_b64 ===");
+  debug_print("\tn: %d\n", n);
   uint64_t n_bits = (uint64_t)(n + 1023) << 52;
+  debug_print("\tn_bits: %+.13a\n", *(double *)&n_bits);
+  debug_print("%s\n", "=== get_exponent_b64 ===");
   return *(double *)&n_bits;
 }
 
 float pow2_b32(uint32_t n) {
+  debug_print("%s\n", "=== pow2_b32 ===");
+  debug_print("\tn: %d\n", n);
   uint32_t n_bits = (n + 127) << 23;
+  debug_print("\tn_bits: %+.13a\n", *(float *)&n_bits);
+  debug_print("%s\n", "=== pow_b32 ===");
   return *(float *)&n_bits;
 }
 
 double sr_round_b64(double sigma, double tau, double z) {
   // Compute round
+  debug_print("%s\n", "=== sr_round_b64 ===");
   double eps = 0x1.0p-52;
   bool sign_tau, sign_sigma;
-  sign_tau = tau < 0;
-  sign_sigma = sigma < 0;
+  sign_tau = tau < 0 ? -1 : 1;
+  sign_sigma = sigma < 0 ? -1 : 1;
   uint32_t eta;
   if (sign_tau != sign_sigma) {
     eta = get_exponent_b64(predecessor_b64(abs_b64(sigma)));
   } else {
     eta = get_exponent_b64(sigma);
   }
+  debug_print("\teta: %d\n", eta);
   double ulp = sign_tau * pow2_b64(eta) * eps;
+  debug_print("\tulp: %.13a\n", ulp);
   double pi = ulp * z;
+  debug_print("\tpi: %.13a\n", pi);
   double round;
+  debug_print("\ttau + pi: %.13a\n", tau + pi);
   if (abs_b64(tau + pi) >= abs_b64(ulp)) {
     round = ulp;
   } else {
     round = 0;
   }
+  debug_print("\tround: %.13a\n", round);
+  debug_print("%s\n", "=== sr_round_b64 ===");
   return round;
 }
 
 float sr_round_b32(float sigma, float tau, float z) {
   // Compute round
+  debug_print("%s\n", "=== sr_round_b32 ===");
   float eps = 0x1.0p-23;
   bool sign_tau, sign_sigma;
-  sign_tau = tau < 0;
-  sign_sigma = sigma < 0;
+  sign_tau = tau < 0 ? -1 : 1;
+  sign_sigma = sigma < 0 ? -1 : 1;
   uint32_t eta;
   if (sign_tau != sign_sigma) {
     eta = get_exponent_b32(predecessor_b32(abs_b32(sigma)));
@@ -184,15 +241,23 @@ float twoprodfma_b32(float a, float b, float *tau, float *sigma) {
 }
 
 double add2_double(double a, double b) {
+  debug_print("%s\n", "=== add2_double ===");
   // compute SR(a+b)
+  debug_print("\ta: %+.13a\n", a);
+  debug_print("\tb: %+.13a\n", b);
   double z, tau, sigma, round;
   z = get_rand_double01(); // return float in [0,1)
+  debug_print("\tz: %f\n", z);
   twosum_b64(a, b, &tau, &sigma);
+  debug_print("\ttau: %+.13a, sigma: %+.13a\n", tau, sigma);
   round = sr_round_b64(sigma, tau, z);
+  debug_print("\tround: %+.13a\n", round);
+  debug_print("\tsigma + round: %+.13a\n", sigma + round);
+  debug_print("%s\n", "=== add2_double ===");
   return sigma + round;
 }
 
-double sub2_double(float a, float b) { return add2_double(a, -b); }
+double sub2_double(double a, double b) { return add2_double(a, -b); }
 
 double mul2_double(double a, double b) {
   // if a and b satisfy the condition (5.1), compute SR(a*b)
@@ -205,12 +270,20 @@ double mul2_double(double a, double b) {
 
 double div2_double(double a, double b) {
   // compute SR(a/b)
+  debug_print("%s\n", "=== div2_double ===");
   double z, sigma, tau, round;
   z = get_rand_double01(); // return float in [0,1)
+  debug_print("\tz: %f\n", z);
   sigma = a / b;
-  tau = -sigma * b + a;
+  debug_print("\tsigma: %+.13a\n", sigma);
+  tau = __builtin_fma(-sigma, b, a);
+  debug_print("\ttau: %+.13a\n", tau);
   tau = tau / b;
+  debug_print("\ttau: %+.13a\n", tau);
   round = sr_round_b64(sigma, tau, z);
+  debug_print("\tround: %+.13a\n", round);
+  debug_print("\tsigma + round: %+.13a\n", sigma + round);
+  debug_print("%s\n", "=== div2_double ===");
   return sigma + round;
 }
 
@@ -219,7 +292,7 @@ double sqrt2_double(double a) {
   double z, sigma, tau, round;
   z = get_rand_double01(); // return float in [0,1)
   sigma = sqrt(a);
-  tau = -sigma * sigma + a;
+  tau = __builtin_fma(-sigma, sigma, a);
   tau = tau / (2 * sigma);
   round = sr_round_b64(sigma, tau, z);
   return sigma + round;
@@ -250,7 +323,7 @@ float div2_float(float a, float b) {
   float z, sigma, tau, round;
   z = get_rand_double01(); // return float in [0,1)
   sigma = a / b;
-  tau = -sigma * b + a;
+  tau = __builtin_fmaf(-sigma, b, a);
   tau = tau / b;
   round = sr_round_b32(sigma, tau, z);
   return sigma + round;
@@ -261,7 +334,7 @@ float sqrt2_float(float a) {
   float z, sigma, tau, round;
   z = get_rand_double01(); // return float in [0,1)
   sigma = sqrtf(a);
-  tau = -sigma * sigma + a;
+  tau = __builtin_fmaf(-sigma, sigma, a);
   tau = tau / (2 * sigma);
   round = sr_round_b32(sigma, tau, z);
   return sigma + round;
