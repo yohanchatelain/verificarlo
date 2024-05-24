@@ -29,6 +29,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <llvm/ADT/APFloat.h>
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
@@ -42,6 +43,9 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+
+#include <interflop-stdlib/common/float_const.h>
+#include <interflop-stdlib/common/float_utils.h>
 
 #if LLVM_VERSION_MAJOR < 11
 #define GET_VECTOR_TYPE(ty, size) VectorType::get(ty, size)
@@ -344,9 +348,7 @@ struct VfclibInst : public ModulePass {
 
   Constant *getUIntValue(Type *type, int value) {
     Type *intTy = getFPAsIntType(type);
-    if (type->isFloatTy()) {
-      return ConstantInt::get(intTy, value);
-    } else if (type->isDoubleTy()) {
+    if (type->isFloatTy() or type->isDoubleTy()) {
       return ConstantInt::get(intTy, value);
     } else {
       errs() << "Unsupported type: " << *type << "\n";
@@ -411,6 +413,58 @@ struct VfclibInst : public ModulePass {
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
+
+  Value *getExponentMask(Type *fpTy) {
+    if (fpTy->isFloatTy()) {
+      // Extract the exponent from the float
+      return getUIntValue(fpTy, FLOAT_GET_EXP);
+    } else if (fpTy->isDoubleTy()) {
+      // Extract the exponent from the double
+      return getUIntValue(fpTy, DOUBLE_GET_EXP);
+    } else {
+      errs() << "Unsupported type: " << *fpTy << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  Constant *getExponentBias(Type *fpTy) {
+    if (fpTy->isFloatTy()) {
+      return ConstantInt::get(fpTy, FLOAT_EXP_COMP);
+    } else if (fpTy->isDoubleTy()) {
+      return ConstantInt::get(fpTy, DOUBLE_EXP_COMP);
+    } else {
+      errs() << "Unsupported type: " << *fpTy << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  Value *createGetExponent(IRBuilder<> &Builder, Instruction *I,
+                           std::set<User *> &users) {
+    // Get the exponent of the floating point number
+    Type *srcTy = I->getType();
+    Type *dstTy = getFPAsIntType(srcTy);
+    Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
+    Value *exponent_mask = getExponentMask(srcTy);
+    Value *BiasedExponentValue =
+        Builder.CreateAnd(fpAsInt, exponent_mask, "get_exponent_bits");
+    const unsigned mantissa_bitsize = srcTy->getFPMantissaWidth() - 1;
+    Value *ShiftExponentBitsValue = Builder.CreateLShr(
+        BiasedExponentValue, mantissa_bitsize, "shift_exponent_bits");
+    Constant *exponentBias = getExponentBias(srcTy);
+    Value *ExponentValue =
+        Builder.CreateSub(ShiftExponentBitsValue, exponentBias, "get_exponent");
+    return ExponentValue;
+  }
+
+  Value *createGetPredecessor(IRBuilder<> &Builder, Instruction *I, std::set<User*> &users) {
+      // Get the predecessor of the floating point number
+      Type *srcTy = I->getType();
+      Type *dstTy = getFPAsIntType(srcTy);
+      Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
+      
+  }
+
+
 
   Value *replaceWithMCACall(Module &M, Instruction *I, Fops opCode,
                             std::set<User *> &users) {

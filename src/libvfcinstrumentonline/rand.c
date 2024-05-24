@@ -6,7 +6,201 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "interflop/common/float_utils.h"
+// #include "interflop/common/float_utils.h"
+#ifndef __FLOAT_STRUCT_H_
+#define __FLOAT_STRUCT_H_
+
+#include "interflop/common/float_const.h"
+#include <stdint.h>
+#include <stdlib.h>
+
+/* import from <quadmath-imp.h> */
+
+/* Frankly, if you have __float128, you have 64-bit integers, right?  */
+#ifndef UINT64_C
+#error "No way!"
+#endif
+
+/* Main union type we use to manipulate the floating-point type.  */
+
+typedef union {
+  __float128 f128;
+  __uint128_t u128;
+  __int128_t i128;
+
+  /* Generic fields */
+  __float128 type;
+  __int128_t i;
+  __uint128_t u;
+
+  struct
+#ifdef __MINGW32__
+      /* On mingw targets the ms-bitfields option is active by default.
+         Therefore enforce gnu-bitfield style.  */
+      __attribute__((gcc_struct))
+#endif
+  {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    unsigned sign : QUAD_SIGN_SIZE;
+    unsigned exponent : QUAD_EXP_SIZE;
+    uint64_t mant_high : QUAD_HX_PMAN_SIZE;
+    uint64_t mant_low : QUAD_LX_PMAN_SIZE;
+#else
+    uint64_t mant_low : QUAD_LX_PMAN_SIZE;
+    uint64_t mant_high : QUAD_HX_PMAN_SIZE;
+    unsigned exponent : QUAD_EXP_SIZE;
+    unsigned sign : QUAD_SIGN_SIZE;
+#endif
+  } ieee;
+
+  struct
+#ifdef __MINGW32__
+      /* On mingw targets the ms-bitfields option is active by default.
+         Therefore enforce gnu-bitfield style.  */
+      __attribute__((gcc_struct))
+#endif
+  {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    __uint128_t sign : QUAD_SIGN_SIZE;
+    __uint128_t exponent : QUAD_EXP_SIZE;
+    __uint128_t mantissa : QUAD_PMAN_SIZE;
+#else
+    __uint128_t mantissa : QUAD_PMAN_SIZE;
+    __uint128_t exponent : QUAD_EXP_SIZE;
+    __uint128_t sign : QUAD_SIGN_SIZE;
+#endif
+  } ieee128;
+
+  struct {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint64_t high;
+    uint64_t low;
+#else
+    uint64_t low;
+    uint64_t high;
+#endif
+  } words64;
+
+  struct {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint32_t w0;
+    uint32_t w1;
+    uint32_t w2;
+    uint32_t w3;
+#else
+    uint32_t w3;
+    uint32_t w2;
+    uint32_t w1;
+    uint32_t w0;
+#endif
+  } words32;
+
+  struct
+#ifdef __MINGW32__
+      /* Make sure we are using gnu-style bitfield handling.  */
+      __attribute__((gcc_struct))
+#endif
+  {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint64_t sign : QUAD_SIGN_SIZE;
+    uint64_t exponent : QUAD_EXP_SIZE;
+    uint64_t quiet_nan : QUAD_QUIET_NAN_SIZE;
+    uint64_t mant_high : QUAD_HX_PMAN_QNAN_SIZE;
+    uint64_t mant_low : QUAD_LX_PMAN_QNAN_SIZE;
+#else
+    uint64_t mant_low : QUAD_LX_PMAN_QNAN_SIZE;
+    uint64_t mant_high : QUAD_HX_PMAN_QNAN_SIZE;
+    uint64_t quiet_nan : QUAD_QUIET_NAN_SIZE;
+    uint64_t exponent : QUAD_EXP_SIZE;
+    uint64_t sign : QUAD_SIGN_SIZE;
+#endif
+  } nan;
+
+} binary128;
+
+typedef union {
+
+  double f64;
+  uint64_t u64;
+  int64_t s64;
+  uint32_t u32[2];
+
+  /* Generic fields */
+  double type;
+  uint64_t u;
+
+  struct {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint64_t sign : DOUBLE_SIGN_SIZE;
+    uint64_t exponent : DOUBLE_EXP_SIZE;
+    uint64_t mantissa : DOUBLE_PMAN_SIZE;
+#endif
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    uint64_t mantissa : DOUBLE_PMAN_SIZE;
+    uint64_t exponent : DOUBLE_EXP_SIZE;
+    uint64_t sign : DOUBLE_SIGN_SIZE;
+#endif
+  } ieee;
+
+  struct {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint32_t sign : DOUBLE_SIGN_SIZE;
+    uint32_t exponent : DOUBLE_EXP_SIZE;
+    uint32_t mantissa_high : DOUBLE_PMAN_HIGH_SIZE;
+    uint32_t mantissa_low : DOUBLE_PMAN_LOW_SIZE;
+#endif
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if __FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint32_t mantissa_high : DOUBLE_PMAN_HIGH_SIZE;
+    uint32_t exponent : DOUBLE_EXP_SIZE;
+    uint32_t sign : DOUBLE_SIGN_SIZE;
+    uint32_t mantissa_low : DOUBLE_PMAN_LOW_SIZE;
+#else
+    uint32_t mantissa_low : DOUBLE_PMAN_LOW_SIZE;
+    uint32_t mantissa_high : DOUBLE_PMAN_HIGH_SIZE;
+    uint32_t exponent : DOUBLE_EXP_SIZE;
+    uint32_t sign : DOUBLE_SIGN_SIZE;
+#endif
+#endif
+  } ieee32;
+
+} binary64;
+
+typedef union {
+
+  float f32;
+  uint32_t u32;
+  int32_t s32;
+
+  /* Generic fields */
+  float type;
+  uint32_t u;
+
+  struct {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    uint32_t sign : FLOAT_SIGN_SIZE;
+    uint32_t exponent : FLOAT_EXP_SIZE;
+    uint32_t mantissa : FLOAT_PMAN_SIZE;
+#endif
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    uint32_t mantissa : FLOAT_PMAN_SIZE;
+    uint32_t exponent : FLOAT_EXP_SIZE;
+    uint32_t sign : FLOAT_SIGN_SIZE;
+#endif
+  } ieee;
+
+} binary32;
+
+#define QUADFP_NAN 0
+#define QUADFP_INFINITE 1
+#define QUADFP_ZERO 2
+#define QUADFP_SUBNORMAL 3
+#define QUADFP_NORMAL 4
+#define fpclassifyq(x)                                                         \
+  __builtin_fpclassify(QUADFP_NAN, QUADFP_INFINITE, QUADFP_NORMAL,             \
+                       QUADFP_SUBNORMAL, QUADFP_ZERO, x)
+
+#endif /* __FLOAT_STRUCT_H_ */
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -86,6 +280,20 @@ __attribute__((constructor)) static void init(void) {
   rng_state[1] = next_seed(seed);
 }
 
+/* Returns the unbiased exponent of the binary32 f */
+static inline int32_t _get_exponent_binary32(const float f) {
+  binary32 x = {.f32 = f};
+  /* Substracts the bias */
+  return x.ieee.exponent - FLOAT_EXP_COMP;
+}
+
+/* Returns the unbiased exponent of the binary64 d */
+static inline int32_t _get_exponent_binary64(const double d) {
+  binary64 x = {.f64 = d};
+  /* Substracts the bias */
+  return x.ieee.exponent - DOUBLE_EXP_COMP;
+}
+
 uint32_t get_exponent_b64(double x) {
   debug_print("%s\n", "=== get_exponent_b64 ===");
   debug_print("\tx: %+.13a\n", x);
@@ -111,6 +319,12 @@ double predecessor_b64(double x) {
   debug_print("%s\n", "=== predecessor_b64 ===");
   return *(double *)&x_bits;
 }
+
+double _predecessor_b64(double x) { return __builtin_nextafter(x, -INFINITY); }
+float _predecessor_b32(float x) { return __builtin_nextafterf(x, -INFINITY); }
+
+double _successor_b64(double x) { return __builtin_nextafter(x, INFINITY); }
+float _successor_b32(float x) { return __builtin_nextafterf(x, INFINITY); }
 
 float predecessor_b32(float x) {
   debug_print("%s\n", "=== predecessor_b32 ===");
@@ -214,27 +428,27 @@ float sr_round_b32(float sigma, float tau, float z) {
   return round;
 }
 
-double twosum_b64(double a, double b, double *tau, double *sigma) {
+void twosum_b64(double a, double b, double *tau, double *sigma) {
   // Compute tau and sigma
   *sigma = a + b;
   double z = *sigma - a;
   *tau = (a - (*sigma - z)) + (b - z);
 }
 
-float twosum_b32(float a, float b, float *tau, float *sigma) {
+void twosum_b32(float a, float b, float *tau, float *sigma) {
   // Compute tau and sigma
   *sigma = a + b;
   float z = *sigma - a;
   *tau = (a - (*sigma - z)) + (b - z);
 }
 
-double twoprodfma_b64(double a, double b, double *tau, double *sigma) {
+void twoprodfma_b64(double a, double b, double *tau, double *sigma) {
   // Compute tau and sigma
   *sigma = a * b;
   *tau = __builtin_fma(a, b, -(*sigma));
 }
 
-float twoprodfma_b32(float a, float b, float *tau, float *sigma) {
+void twoprodfma_b32(float a, float b, float *tau, float *sigma) {
   // Compute tau and sigma
   *sigma = a * b;
   *tau = __builtin_fmaf(a, b, -(*sigma));
