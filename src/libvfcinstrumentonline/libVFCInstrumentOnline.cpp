@@ -44,8 +44,7 @@
 #include <utility>
 #include <vector>
 
-#include <interflop-stdlib/common/float_const.h>
-#include <interflop-stdlib/common/float_utils.h>
+#include "interflop/common/float_const.h"
 
 #if LLVM_VERSION_MAJOR < 11
 #define GET_VECTOR_TYPE(ty, size) VectorType::get(ty, size)
@@ -346,10 +345,20 @@ struct VfclibInst : public ModulePass {
     }
   }
 
-  Constant *getUIntValue(Type *type, int value) {
+  Constant *getUIntValue(Type *type, uint64_t value) {
     Type *intTy = getFPAsIntType(type);
     if (type->isFloatTy() or type->isDoubleTy()) {
       return ConstantInt::get(intTy, value);
+    } else {
+      errs() << "Unsupported type: " << *type << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  Constant *getIntValue(Type *type, uint64_t value) {
+    Type *intTy = getFPAsIntType(type);
+    if (type->isFloatTy() or type->isDoubleTy()) {
+      return ConstantInt::get(intTy, value, true);
     } else {
       errs() << "Unsupported type: " << *type << "\n";
       report_fatal_error("libVFCInstrument fatal error");
@@ -367,17 +376,116 @@ struct VfclibInst : public ModulePass {
       return "mul2";
     case Instruction::FDiv:
       return "div2";
+    default:
+      errs() << "Unsupported opcode: " << I.getOpcodeName() << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
     }
+  }
+
+  Value *getExponentMask(Type *fpTy) {
+    if (fpTy->isFloatTy()) {
+      // Extract the exponent from the float
+      return getUIntValue(fpTy, FLOAT_GET_EXP);
+    } else if (fpTy->isDoubleTy()) {
+      // Extract the exponent from the double
+      return getUIntValue(fpTy, DOUBLE_GET_EXP);
+    } else {
+      errs() << "Unsupported type: " << *fpTy << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  Constant *getExponentBias(Type *fpTy) {
+    Type *fpAsIntTy = getFPAsIntType(fpTy);
+    if (fpTy->isFloatTy()) {
+      return ConstantInt::get(fpAsIntTy, FLOAT_EXP_COMP);
+    } else if (fpTy->isDoubleTy()) {
+      return ConstantInt::get(fpAsIntTy, DOUBLE_EXP_COMP);
+    } else {
+      errs() << "Unsupported type: " << *fpTy << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  Value *createGetExponent(IRBuilder<> &Builder, Instruction *I) {
+    // Get the exponent of the floating point number
+    Type *srcTy = I->getType();
+    Type *dstTy = getFPAsIntType(srcTy);
+    Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
+    Value *exponent_mask = getExponentMask(srcTy);
+    Value *BiasedExponentValue =
+        Builder.CreateAnd(fpAsInt, exponent_mask, "get_exponent_bits");
+    const uint64_t mantissa_bitsize = srcTy->getFPMantissaWidth() - 1;
+
+    Value *ShiftExponentBitsValue = Builder.CreateLShr(
+        BiasedExponentValue, mantissa_bitsize, "shift_exponent_bits");
+    ConstantInt *exponentBias =
+        static_cast<ConstantInt *>(getExponentBias(srcTy));
+    Value *ExponentValue =
+        Builder.CreateSub(ShiftExponentBitsValue, exponentBias, "get_exponent");
+    return ExponentValue;
+  }
+
+  Value *creatGetExponentFunction(IRBuilder<> &Builder, Instruction *I) {
+    // if function already exists, return it
+    if (Function *function = I->getModule()->getFunction("get_exponent")) {
+      return Builder.CreateCall(function, {I});
+    }
+
+    Type *srcTy = I->getType();
+    Type *dstTy = getFPAsIntType(srcTy);
+    FunctionType *funcType = FunctionType::get(dstTy, {srcTy}, false);
+    Function *function = Function::Create(funcType, Function::InternalLinkage,
+                                          "get_exponent", I->getModule());
+
+    BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
+    Builder.SetInsertPoint(BB);
+
+    Function::arg_iterator args = function->arg_begin();
+    Value *ExponentValue = createGetExponent(Builder, I);
+
+    Builder.CreateRet(ExponentValue);
+    Builder.ClearInsertionPoint();
+
+    // Check if this instruction is the last one in the block
+    if (I->isTerminator()) {
+      // Insert at the end of the block
+      Builder.SetInsertPoint(I->getParent());
+    } else {
+      // Set insertion point after the given instruction
+      Builder.SetInsertPoint(I->getNextNode());
+    }
+
+    CallInst *call = Builder.CreateCall(function, {I});
+
+    return call;
+  }
+
+  Value *createGetPredecessor(IRBuilder<> &Builder, Value *I) {
+    // Get the predecessor of the floating point number
+    Type *srcTy = I->getType();
+    Type *dstTy = getFPAsIntType(srcTy);
+    Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
+    Value *pred = Builder.CreateSub(fpAsInt, ConstantInt::get(dstTy, 1));
+    Value *intAsFP = Builder.CreateBitCast(pred, srcTy, "pred");
+    return intAsFP;
   }
 
   Value *insertSROpCall(IRBuilder<> &Builder, Instruction *I) {
     Module *M = I->getModule();
-    std::string typestring = validTypesMap[I->getType()->getTypeID()];
-    std::string srName = sr_hook_name(*I) + "_" + typestring;
-    FunctionType *funcType =
-        FunctionType::get(I->getType(), {I->getType(), I->getType()}, false);
-    FunctionCallee SR = M->getOrInsertFunction(srName, funcType);
-    return Builder.CreateCall(SR, {I->getOperand(0), I->getOperand(1)});
+    if (I->getOpcode() == Instruction::FAdd) {
+      Value *getExponent = creatGetExponentFunction(Builder, I);
+      // Value *getExponent = createGetExponent(Builder, I);
+      // Value *getPredecessor = createGetPredecessor(Builder, getExponent);
+      return getExponent;
+    } else {
+      std::string typestring = validTypesMap[I->getType()->getTypeID()];
+      std::string srName = sr_hook_name(*I) + "_" + typestring;
+      FunctionType *funcType =
+          FunctionType::get(I->getType(), {I->getType(), I->getType()}, false);
+      FunctionCallee SR = M->getOrInsertFunction(srName, funcType);
+      return Builder.CreateCall(SR, {I->getOperand(0), I->getOperand(1)});
+    }
   }
 
   Value *replaceArithmeticWithMCACall_SR(IRBuilder<> &Builder, Instruction *I,
@@ -413,58 +521,6 @@ struct VfclibInst : public ModulePass {
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
-
-  Value *getExponentMask(Type *fpTy) {
-    if (fpTy->isFloatTy()) {
-      // Extract the exponent from the float
-      return getUIntValue(fpTy, FLOAT_GET_EXP);
-    } else if (fpTy->isDoubleTy()) {
-      // Extract the exponent from the double
-      return getUIntValue(fpTy, DOUBLE_GET_EXP);
-    } else {
-      errs() << "Unsupported type: " << *fpTy << "\n";
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-  }
-
-  Constant *getExponentBias(Type *fpTy) {
-    if (fpTy->isFloatTy()) {
-      return ConstantInt::get(fpTy, FLOAT_EXP_COMP);
-    } else if (fpTy->isDoubleTy()) {
-      return ConstantInt::get(fpTy, DOUBLE_EXP_COMP);
-    } else {
-      errs() << "Unsupported type: " << *fpTy << "\n";
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-  }
-
-  Value *createGetExponent(IRBuilder<> &Builder, Instruction *I,
-                           std::set<User *> &users) {
-    // Get the exponent of the floating point number
-    Type *srcTy = I->getType();
-    Type *dstTy = getFPAsIntType(srcTy);
-    Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
-    Value *exponent_mask = getExponentMask(srcTy);
-    Value *BiasedExponentValue =
-        Builder.CreateAnd(fpAsInt, exponent_mask, "get_exponent_bits");
-    const unsigned mantissa_bitsize = srcTy->getFPMantissaWidth() - 1;
-    Value *ShiftExponentBitsValue = Builder.CreateLShr(
-        BiasedExponentValue, mantissa_bitsize, "shift_exponent_bits");
-    Constant *exponentBias = getExponentBias(srcTy);
-    Value *ExponentValue =
-        Builder.CreateSub(ShiftExponentBitsValue, exponentBias, "get_exponent");
-    return ExponentValue;
-  }
-
-  Value *createGetPredecessor(IRBuilder<> &Builder, Instruction *I, std::set<User*> &users) {
-      // Get the predecessor of the floating point number
-      Type *srcTy = I->getType();
-      Type *dstTy = getFPAsIntType(srcTy);
-      Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
-      
-  }
-
-
 
   Value *replaceWithMCACall(Module &M, Instruction *I, Fops opCode,
                             std::set<User *> &users) {
