@@ -22,6 +22,7 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -407,7 +408,19 @@ struct VfclibInst : public ModulePass {
     }
   }
 
-  Value *createGetExponent(IRBuilder<> &Builder, Instruction *I) {
+  Constant *getSignMask(Type *fpTy) {
+    Type *fpAsIntTy = getFPAsIntType(fpTy);
+    if (fpTy->isFloatTy()) {
+      return ConstantInt::get(fpAsIntTy, FLOAT_GET_SIGN);
+    } else if (fpTy->isDoubleTy()) {
+      return ConstantInt::get(fpAsIntTy, DOUBLE_GET_SIGN);
+    } else {
+      errs() << "Unsupported type: " << *fpTy << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  Value *createGetExponent(IRBuilder<> &Builder, Value *I) {
     // Get the exponent of the floating point number
     Type *srcTy = I->getType();
     Type *dstTy = getFPAsIntType(srcTy);
@@ -428,21 +441,22 @@ struct VfclibInst : public ModulePass {
 
   Value *creatGetExponentFunction(IRBuilder<> &Builder, Instruction *I) {
     // if function already exists, return it
-    if (Function *function = I->getModule()->getFunction("get_exponent")) {
+    Type *srcTy = I->getType();
+    const std::string function_name = "get_exponent_" + getTypeName(srcTy);
+    if (Function *function = I->getModule()->getFunction(function_name)) {
       return Builder.CreateCall(function, {I});
     }
 
-    Type *srcTy = I->getType();
     Type *dstTy = getFPAsIntType(srcTy);
     FunctionType *funcType = FunctionType::get(dstTy, {srcTy}, false);
     Function *function = Function::Create(funcType, Function::InternalLinkage,
-                                          "get_exponent", I->getModule());
+                                          function_name, I->getModule());
 
     BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
     Builder.SetInsertPoint(BB);
 
     Function::arg_iterator args = function->arg_begin();
-    Value *ExponentValue = createGetExponent(Builder, I);
+    Value *ExponentValue = createGetExponent(Builder, &*args);
 
     Builder.CreateRet(ExponentValue);
     Builder.ClearInsertionPoint();
@@ -461,6 +475,37 @@ struct VfclibInst : public ModulePass {
     return call;
   }
 
+  std::string getTypeName(Type *type) {
+    switch (type->getTypeID()) {
+    case Type::VoidTyID:
+      return "void";
+    case Type::HalfTyID:
+      return "half";
+    case Type::FloatTyID:
+      return "float";
+    case Type::DoubleTyID:
+      return "double";
+    case Type::X86_FP80TyID:
+      return "x86_fp80";
+    case Type::FP128TyID:
+      return "fp128";
+    case Type::PPC_FP128TyID:
+      return "ppc_fp128";
+    case Type::IntegerTyID:
+      return "integer";
+    case Type::FunctionTyID:
+      return "function";
+    case Type::StructTyID:
+      return "struct";
+    case Type::ArrayTyID:
+      return "array";
+    case Type::PointerTyID:
+      return "pointer";
+    default:
+      return "unknown";
+    }
+  }
+
   Value *createGetPredecessor(IRBuilder<> &Builder, Value *I) {
     // Get the predecessor of the floating point number
     Type *srcTy = I->getType();
@@ -471,10 +516,98 @@ struct VfclibInst : public ModulePass {
     return intAsFP;
   }
 
+  Value *createGetPredecessorFunction(IRBuilder<> &Builder, Instruction *I) {
+    Type *srcTy = I->getType();
+    const std::string function_name = "get_predecessor_" + getTypeName(srcTy);
+
+    // if function already exists, return it
+    if (Function *function = I->getModule()->getFunction(function_name)) {
+      return Builder.CreateCall(function, {I});
+    }
+
+    Type *dstTy = getFPAsIntType(srcTy);
+    FunctionType *funcType = FunctionType::get(srcTy, {srcTy}, false);
+    Function *function = Function::Create(funcType, Function::InternalLinkage,
+                                          function_name, I->getModule());
+
+    BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
+    Builder.SetInsertPoint(BB);
+
+    Function::arg_iterator args = function->arg_begin();
+    Value *PredecessorValue = createGetPredecessor(Builder, &*args);
+
+    Builder.CreateRet(PredecessorValue);
+    Builder.ClearInsertionPoint();
+
+    // Check if this instruction is the last one in the block
+    if (I->isTerminator()) {
+      // Insert at the end of the block
+      Builder.SetInsertPoint(I->getParent());
+    } else {
+      // Set insertion point after the given instruction
+      Builder.SetInsertPoint(I->getNextNode());
+    }
+
+    CallInst *call = Builder.CreateCall(function, {I});
+
+    return call;
+  }
+
+  Value *createGetAbs(IRBuilder<> &Builder, Value *I) {
+    // Get the absolute value of the floating point number
+    Type *srcTy = I->getType();
+    Module *M = Builder.GetInsertBlock()->getParent()->getParent();
+    Function *fabsIntrinsic =
+        Intrinsic::getDeclaration(M, Intrinsic::fabs, srcTy);
+    return Builder.CreateCall(fabsIntrinsic, I, "fabs");
+  }
+
+  Value *createGetAbsFunction(IRBuilder<> &Builder, Instruction *I) {
+    Type *srcTy = I->getType();
+    const std::string function_name = "get_abs_" + getTypeName(srcTy);
+
+    // if function already exists, return it
+    if (Function *function = I->getModule()->getFunction(function_name)) {
+      return Builder.CreateCall(function, {I});
+    }
+
+    Type *dstTy = getFPAsIntType(srcTy);
+    FunctionType *funcType = FunctionType::get(srcTy, {srcTy}, false);
+    Function *function = Function::Create(funcType, Function::InternalLinkage,
+                                          function_name, I->getModule());
+
+    BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
+    Builder.SetInsertPoint(BB);
+
+    Function::arg_iterator args = function->arg_begin();
+    Value *AbsValue = createGetAbs(Builder, &*args);
+
+    Builder.CreateRet(AbsValue);
+    Builder.ClearInsertionPoint();
+
+    // Check if this instruction is the last one in the block
+    if (I->isTerminator()) {
+      // Insert at the end of the block
+      Builder.SetInsertPoint(I->getParent());
+    } else {
+      // Set insertion point after the given instruction
+      Builder.SetInsertPoint(I->getNextNode());
+    }
+
+    CallInst *call = Builder.CreateCall(function, {I});
+
+    return call;
+  }
+
   Value *insertSROpCall(IRBuilder<> &Builder, Instruction *I) {
     Module *M = I->getModule();
     if (I->getOpcode() == Instruction::FAdd) {
-      Value *getExponent = creatGetExponentFunction(Builder, I);
+      Instruction *getAbs =
+          static_cast<Instruction *>(createGetAbsFunction(Builder, I));
+      Instruction *getPredecessor = static_cast<Instruction *>(
+          createGetPredecessorFunction(Builder, getAbs));
+      Instruction *getExponent = static_cast<Instruction *>(
+          creatGetExponentFunction(Builder, getPredecessor));
       // Value *getExponent = createGetExponent(Builder, I);
       // Value *getPredecessor = createGetPredecessor(Builder, getExponent);
       return getExponent;
@@ -581,13 +714,13 @@ struct VfclibInst : public ModulePass {
       std::set<User *> fp_users;
       Value *value = replaceWithMCACall(M, I, opCode, fp_users);
       // errs() << "After instrumentation: " << B << "\n";
-      if (value != nullptr) {
-        for (User *user : I->users()) {
-          if (fp_users.find(user) == fp_users.end()) {
-            user->replaceUsesOfWith(I, value);
-          }
-        }
-      }
+      // if (value != nullptr) {
+      //   for (User *user : I->users()) {
+      //     if (fp_users.find(user) == fp_users.end()) {
+      //       user->replaceUsesOfWith(I, value);
+      //     }
+      //   }
+      // }
       // errs() << "After replacement: " << B << "\n";
       modified = true;
     }
