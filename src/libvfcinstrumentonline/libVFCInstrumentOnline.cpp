@@ -47,6 +47,11 @@
 
 #include "interflop/common/float_const.h"
 
+// used for backtrace
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #if LLVM_VERSION_MAJOR < 11
 #define GET_VECTOR_TYPE(ty, size) VectorType::get(ty, size)
 #else
@@ -108,6 +113,21 @@ struct VfclibInst : public ModulePass {
   static char ID;
 
   VfclibInst() : ModulePass(ID) {}
+
+  void print_backtrace() {
+    void *buffer[100];
+    int nptrs = backtrace(buffer, 100);
+    char **strings = backtrace_symbols(buffer, nptrs);
+    if (strings == NULL) {
+      perror("backtrace_symbols");
+      exit(EXIT_FAILURE);
+    }
+
+    for (int j = 0; j < nptrs; j++)
+      printf("%s\n", strings[j]);
+
+    free(strings);
+  }
 
   // Taken from
   // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/
@@ -328,6 +348,7 @@ struct VfclibInst : public ModulePass {
     Module *M = I->getModule();
     std::string typestring = validTypesMap[I->getType()->getTypeID()];
     std::string randName = "get_rand_" + typestring;
+    errs() << "insertRNGCall: " << randName << "\n";
     Type *fpAsIntTy = getFPAsIntType(I->getType());
     FunctionType *funcType =
         FunctionType::get(fpAsIntTy, {I->getType()}, false);
@@ -335,33 +356,59 @@ struct VfclibInst : public ModulePass {
     return Builder.CreateCall(RNG, I);
   }
 
+  Value *insertRNGdouble01Call(IRBuilder<> &Builder, Instruction *I) {
+    Module *M = I->getModule();
+    std::string randName = "get_rand_double01";
+    errs() << "insertRNGCall: " << randName << "\n";
+    Type *srcTy = I->getType();
+    Type *voidTy = Type::getVoidTy(I->getContext());
+    Type *doubleTy = Type::getDoubleTy(I->getContext());
+    FunctionType *funcType = FunctionType::get(doubleTy, {voidTy}, false);
+    FunctionCallee RNG = M->getOrInsertFunction(randName, funcType);
+    Instruction *call = Builder.CreateCall(RNG, I);
+    if (srcTy->isFloatTy()) {
+      return Builder.CreateFPExt(call, srcTy);
+    } else {
+      return call;
+    }
+  }
+
   Type *getFPAsIntType(Type *type) {
+    errs() << "getFPAsIntType: " << *type << "\n";
     if (type->isFloatTy()) {
       return Type::getInt32Ty(type->getContext());
     } else if (type->isDoubleTy()) {
       return Type::getInt64Ty(type->getContext());
     } else {
-      errs() << "Unsupported type: " << *type << "\n";
+      const std::string function_name = __func__;
+      errs() << "[" + function_name + "] " + "Unsupported type: " << *type
+             << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
 
   Constant *getUIntValue(Type *type, uint64_t value) {
+    errs() << "getUIntValue: " << *type << "\n";
     Type *intTy = getFPAsIntType(type);
     if (type->isFloatTy() or type->isDoubleTy()) {
       return ConstantInt::get(intTy, value);
     } else {
-      errs() << "Unsupported type: " << *type << "\n";
+      const std::string function_name = __func__;
+      errs() << "[" + function_name + "] " + "Unsupported type: " << *type
+             << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
 
   Constant *getIntValue(Type *type, uint64_t value) {
+    errs() << "getIntValue: " << *type << "\n";
     Type *intTy = getFPAsIntType(type);
     if (type->isFloatTy() or type->isDoubleTy()) {
       return ConstantInt::get(intTy, value, true);
     } else {
-      errs() << "Unsupported type: " << *type << "\n";
+      const std::string function_name = __func__;
+      errs() << "[" + function_name + "] " + "Unsupported type: " << *type
+             << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
@@ -391,31 +438,39 @@ struct VfclibInst : public ModulePass {
       // Extract the exponent from the double
       return getUIntValue(fpTy, DOUBLE_GET_EXP);
     } else {
-      errs() << "Unsupported type: " << *fpTy << "\n";
+      const std::string function_name = __func__;
+      errs() << "[" + function_name + "]" + "Unsupported type: " << *fpTy
+             << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
 
   Constant *getExponentBias(Type *fpTy) {
+    errs() << "getExponentBias: " << *fpTy << "\n";
     Type *fpAsIntTy = getFPAsIntType(fpTy);
     if (fpTy->isFloatTy()) {
       return ConstantInt::get(fpAsIntTy, FLOAT_EXP_COMP);
     } else if (fpTy->isDoubleTy()) {
       return ConstantInt::get(fpAsIntTy, DOUBLE_EXP_COMP);
     } else {
-      errs() << "Unsupported type: " << *fpTy << "\n";
+      const std::string function_name = __func__;
+      errs() << "[" + function_name + "]" + "Unsupported type: " << *fpTy
+             << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
 
   Constant *getSignMask(Type *fpTy) {
+    errs() << "getSignMask: " << *fpTy << "\n";
     Type *fpAsIntTy = getFPAsIntType(fpTy);
     if (fpTy->isFloatTy()) {
       return ConstantInt::get(fpAsIntTy, FLOAT_GET_SIGN);
     } else if (fpTy->isDoubleTy()) {
       return ConstantInt::get(fpAsIntTy, DOUBLE_GET_SIGN);
     } else {
-      errs() << "Unsupported type: " << *fpTy << "\n";
+      const std::string function_name = __func__;
+      errs() << "[" + function_name + "]" + "Unsupported type: " << *fpTy
+             << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
   }
@@ -599,18 +654,169 @@ struct VfclibInst : public ModulePass {
     return call;
   }
 
+  // ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone
+  // uwtable willreturn define dso_local double @sr_round_b64(double noundef %0,
+  // double noundef %1, double noundef %2) local_unnamed_addr #0 {
+  //   %4 = bitcast double %0 to i64
+  //   %5 = and i64 %4, 9218868437227405312
+  //   %6 = bitcast i64 %5 to double
+  //   %7 = fmul double %6, 0x3CB0000000000000
+  //   %8 = fmul double %7, %2
+  //   %9 = fadd double %8, %1
+  //   %10 = bitcast double %9 to i64
+  //   %11 = and i64 %10, 9223372036854775807
+  //   %12 = bitcast i64 %11 to double
+  //   %13 = bitcast double %7 to i64
+  //   %14 = and i64 %13, 9223372036854775807
+  //   %15 = bitcast i64 %14 to double
+  //   %16 = fcmp ult double %12, %15
+  //   %17 = select i1 %16, double 0.000000e+00, double %7
+  //   ret double %17
+  // }
+  Value *createSRounding(IRBuilder<> &Builder, Function::arg_iterator args) {
+
+    errs() << "createSRounding\n";
+    Value *sigma = static_cast<Value *>(&args[0]);
+    Value *tau = static_cast<Value *>(&args[1]);
+    Value *z = static_cast<Value *>(&args[2]);
+
+    errs() << "Cast args done\n";
+
+    errs() << "sigma: " << *sigma << "\n";
+    errs() << "tau: " << *tau << "\n";
+    errs() << "z: " << *z << "\n";
+
+    // Get the absolute value of the floating point number
+    Type *srcTy = sigma->getType();
+    errs() << "srcTy: " << *srcTy << "\n";
+
+    Module *M = Builder.GetInsertBlock()->getParent()->getParent();
+    errs() << "bitCast\n";
+    Value *bitCast = Builder.CreateBitCast(sigma, getFPAsIntType(srcTy));
+    Value *exponentMask = getExponentMask(srcTy);
+    Value *getExponent =
+        Builder.CreateAnd(bitCast, exponentMask, "get_exponent");
+    Value *bitCast2 = Builder.CreateBitCast(getExponent, srcTy);
+    // What is 0x3CB0000000000000? Why is it used?
+    Value *fmul = Builder.CreateFMul(
+        bitCast2, ConstantFP::get(srcTy, 0x3CB0000000000000));
+    Value *fmul2 = Builder.CreateFMul(fmul, z);
+    Value *fadd = Builder.CreateFAdd(fmul2, tau);
+    errs() << "bitCast3\n";
+    Value *bitCast3 = Builder.CreateBitCast(fadd, getFPAsIntType(srcTy));
+    Value *signMask = getSignMask(srcTy);
+    Value *getSign = Builder.CreateAnd(bitCast3, signMask, "get_sign");
+    errs() << "bitCast4\n";
+    Value *bitCast4 = Builder.CreateBitCast(fmul, getFPAsIntType(srcTy));
+    Value *getSign2 = Builder.CreateAnd(bitCast4, signMask, "get_sign");
+    Value *bitCast5 = Builder.CreateBitCast(getSign2, srcTy);
+    Value *ult = Builder.CreateFCmpULT(bitCast5, bitCast2);
+    Value *zero = ConstantFP::get(srcTy, 0.0);
+    Value *select = Builder.CreateSelect(ult, zero, fmul);
+    return select;
+  }
+
+  Value *createSRRoundingFunction(IRBuilder<> &Builder, Instruction *sigma,
+                                  Instruction *tau, Instruction *z) {
+    Type *srcTy = sigma->getType();
+    const std::string function_name = "sr_rounding_" + getTypeName(srcTy);
+
+    // if function already exists, return it
+    if (Function *function = sigma->getModule()->getFunction(function_name)) {
+      return Builder.CreateCall(function, {sigma, tau, z});
+    }
+
+    errs() << "createSRRoundingFunction\n";
+    Type *dstTy = getFPAsIntType(srcTy);
+
+    FunctionType *funcType = FunctionType::get(
+        srcTy, {sigma->getType(), tau->getType(), z->getType()}, false);
+
+    errs() << *funcType << "\n";
+
+    Function *function = Function::Create(funcType, Function::InternalLinkage,
+                                          function_name, sigma->getModule());
+
+    errs() << "function: " << *function << "\n";
+
+    BasicBlock *BB = BasicBlock::Create(sigma->getContext(), "entry", function);
+    Builder.SetInsertPoint(BB);
+
+    errs() << "BB: " << *BB << "\n";
+
+    Function::arg_iterator args = function->arg_begin();
+    Value *roundedValue = createSRounding(Builder, &*args);
+
+    errs() << "roundedValue: " << *roundedValue << "\n";
+
+    Builder.CreateRet(roundedValue);
+    Builder.ClearInsertionPoint();
+
+    // Check if this instruction is the last one in the block
+    if (z->isTerminator()) {
+      // Insert at the end of the block
+      Builder.SetInsertPoint(z->getParent());
+    } else {
+      // Set insertion point after the given instruction
+      Builder.SetInsertPoint(z->getNextNode());
+    }
+
+    CallInst *call = Builder.CreateCall(function, {sigma, tau, z});
+
+    errs() << "call: " << *call << "\n";
+
+    return call;
+  }
+
+  Value *getOrCreateTwoSum(IRBuilder<> &Builder, Value *a, Value *b,
+                           Instruction *sigma, Instruction *tau) {
+
+    Type *srcTy = a->getType();
+    const std::string function_name = "twosum_" + getTypeName(srcTy);
+    if (Function *function = sigma->getModule()->getFunction(function_name)) {
+      return Builder.CreateCall(function, {a, b, sigma, tau});
+    }
+
+    Type *voidTy = Type::getVoidTy(a->getContext());
+    FunctionType *funcType = FunctionType::get(
+        voidTy,
+        {a->getType(), b->getType(), sigma->getType()->getPointerTo(),
+         tau->getType()->getPointerTo()},
+        false);
+    Function *function = Function::Create(funcType, Function::InternalLinkage,
+                                          function_name, sigma->getModule());
+    Instruction *call = Builder.CreateCall(function, {a, b, sigma, tau});
+    return call;
+  }
+
   Value *insertSROpCall(IRBuilder<> &Builder, Instruction *I) {
     Module *M = I->getModule();
     if (I->getOpcode() == Instruction::FAdd) {
-      Instruction *getAbs =
-          static_cast<Instruction *>(createGetAbsFunction(Builder, I));
-      Instruction *getPredecessor = static_cast<Instruction *>(
-          createGetPredecessorFunction(Builder, getAbs));
-      Instruction *getExponent = static_cast<Instruction *>(
-          creatGetExponentFunction(Builder, getPredecessor));
-      // Value *getExponent = createGetExponent(Builder, I);
-      // Value *getPredecessor = createGetPredecessor(Builder, getExponent);
-      return getExponent;
+      Instruction *sigma =
+          Builder.CreateAlloca(I->getType(), nullptr, "sigma_alloca");
+      Instruction *tau =
+          Builder.CreateAlloca(I->getType(), nullptr, "tau_alloca");
+      Instruction *z = Builder.CreateAlloca(I->getType(), nullptr, "z_alloca");
+
+      Instruction *rng =
+          static_cast<Instruction *>(insertRNGdouble01Call(Builder, I));
+      Instruction *zStore = Builder.CreateStore(rng, z);
+      Value *a = I->getOperand(0);
+      Value *b = I->getOperand(1);
+
+      Type *fpType = I->getType();
+
+      Instruction *sigma_load = Builder.CreateLoad(fpType, sigma);
+      Instruction *tau_load = Builder.CreateLoad(fpType, tau);
+      Instruction *z_load = Builder.CreateLoad(fpType, z);
+
+      Instruction *twosum = static_cast<Instruction *>(
+          getOrCreateTwoSum(Builder, a, b, sigma, tau));
+      Instruction *srRounding = static_cast<Instruction *>(
+          createSRRoundingFunction(Builder, sigma_load, tau_load, z_load));
+      errs() << "twosum: " << *twosum << "\n";
+      Value *result = Builder.CreateFAdd(twosum, srRounding);
+      return result;
     } else {
       std::string typestring = validTypesMap[I->getType()->getTypeID()];
       std::string srName = sr_hook_name(*I) + "_" + typestring;

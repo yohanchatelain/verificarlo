@@ -2,9 +2,9 @@
 
 set -e
 
-gcc -I ../../venv/include/ -I ../../src/libvfcinstrumentonline/ -DREAL_TYPE=DOUBLE ../../src/libvfcinstrumentonline/rand.c test_local.c -lm -o test_double
+clang -I ../../venv/include/ -I ../../src/libvfcinstrumentonline/ -DREAL_TYPE=DOUBLE ../../src/libvfcinstrumentonline/rand.c test_local.c -lm -o test_double -O3
 
-gcc -I ../../venv/include/ -I ../../src/libvfcinstrumentonline/ -DREAL_TYPE=FLOAT ../../src/libvfcinstrumentonline/rand.c test_local.c -lm -lquadmath -o test_float
+clang -I ../../venv/include/ -I ../../src/libvfcinstrumentonline/ -DREAL_TYPE=FLOAT ../../src/libvfcinstrumentonline/rand.c test_local.c -lm -lquadmath -o test_float -O3
 
 function check_variability() {
     local type=$1
