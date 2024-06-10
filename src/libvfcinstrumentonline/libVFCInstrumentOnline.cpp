@@ -32,6 +32,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/InlineAsm.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
 #pragma GCC diagnostic pop
@@ -564,6 +565,63 @@ struct VfclibInst : public ModulePass {
     }
   }
 
+  Value *insertRandUint64Call(IRBuilder<> &Builder, Instruction *I) {
+    Module *M = I->getModule();
+    Type *uint64Ty = Type::getInt64Ty(M->getContext());
+
+    // Get the global variables, set true to search for local variables
+    GlobalVariable *rng_state0 = M->getGlobalVariable("rng_state.0", true);
+    GlobalVariable *rng_state1 = M->getGlobalVariable("rng_state.1", true);
+
+    if (rng_state0 == nullptr) {
+      rng_state0 = new GlobalVariable(
+          *M,
+          /* type */ uint64Ty,
+          /* isConstant */ false,
+          /* linkage */ GlobalValue::InternalLinkage,
+          /* initializer */ ConstantInt::get(uint64Ty, 0),
+          /* name */ "rng_state.0",
+          /* insertbefore */ nullptr,
+          /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+          /* addresspace */ 0,
+          /* isExternallyInitialized */ false);
+    }
+    if (rng_state1 == nullptr) {
+      rng_state1 = new GlobalVariable(
+          *M,
+          /* type */ uint64Ty,
+          /* isConstant */ false,
+          /* linkage */ GlobalValue::InternalLinkage,
+          /* initializer */ ConstantInt::get(uint64Ty, 0),
+          /* name */ "rng_state.1",
+          /* insertbefore */ nullptr,
+          /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+          /* addresspace */ 0,
+          /* isExternallyInitialized */ false);
+    }
+
+    // Get rand uint64
+    Value *rng_state0_load = Builder.CreateLoad(uint64Ty, rng_state0);
+    Value *rng_state1_load = Builder.CreateLoad(uint64Ty, rng_state1);
+    Value *add = Builder.CreateAdd(rng_state1_load, rng_state0_load);
+    Value *shl = Builder.CreateShl(add, 17);
+    Value *lshr = Builder.CreateLShr(add, 47);
+    Value *add2 = Builder.CreateAdd(lshr, rng_state0_load);
+    Value *or2 = Builder.CreateOr(add2, shl);
+    Value *xor2 = Builder.CreateXor(rng_state1_load, rng_state0_load);
+    Value *shl2 = Builder.CreateShl(rng_state0_load, 49);
+    Value *lshr2 = Builder.CreateLShr(rng_state0_load, 15);
+    Value *xor3 = Builder.CreateXor(xor2, lshr2);
+    Value *shl3 = Builder.CreateShl(xor2, 21);
+    Value *xor4 = Builder.CreateXor(xor3, shl3);
+    Value *or3 = Builder.CreateOr(xor4, shl2);
+    Builder.CreateStore(or3, rng_state0);
+    Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, {xor2->getType()},
+                                          {xor2, xor2, Builder.getInt64(28)});
+    Builder.CreateStore(fshl, rng_state1);
+    return or3;
+  }
+
   // start get_rand_uint64
   //   %3 = load i64, i64* @rng_state.0, align 16, !tbaa !5
   //   %4 = load i64, i64* @rng_state.1, align 16, !tbaa !5
@@ -624,6 +682,7 @@ struct VfclibInst : public ModulePass {
           /* isExternallyInitialized */ false);
     }
 
+    // Get rand uint64
     Value *rng_state0_load = Builder.CreateLoad(uint64Ty, rng_state0);
     Value *rng_state1_load = Builder.CreateLoad(uint64Ty, rng_state1);
     Value *add = Builder.CreateAdd(rng_state1_load, rng_state0_load);
@@ -643,15 +702,12 @@ struct VfclibInst : public ModulePass {
                                           {xor2, xor2, Builder.getInt64(28)});
     Builder.CreateStore(fshl, rng_state1);
 
+    // Get rand double between 0 and 1
     Value *lshr3 = Builder.CreateLShr(or3, 12);
     Value *or4 = Builder.CreateOr(lshr3, Builder.getInt64(4607182418800017408));
-
     Type *bitCastTy = Type::getDoubleTy(M->getContext());
-
     Value *bitcast = Builder.CreateBitCast(or4, bitCastTy);
-
     Value *mone = ConstantFP::get(Type::getDoubleTy(M->getContext()), -1.0);
-
     Value *fadd = Builder.CreateFAdd(bitcast, mone);
     return fadd;
   }
@@ -1004,9 +1060,8 @@ struct VfclibInst : public ModulePass {
   }
 
   // ; Function Attrs: mustprogress nofree nosync nounwind uwtable willreturn
-  // define dso_local double @add2_double(double noundef %0, double noundef %1)
-  // local_unnamed_addr #2 {
-  // start get_rand_uint64
+  // define dso_local double @add2_double(double noundef %0, double noundef
+  // %1) local_unnamed_addr #2 { start get_rand_uint64
   //   %3 = load i64, i64* @rng_state.0, align 16, !tbaa !5
   //   %4 = load i64, i64* @rng_state.1, align 16, !tbaa !5
   //   %5 = add i64 %4, %3
@@ -1339,14 +1394,20 @@ struct VfclibInst : public ModulePass {
                                                Instruction *I,
                                                std::set<User *> &users) {
     Type *fpAsIntTy = getFPAsIntType(I->getType());
-    Value *randomBit = insertRNGCall(Builder, I);
-    users.insert(static_cast<User *>(randomBit));
+    Value *randomBits = insertRandUint64Call(Builder, I);
+    Value *randomBit = Builder.CreateAnd(randomBits, 1);
+    randomBit = Builder.CreateTrunc(randomBit, Builder.getInt1Ty());
+    // Add +1 or -1 to fpAsInt depending on the random bit
+    Value *noise =
+        Builder.CreateSelect(randomBit, ConstantInt::get(fpAsIntTy, 1),
+                             ConstantInt::get(fpAsIntTy, -1), "noise");
+
     Value *FPAsInt = Builder.CreateBitCast(I, fpAsIntTy, "fpAsInt");
     users.insert(static_cast<User *>(FPAsInt));
-    // Modify the result of the floating point operation.
-    Value *newResult = Builder.CreateAdd(FPAsInt, randomBit, "add_noise");
-    Value *newFP = Builder.CreateBitCast(newResult, I->getType(), "new_fp");
-    return newFP;
+    Value *newResult = Builder.CreateAdd(FPAsInt, noise, "add_noise");
+    Value *fpNoised =
+        Builder.CreateBitCast(newResult, I->getType(), "fp_noised");
+    return fpNoised;
   }
 
   /* Replace arithmetic instructions with MCA */
@@ -1441,19 +1502,24 @@ struct VfclibInst : public ModulePass {
         errs() << "Instrumenting" << *I << '\n';
       std::set<User *> fp_users;
       Value *value = replaceWithMCACall(M, I, opCode, fp_users);
-      if (value != nullptr) {
-
+      if (value != nullptr and VfclibInstMode != "up-down") {
         I->replaceAllUsesWith(value);
-        // for (User *user : I->users()) {
-        //   errs() << "Replacing user: " << *user << '\n';
-        //   user->replaceAllUsesWith(value);
-        //   // user->replaceUsesOfWith(I, value);
-        //   // if (fp_users.find(user) == fp_users.end()) {
-        //   //   errs() << "Replacing user: " << *user << '\n';
-        //   //   user->replaceUsesOfWith(I, value);
-        //   // }
-        // }
         I->eraseFromParent();
+      } else if (value != nullptr and VfclibInstMode == "up-down") {
+        // We need to replace the original instruction with the noised
+        // instruction for all the users of the original instruction after the
+        // noise is added
+        for (User *user : I->users()) {
+          if (Instruction *ii = dyn_cast<Instruction>(user)) {
+            if (fp_users.find(ii) == fp_users.end()) {
+              for (auto &op : ii->operands()) {
+                if (op.get() == I) {
+                  op.set(value);
+                }
+              }
+            }
+          }
+        }
       }
       modified = true;
     }
