@@ -72,7 +72,7 @@ run_test() {
 export -f run_test
 
 parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} " \
-    ::: type double \
+    ::: type double float \
     ::: op "+" "-" "x" "/" \
     ::: optimization "${optimizations[@]}"
 

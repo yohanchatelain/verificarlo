@@ -426,7 +426,6 @@ def parse_args():
         action="store",
         choices=["up-down", "sr"],
         type=str,
-        default="up-down",
         help="Online instrumentation. (mode: up-down, sr)",
     )
 
