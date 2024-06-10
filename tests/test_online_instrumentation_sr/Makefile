@@ -18,14 +18,19 @@ ifndef operator
 $(error operator is not set)
 endif
 
-
-
+ifdef size
+vector_size=-DSIZE=$(size)
+BINARY=test_$(type)_$(optimization)_$(operator)_$(size)
+SOURCE=test_vector.c
+else
+BINARY=test_$(type)_$(optimization)_$(operator)
+SOURCE=test.c
+endif
 
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) --online-instrumentation=sr --save-temps # --show-cmd --verbose
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi --online-instrumentation=sr --save-temps # --show-cmd --verbose
 LDFLAGS=--online-instrumentation=sr -lm
-SOURCE=test.c
-BINARY=test_$(type)_$(optimization)_$(operator)
+
 
 all:
 	$(CC) $(CFLAGS) -c $(SOURCE) -o $(BINARY).o

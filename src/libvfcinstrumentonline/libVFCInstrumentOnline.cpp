@@ -395,11 +395,30 @@ struct VfclibInst : public ModulePass {
     return isValidType;
   }
 
+  /* Check if Instruction I is a valid instruction to replace; vector case */
+  bool isValidVectorInstruction(Type *opType) {
+    VectorType *vecType = static_cast<VectorType *>(opType);
+    auto baseType = vecType->getScalarType();
+#if LLVM_VERSION_MAJOR >= 13
+    if (isa<ScalableVectorType>(vecType))
+      report_fatal_error("Scalable vector type are not supported");
+    auto size = ((::llvm::FixedVectorType *)vecType)->getNumElements();
+#else
+    auto size = vecType->getNumElements();
+#endif
+    bool isValidSize = validVectorSizes.find(size) != validVectorSizes.end();
+    if (not isValidSize) {
+      errs() << "Unsuported vector size: " << size << "\n";
+      return false;
+    }
+    return isValidScalarInstruction(baseType);
+  }
+
   /* Check if Instruction I is a valid instruction to replace */
   bool isValidInstruction(Instruction *I) {
     Type *opType = I->getOperand(0)->getType();
     if (opType->isVectorTy()) {
-      return false;
+      return isValidVectorInstruction(opType);
     } else {
       return isValidScalarInstruction(opType);
     }
@@ -508,104 +527,13 @@ struct VfclibInst : public ModulePass {
     }
   }
 
-  Value *getExponentMask(Type *fpTy) {
-    if (fpTy->isFloatTy()) {
-      // Extract the exponent from the float
-      return getUIntValue(fpTy, FLOAT_GET_EXP);
-    } else if (fpTy->isDoubleTy()) {
-      // Extract the exponent from the double
-      return getUIntValue(fpTy, DOUBLE_GET_EXP);
-    } else {
-      const std::string function_name = __func__;
-      errs() << "[" + function_name + "]" + "Unsupported type: " << *fpTy
-             << "\n";
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-  }
-
-  Constant *getExponentBias(Type *fpTy) {
-    if (fpTy->isFloatTy()) {
-      return getUIntValue(fpTy, FLOAT_EXP_COMP);
-    } else if (fpTy->isDoubleTy()) {
-      return getUIntValue(fpTy, DOUBLE_EXP_COMP);
-    } else {
-      const std::string function_name = __func__;
-      errs() << "[" + function_name + "]" + "Unsupported type: " << *fpTy
-             << "\n";
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-  }
-
-  Constant *getSignMask(Type *fpTy) {
-    Type *fpAsIntTy = getFPAsIntType(fpTy);
-    if (fpTy->isFloatTy()) {
-      return getUIntValue(fpTy, FLOAT_GET_SIGN);
-    } else if (fpTy->isDoubleTy()) {
-      return getUIntValue(fpTy, DOUBLE_GET_SIGN);
-    } else {
-      const std::string function_name = __func__;
-      errs() << "[" + function_name + "]" + "Unsupported type: " << *fpTy
-             << "\n";
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-  }
-
-  Value *createGetExponent(IRBuilder<> &Builder, Value *I) {
-    // Get the exponent of the floating point number
-    Type *srcTy = I->getType();
-    Type *dstTy = getFPAsIntType(srcTy);
-    Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
-    Value *exponent_mask = getExponentMask(srcTy);
-    Value *BiasedExponentValue =
-        Builder.CreateAnd(fpAsInt, exponent_mask, "get_exponent_bits");
-    const uint64_t mantissa_bitsize = srcTy->getFPMantissaWidth() - 1;
-
-    Value *ShiftExponentBitsValue = Builder.CreateLShr(
-        BiasedExponentValue, mantissa_bitsize, "shift_exponent_bits");
-    ConstantInt *exponentBias =
-        static_cast<ConstantInt *>(getExponentBias(srcTy));
-    Value *ExponentValue =
-        Builder.CreateSub(ShiftExponentBitsValue, exponentBias, "get_exponent");
-    return ExponentValue;
-  }
-
-  Value *creatGetExponentFunction(IRBuilder<> &Builder, Instruction *I) {
-    // if function already exists, return it
-    Type *srcTy = I->getType();
-    const std::string function_name = "get_exponent_" + getTypeName(srcTy);
-    if (Function *function = I->getModule()->getFunction(function_name)) {
-      return Builder.CreateCall(function, {I});
-    }
-
-    Type *dstTy = getFPAsIntType(srcTy);
-    FunctionType *funcType = FunctionType::get(dstTy, {srcTy}, false);
-    Function *function = Function::Create(funcType, Function::InternalLinkage,
-                                          function_name, I->getModule());
-
-    BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
-    Builder.SetInsertPoint(BB);
-
-    Function::arg_iterator args = function->arg_begin();
-    Value *ExponentValue = createGetExponent(Builder, &*args);
-
-    Builder.CreateRet(ExponentValue);
-    Builder.ClearInsertionPoint();
-
-    // Check if this instruction is the last one in the block
-    if (I->isTerminator()) {
-      // Insert at the end of the block
-      Builder.SetInsertPoint(I->getParent());
-    } else {
-      // Set insertion point after the given instruction
-      Builder.SetInsertPoint(I->getNextNode());
-    }
-
-    CallInst *call = Builder.CreateCall(function, {I});
-
-    return call;
-  }
-
   std::string getTypeName(Type *type) {
+
+    if (type->isVectorTy()) {
+      VectorType *VT = dyn_cast<VectorType>(type);
+      type = VT->getElementType();
+    }
+
     switch (type->getTypeID()) {
     case Type::VoidTyID:
       return "void";
@@ -634,99 +562,6 @@ struct VfclibInst : public ModulePass {
     default:
       return "unknown";
     }
-  }
-
-  Value *createGetPredecessor(IRBuilder<> &Builder, Value *I) {
-    // Get the predecessor of the floating point number
-    Type *srcTy = I->getType();
-    Type *dstTy = getFPAsIntType(srcTy);
-    Value *fpAsInt = Builder.CreateBitCast(I, dstTy, "fp_as_int");
-    Value *pred = Builder.CreateSub(fpAsInt, ConstantInt::get(dstTy, 1));
-    Value *intAsFP = Builder.CreateBitCast(pred, srcTy, "pred");
-    return intAsFP;
-  }
-
-  Value *createGetPredecessorFunction(IRBuilder<> &Builder, Instruction *I) {
-    Type *srcTy = I->getType();
-    const std::string function_name = "get_predecessor_" + getTypeName(srcTy);
-
-    // if function already exists, return it
-    if (Function *function = I->getModule()->getFunction(function_name)) {
-      return Builder.CreateCall(function, {I});
-    }
-
-    Type *dstTy = getFPAsIntType(srcTy);
-    FunctionType *funcType = FunctionType::get(srcTy, {srcTy}, false);
-    Function *function = Function::Create(funcType, Function::InternalLinkage,
-                                          function_name, I->getModule());
-
-    BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
-    Builder.SetInsertPoint(BB);
-
-    Function::arg_iterator args = function->arg_begin();
-    Value *PredecessorValue = createGetPredecessor(Builder, &*args);
-
-    Builder.CreateRet(PredecessorValue);
-    Builder.ClearInsertionPoint();
-
-    // Check if this instruction is the last one in the block
-    if (I->isTerminator()) {
-      // Insert at the end of the block
-      Builder.SetInsertPoint(I->getParent());
-    } else {
-      // Set insertion point after the given instruction
-      Builder.SetInsertPoint(I->getNextNode());
-    }
-
-    CallInst *call = Builder.CreateCall(function, {I});
-
-    return call;
-  }
-
-  Value *createGetAbs(IRBuilder<> &Builder, Value *I) {
-    // Get the absolute value of the floating point number
-    Type *srcTy = I->getType();
-    Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-    Function *fabsIntrinsic =
-        Intrinsic::getDeclaration(M, Intrinsic::fabs, srcTy);
-    return Builder.CreateCall(fabsIntrinsic, I, "fabs");
-  }
-
-  Value *createGetAbsFunction(IRBuilder<> &Builder, Instruction *I) {
-    Type *srcTy = I->getType();
-    const std::string function_name = "get_abs_" + getTypeName(srcTy);
-
-    // if function already exists, return it
-    if (Function *function = I->getModule()->getFunction(function_name)) {
-      return Builder.CreateCall(function, {I});
-    }
-
-    Type *dstTy = getFPAsIntType(srcTy);
-    FunctionType *funcType = FunctionType::get(srcTy, {srcTy}, false);
-    Function *function = Function::Create(funcType, Function::InternalLinkage,
-                                          function_name, I->getModule());
-
-    BasicBlock *BB = BasicBlock::Create(I->getContext(), "entry", function);
-    Builder.SetInsertPoint(BB);
-
-    Function::arg_iterator args = function->arg_begin();
-    Value *AbsValue = createGetAbs(Builder, &*args);
-
-    Builder.CreateRet(AbsValue);
-    Builder.ClearInsertionPoint();
-
-    // Check if this instruction is the last one in the block
-    if (I->isTerminator()) {
-      // Insert at the end of the block
-      Builder.SetInsertPoint(I->getParent());
-    } else {
-      // Set insertion point after the given instruction
-      Builder.SetInsertPoint(I->getNextNode());
-    }
-
-    CallInst *call = Builder.CreateCall(function, {I});
-
-    return call;
   }
 
   // start get_rand_uint64
@@ -788,6 +623,7 @@ struct VfclibInst : public ModulePass {
           /* addresspace */ 0,
           /* isExternallyInitialized */ false);
     }
+
     Value *rng_state0_load = Builder.CreateLoad(uint64Ty, rng_state0);
     Value *rng_state1_load = Builder.CreateLoad(uint64Ty, rng_state1);
     Value *add = Builder.CreateAdd(rng_state1_load, rng_state0_load);
@@ -806,13 +642,39 @@ struct VfclibInst : public ModulePass {
     Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, {xor2->getType()},
                                           {xor2, xor2, Builder.getInt64(28)});
     Builder.CreateStore(fshl, rng_state1);
+
     Value *lshr3 = Builder.CreateLShr(or3, 12);
     Value *or4 = Builder.CreateOr(lshr3, Builder.getInt64(4607182418800017408));
-    Value *bitcast =
-        Builder.CreateBitCast(or4, Type::getDoubleTy(M->getContext()));
+
+    Type *bitCastTy = Type::getDoubleTy(M->getContext());
+
+    Value *bitcast = Builder.CreateBitCast(or4, bitCastTy);
+
     Value *mone = ConstantFP::get(Type::getDoubleTy(M->getContext()), -1.0);
+
     Value *fadd = Builder.CreateFAdd(bitcast, mone);
     return fadd;
+  }
+
+  Value *insertVectorizeRandDouble01Call(IRBuilder<> &Builder, Instruction *I) {
+    FixedVectorType *VT = dyn_cast<FixedVectorType>(I->getType());
+    int size = VT->getNumElements();
+    VT->getNumElements();
+    // Value *rand_double01 = Builder.CreateAlloca(VT);
+    // create undef value with the same type as the vector
+    Value *rand_double01 = UndefValue::get(VT);
+    std::vector<Value *> elementsVec;
+    for (int i = 0; i < size; i++) {
+      elementsVec.push_back(insertRandDouble01Call(Builder, I));
+      if (VT->getElementType()->isFloatTy()) {
+        elementsVec[i] =
+            Builder.CreateFPCast(elementsVec[i], VT->getElementType());
+      }
+      rand_double01 = Builder.CreateInsertElement(rand_double01, elementsVec[i],
+                                                  Builder.getInt32(i),
+                                                  "insert" + std::to_string(i));
+    }
+    return rand_double01;
   }
 
   double c99hextodouble(const char *hex) {
@@ -999,12 +861,6 @@ struct VfclibInst : public ModulePass {
   // clang-format on
   void insertTwoSum(IRBuilder<> &Builder, Value *a, Value *b, Value **sigma,
                     Value **tau) {
-    errs() << "insertTwoSum\n";
-    errs() << "a: " << *a << "\n";
-    errs() << "b: " << *b << "\n";
-    errs() << "sigma: " << *sigma << "\n";
-    errs() << "tau: " << *tau << "\n";
-
     Value *sub1 = Builder.CreateFSub(*sigma, a);
     Value *sub2 = Builder.CreateFSub(*sigma, sub1);
     Value *sub3 = Builder.CreateFSub(a, sub2);
@@ -1019,12 +875,6 @@ struct VfclibInst : public ModulePass {
   // clang-format on
   void insertTwoProduct(IRBuilder<> &Builder, Value *a, Value *b, Value **sigma,
                         Value **tau) {
-    errs() << "insertTwoProduct\n";
-    errs() << "a: " << *a << "\n";
-    errs() << "b: " << *b << "\n";
-    errs() << "sigma: " << *sigma << "\n";
-    errs() << "tau: " << *tau << "\n";
-
     *sigma = Builder.CreateFMul(a, b, "sigma");
     Value *neg = Builder.CreateFNeg(*sigma);
     *tau = Builder.CreateIntrinsic(Intrinsic::fma, {a->getType()}, {a, b, neg});
@@ -1056,45 +906,80 @@ struct VfclibInst : public ModulePass {
   // end sr_round_b64
   Value *insertSRRounding(IRBuilder<> &Builder, Value *sigma, Value *tau,
                           Value *rand_double01) {
+
+    bool isVector = sigma->getType()->isVectorTy();
+    int size =
+        (isVector)
+            ? ((::llvm::FixedVectorType *)sigma->getType())->getNumElements()
+            : 1;
+
     Value *ulp = nullptr;
-    ConstantInt *cst = nullptr, *cst2 = nullptr;
-    if (sigma->getType()->isFloatTy()) {
-      // 0x1.0p-23;
-      ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-23"));
-      // exp '0x7f800000'
-      cst = Builder.getInt32(0x7f800000);
-      // abs '0x7fffffff'
-      cst2 = Builder.getInt32(0x7fffffff);
+    Constant *cst = nullptr, *cst2 = nullptr;
+
+    Type *fpTy =
+        (isVector)
+            ? ((::llvm::FixedVectorType *)sigma->getType())->getElementType()
+            : sigma->getType();
+
+    if (fpTy->isFloatTy()) {
+      if (isVector) {
+        ElementCount count = ElementCount::getFixed(size);
+        ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-23"));
+        cst = ConstantVector::getSplat(count, Builder.getInt32(0x7f800000));
+        cst2 = ConstantVector::getSplat(count, Builder.getInt32(0x7fffffff));
+      } else {
+        // 0x1.0p-23;
+        ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-23"));
+        // exp '0x7f800000'
+        cst = Builder.getInt32(0x7f800000);
+        // abs '0x7fffffff'
+        cst2 = Builder.getInt32(0x7fffffff);
+      }
     } else {
-      // 0x1.0p-52;
-      ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-52"));
-      // exp '0x7ff0000000000000'
-      cst = Builder.getInt64(0x7ff0000000000000);
-      // abs '0x7fffffffffffffff'
-      cst2 = Builder.getInt64(0x7fffffffffffffff);
+      if (isVector) {
+        ElementCount count = ElementCount::getFixed(size);
+        ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-52"));
+        cst = ConstantVector::getSplat(count,
+                                       Builder.getInt64(0x7ff0000000000000));
+        cst2 = ConstantVector::getSplat(count,
+                                        Builder.getInt64(0x7fffffffffffffff));
+
+      } else {
+        // 0x1.0p-52;
+        ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-52"));
+        // exp '0x7ff0000000000000'
+        cst = Builder.getInt64(0x7ff0000000000000);
+        // abs '0x7fffffffffffffff'
+        cst2 = Builder.getInt64(0x7fffffffffffffff);
+      }
     }
 
-    Type *srcTy = sigma->getType();
+    Type *srcTy = nullptr;
+    if (isVector) {
+      srcTy = ((::llvm::FixedVectorType *)sigma->getType())->getElementType();
+    } else {
+      srcTy = sigma->getType();
+    }
+
     Type *fpAsIntTy = getFPAsIntType(srcTy);
+    if (isVector) {
+      fpAsIntTy = VectorType::get(fpAsIntTy, size, false);
+    }
 
     // if a float,  cast rand_double01 to float
-    if (sigma->getType()->isFloatTy()) {
-      rand_double01 = Builder.CreateFPCast(rand_double01, sigma->getType());
+    if (srcTy->isFloatTy()) {
+      rand_double01 =
+          Builder.CreateFPCast(rand_double01, sigma->getType(), "float cast");
     }
-
-    // Value *add = Builder.CreateFAdd(a, b);
-    // Value *sub1 = Builder.CreateFSub(add, a);
-    // Value *sub2 = Builder.CreateFSub(add, sub1);
-    // Value *sub3 = Builder.CreateFSub(a, sub2);
-    // Value *sub4 = Builder.CreateFSub(b, sub1);
-    // Value *add2 = Builder.CreateFAdd(sub4, sub3);
 
     // depending on the src type
     Value *bitCast = Builder.CreateBitCast(sigma, fpAsIntTy);
     Value *and1 = Builder.CreateAnd(bitCast, cst);
     Value *bitCast2 = Builder.CreateBitCast(and1, sigma->getType());
     Value *fmul = Builder.CreateFMul(bitCast2, ulp);
-    Value *fmul2 = Builder.CreateFMul(fmul, rand_double01);
+
+    Value *fmul2 = Builder.CreateFMul(fmul, rand_double01, "ulp * z");
+
     Value *fadd = Builder.CreateFAdd(tau, fmul2);
     Value *bitCast3 = Builder.CreateBitCast(fadd, fpAsIntTy);
 
@@ -1104,7 +989,15 @@ struct VfclibInst : public ModulePass {
     Value *and3 = Builder.CreateAnd(bitCast5, cst2);
     Value *bitCast6 = Builder.CreateBitCast(and3, sigma->getType());
     Value *ult = Builder.CreateFCmpULT(bitCast4, bitCast6);
-    Value *zero = ConstantFP::get(sigma->getType(), 0.0);
+
+    Value *zero = nullptr;
+    if (isVector) {
+      zero = ConstantVector::getSplat(ElementCount::getFixed(size),
+                                      ConstantFP::get(srcTy, 0.0));
+    } else {
+      zero = ConstantFP::get(srcTy, 0.0);
+    }
+
     Value *select = Builder.CreateSelect(ult, zero, fmul);
     Value *fadd2 = Builder.CreateFAdd(sigma, select);
     return fadd2;
@@ -1167,10 +1060,17 @@ struct VfclibInst : public ModulePass {
   // }
   Value *createSrAdd(IRBuilder<> &Builder, Instruction *I,
                      Function::arg_iterator args) {
+
     Value *a = static_cast<Value *>(&args[0]);
     Value *b = static_cast<Value *>(&args[1]);
 
-    Value *rand_double01 = insertRandDouble01Call(Builder, I);
+    Value *rand_double01 = nullptr;
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+      rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
+    } else {
+      rand_double01 = insertRandDouble01Call(Builder, I);
+    }
+
     Value *tau = nullptr, *sigma = nullptr;
     sigma = Builder.CreateFAdd(a, b, "sigma");
     insertTwoSum(Builder, a, b, &sigma, &tau);
@@ -1183,7 +1083,13 @@ struct VfclibInst : public ModulePass {
     Value *a = static_cast<Value *>(&args[0]);
     Value *b = static_cast<Value *>(&args[1]);
 
-    Value *rand_double01 = insertRandDouble01Call(Builder, I);
+    Value *rand_double01 = nullptr;
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+      rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
+    } else {
+      rand_double01 = insertRandDouble01Call(Builder, I);
+    }
+
     Value *tau = nullptr, *sigma = nullptr;
     sigma = Builder.CreateFSub(a, b, "sigma");
     b = Builder.CreateFNeg(b);
@@ -1253,7 +1159,13 @@ struct VfclibInst : public ModulePass {
 
     Value *sigma = nullptr, *tau = nullptr;
 
-    Value *rand_double01 = insertRandDouble01Call(Builder, I);
+    Value *rand_double01 = nullptr;
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+      rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
+    } else {
+      rand_double01 = insertRandDouble01Call(Builder, I);
+    }
+
     insertTwoProduct(Builder, a, b, &sigma, &tau);
     Value *sr_round = insertSRRounding(Builder, sigma, tau, rand_double01);
     return sr_round;
@@ -1266,7 +1178,12 @@ struct VfclibInst : public ModulePass {
 
     Value *sigma = nullptr, *tau = nullptr;
 
-    Value *rand_double01 = insertRandDouble01Call(Builder, I);
+    Value *rand_double01 = nullptr;
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+      rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
+    } else {
+      rand_double01 = insertRandDouble01Call(Builder, I);
+    }
 
     // clang-format off
     // %22 = fdiv double %0, %1
@@ -1292,23 +1209,19 @@ struct VfclibInst : public ModulePass {
 
     Value *ph = nullptr, *pl = nullptr, *uh = nullptr, *ul = nullptr;
 
-    Value *rand_double01 = insertRandDouble01Call(Builder, I);
+    Value *rand_double01 = nullptr;
+    if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+      rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
+    } else {
+      rand_double01 = insertRandDouble01Call(Builder, I);
+    }
 
     insertTwoProduct(Builder, a, b, &ph, &pl);
-    errs() << "c: " << c << "\n";
-    errs() << "ph: " << ph << "\n";
-    errs() << "c: " << *c << "\n";
-    errs() << "ph: " << *ph << "\n";
     uh = Builder.CreateFAdd(c, ph);
     insertTwoSum(Builder, c, ph, &uh, &ul);
 
     Value *sigma =
         Builder.CreateIntrinsic(Intrinsic::fma, {a->getType()}, {a, b, c});
-
-    errs() << "sigma: " << *sigma << "\n";
-    errs() << "uh: " << *uh << "\n";
-    errs() << "pl: " << *pl << "\n";
-    errs() << "ul: " << *ul << "\n";
 
     Value *t = Builder.CreateFSub(uh, sigma);
     Value *error = Builder.CreateFAdd(pl, ul);
@@ -1359,8 +1272,15 @@ struct VfclibInst : public ModulePass {
     Module *M = Builder.GetInsertBlock()->getParent()->getParent();
     Type *srcTy = I->getType();
 
-    const std::string function_name =
+    std::string function_name =
         getFunctionName(opCode) + "_" + getTypeName(srcTy);
+
+    // if instruction is vector, update the name
+    if (srcTy->isVectorTy()) {
+      VectorType *VT = dyn_cast<VectorType>(srcTy);
+      ElementCount EC = VT->getElementCount();
+      function_name += "v" + std::to_string(EC.getFixedValue());
+    }
 
     Function *function = I->getModule()->getFunction(function_name);
 
@@ -1522,11 +1442,17 @@ struct VfclibInst : public ModulePass {
       std::set<User *> fp_users;
       Value *value = replaceWithMCACall(M, I, opCode, fp_users);
       if (value != nullptr) {
-        for (User *user : I->users()) {
-          if (fp_users.find(user) == fp_users.end()) {
-            user->replaceUsesOfWith(I, value);
-          }
-        }
+
+        I->replaceAllUsesWith(value);
+        // for (User *user : I->users()) {
+        //   errs() << "Replacing user: " << *user << '\n';
+        //   user->replaceAllUsesWith(value);
+        //   // user->replaceUsesOfWith(I, value);
+        //   // if (fp_users.find(user) == fp_users.end()) {
+        //   //   errs() << "Replacing user: " << *user << '\n';
+        //   //   user->replaceUsesOfWith(I, value);
+        //   // }
+        // }
         I->eraseFromParent();
       }
       modified = true;
