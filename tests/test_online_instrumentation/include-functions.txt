@@ -1,0 +1,8 @@
+* operator*
+* fma_double
+* fma_float
+* mul*
+* div*
+* fma*
+* add*
+* sub*

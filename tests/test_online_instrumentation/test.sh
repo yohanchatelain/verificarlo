@@ -22,7 +22,7 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --header : "make --silent type={type} optimization={optimization}" ::: type float double ::: optimization "${optimizations[@]}"
+parallel --header : "make --silent type={type} optimization={optimization} operator={operator}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div
 
 run_test() {
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
@@ -32,7 +32,7 @@ run_test() {
     local op="$3"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}
+    local bin=test_${type}_${optimization}_${op_name}
     local file=tmp.$type.$op_name.$optimization.txt
 
     echo "Running test $type $op $optimization $op_name"

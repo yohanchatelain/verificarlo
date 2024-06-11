@@ -439,17 +439,6 @@ struct VfclibInst : public ModulePass {
     return modified;
   }
 
-  Value *insertRNGCall(IRBuilder<> &Builder, Instruction *I) {
-    Module *M = I->getModule();
-    std::string typestring = validTypesMap[I->getType()->getTypeID()];
-    std::string randName = "get_rand_" + typestring;
-    Type *fpAsIntTy = getFPAsIntType(I->getType());
-    FunctionType *funcType =
-        FunctionType::get(fpAsIntTy, {I->getType()}, false);
-    FunctionCallee RNG = M->getOrInsertFunction(randName, funcType);
-    return Builder.CreateCall(RNG, I);
-  }
-
   Value *insertRNGdouble01Call(IRBuilder<> &Builder, Instruction *I) {
     Module *M = I->getModule();
     std::string randName = "get_rand_double01";
@@ -614,7 +603,7 @@ struct VfclibInst : public ModulePass {
     Value *xor3 = Builder.CreateXor(xor2, lshr2);
     Value *shl3 = Builder.CreateShl(xor2, 21);
     Value *xor4 = Builder.CreateXor(xor3, shl3);
-    Value *or3 = Builder.CreateOr(xor4, shl2);
+    Value *or3 = Builder.CreateOr(xor4, shl2, "rand_uint64");
     Builder.CreateStore(or3, rng_state0);
     Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, {xor2->getType()},
                                           {xor2, xor2, Builder.getInt64(28)});
@@ -731,6 +720,25 @@ struct VfclibInst : public ModulePass {
                                                   "insert" + std::to_string(i));
     }
     return rand_double01;
+  }
+
+  Value *insertVectorizeRandUint64Call(IRBuilder<> &Builder, Instruction *I) {
+
+    FixedVectorType *fpVT = dyn_cast<FixedVectorType>(I->getType());
+    int size = fpVT->getNumElements();
+    FixedVectorType *iVT =
+        FixedVectorType::get(Type::getInt64Ty(I->getContext()), size);
+    // Value *rand_uint64 = Builder.CreateAlloca(VT);
+    // create undef value with the same type as the vector
+    Value *rand_uint64 = UndefValue::get(iVT);
+    std::vector<Value *> elementsVec;
+    for (int i = 0; i < size; i++) {
+      elementsVec.push_back(insertRandUint64Call(Builder, I));
+      rand_uint64 = Builder.CreateInsertElement(rand_uint64, elementsVec[i],
+                                                Builder.getInt32(i),
+                                                "insert" + std::to_string(i));
+    }
+    return rand_uint64;
   }
 
   double c99hextodouble(const char *hex) {
@@ -1393,16 +1401,74 @@ struct VfclibInst : public ModulePass {
   Value *replaceArithmeticWithMCACall_UpOrDown(IRBuilder<> &Builder,
                                                Instruction *I,
                                                std::set<User *> &users) {
-    Type *fpAsIntTy = getFPAsIntType(I->getType());
-    Value *randomBits = insertRandUint64Call(Builder, I);
-    Value *randomBit = Builder.CreateAnd(randomBits, 1);
-    randomBit = Builder.CreateTrunc(randomBit, Builder.getInt1Ty());
-    // Add +1 or -1 to fpAsInt depending on the random bit
-    Value *noise =
-        Builder.CreateSelect(randomBit, ConstantInt::get(fpAsIntTy, 1),
-                             ConstantInt::get(fpAsIntTy, -1), "noise");
+    Type *srcTy = nullptr;
+    bool isVector = I->getType()->isVectorTy();
+    if (isVector) {
+      srcTy = ((::llvm::FixedVectorType *)I->getType())->getElementType();
+    } else {
+      srcTy = I->getType();
+    }
 
-    Value *FPAsInt = Builder.CreateBitCast(I, fpAsIntTy, "fpAsInt");
+    Type *fpAsIntTy = getFPAsIntType(srcTy);
+    Value *randomBits = nullptr;
+    if (isVector) {
+      randomBits = insertVectorizeRandUint64Call(Builder, I);
+    } else {
+      randomBits = insertRandUint64Call(Builder, I);
+    }
+
+    if (srcTy->isFloatTy()) {
+      Type *vecTy = nullptr;
+      if (isVector) {
+        vecTy = VectorType::get(
+            Type::getInt32Ty(Builder.getContext()),
+            ((::llvm::FixedVectorType *)I->getType())->getNumElements(), false);
+      } else {
+        vecTy = Type::getInt32Ty(Builder.getContext());
+      }
+      randomBits = Builder.CreateTrunc(randomBits, vecTy);
+    }
+
+    Value *one = nullptr, *mone = nullptr;
+
+    if (isVector) {
+      one = ConstantVector::getSplat(
+          ElementCount::getFixed(
+              ((::llvm::FixedVectorType *)I->getType())->getNumElements()),
+          ConstantInt::get(fpAsIntTy, 1));
+      mone = ConstantVector::getSplat(
+          ElementCount::getFixed(
+              ((::llvm::FixedVectorType *)I->getType())->getNumElements()),
+          ConstantInt::get(fpAsIntTy, -1));
+    } else {
+      one = ConstantInt::get(fpAsIntTy, 1);
+      mone = ConstantInt::get(fpAsIntTy, -1);
+    }
+    Value *randomBit = Builder.CreateAnd(randomBits, one, "get_random_bit");
+
+    Type *truncTy = nullptr;
+    if (isVector) {
+      truncTy = VectorType::get(
+          Type::getInt1Ty(Builder.getContext()),
+          ((::llvm::FixedVectorType *)I->getType())->getNumElements(), false);
+    } else {
+      truncTy = Type::getInt1Ty(Builder.getContext());
+    }
+
+    randomBit = Builder.CreateTrunc(randomBit, truncTy, "random_bit_to_bool");
+    // Add +1 or -1 to fpAsInt depending on the random bit
+    Value *noise = Builder.CreateSelect(randomBit, one, mone, "noise");
+
+    Type *bitCastTy = nullptr;
+    if (isVector) {
+      bitCastTy = VectorType::get(
+          fpAsIntTy,
+          ((::llvm::FixedVectorType *)I->getType())->getNumElements(), false);
+    } else {
+      bitCastTy = fpAsIntTy;
+    }
+
+    Value *FPAsInt = Builder.CreateBitCast(I, bitCastTy, "fpAsInt");
     users.insert(static_cast<User *>(FPAsInt));
     Value *newResult = Builder.CreateAdd(FPAsInt, noise, "add_noise");
     Value *fpNoised =
