@@ -1580,16 +1580,16 @@ struct VfclibInst : public ModulePass {
 
     // add check to compare the result with 0 and return 0 if the result is 0
     Constant *zeroFP = ConstantFP::get(I->getType(), 0.0);
-    if (isVector) {
-#if LLVM_VERSION_MAJOR < 9
-      unsigned int size =
-          ((::llvm::VectorType *)I->getType())->getNumElements();
-#else
-      FixedVectorType *VT = dyn_cast<FixedVectorType>(srcTy);
-      ElementCount size = VT->getElementCount();
-#endif
-      zeroFP = ConstantVector::getSplat(size, zeroFP);
-    }
+    //     if (isVector) {
+    // #if LLVM_VERSION_MAJOR < 9
+    //       unsigned int size =
+    //           ((::llvm::VectorType *)I->getType())->getNumElements();
+    // #else
+    //       FixedVectorType *VT = dyn_cast<FixedVectorType>(srcTy);
+    //       ElementCount size = VT->getElementCount();
+    // #endif
+    //       zeroFP = ConstantVector::getSplat(size, zeroFP);
+    //     }
 
     Value *cmp = Builder.CreateFCmpOEQ(I, zeroFP, "is_zero");
     users.insert(static_cast<User *>(cmp));
