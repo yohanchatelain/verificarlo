@@ -340,10 +340,15 @@ struct VfclibInst : public ModulePass {
 
     // Create the new elements to be added
     ConstantInt *NewPriority = ConstantInt::get(Int32Ty, 65534);
+#if LLVM_VERSION_MAJOR < 9
+    Constant *NewInitFunc = M->getOrInsertFunction("_sr_init_rng", VoidFuncTy);
+    Function *InitFunc = dyn_cast<Function>(NewInitFunc);
+#else
     FunctionCallee NewInitFunc =
         M->getOrInsertFunction("_sr_init_rng", VoidFuncTy);
     // get pointer to function callee
     Function *InitFunc = cast<Function>(NewInitFunc.getCallee());
+#endif
 
     Constant *NullPtr = ConstantPointerNull::get(VoidPtrTy);
 
@@ -417,6 +422,7 @@ struct VfclibInst : public ModulePass {
 
   /* Check if Instruction I is a valid instruction to replace */
   bool isValidInstruction(Instruction *I) {
+    errs() << "Instruction: " << *I << "\n";
     Type *opType = I->getOperand(0)->getType();
     if (opType->isVectorTy()) {
       return isValidVectorInstruction(opType);
@@ -445,7 +451,11 @@ struct VfclibInst : public ModulePass {
     Type *voidTy = Type::getVoidTy(I->getContext());
     Type *doubleTy = Type::getDoubleTy(I->getContext());
     FunctionType *funcType = FunctionType::get(doubleTy, {}, false);
+#if LLVM_VERSION_MAJOR < 9
+    Constant *RNG = M->getOrInsertFunction(randName, funcType);
+#else
     FunctionCallee RNG = M->getOrInsertFunction(randName, funcType);
+#endif
     Instruction *call = Builder.CreateCall(RNG);
     return call;
   }
@@ -605,8 +615,13 @@ struct VfclibInst : public ModulePass {
     Value *xor4 = Builder.CreateXor(xor3, shl3);
     Value *or3 = Builder.CreateOr(xor4, shl2, "rand_uint64");
     Builder.CreateStore(or3, rng_state0);
+#if LLVM_VERSION_MAJOR < 9
+    std::vector<Value *> args = {xor2, xor2, Builder.getInt64(28)};
+    Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, args);
+#else
     Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, {xor2->getType()},
                                           {xor2, xor2, Builder.getInt64(28)});
+#endif
     Builder.CreateStore(fshl, rng_state1);
     return or3;
   }
@@ -687,8 +702,13 @@ struct VfclibInst : public ModulePass {
     Value *xor4 = Builder.CreateXor(xor3, shl3);
     Value *or3 = Builder.CreateOr(xor4, shl2);
     Builder.CreateStore(or3, rng_state0);
+#if LLVM_VERSION_MAJOR < 9
+    std::vector<Value *> args = {xor2, xor2, Builder.getInt64(28)};
+    Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, args);
+#else
     Value *fshl = Builder.CreateIntrinsic(Intrinsic::fshl, {xor2->getType()},
                                           {xor2, xor2, Builder.getInt64(28)});
+#endif
     Builder.CreateStore(fshl, rng_state1);
 
     // Get rand double between 0 and 1
@@ -702,7 +722,12 @@ struct VfclibInst : public ModulePass {
   }
 
   Value *insertVectorizeRandDouble01Call(IRBuilder<> &Builder, Instruction *I) {
+#if LLVM_VERSION_MAJOR < 9
+    VectorType *VT = dyn_cast<VectorType>(I->getType());
+#else
     FixedVectorType *VT = dyn_cast<FixedVectorType>(I->getType());
+#endif
+
     int size = VT->getNumElements();
     VT->getNumElements();
     // Value *rand_double01 = Builder.CreateAlloca(VT);
@@ -723,11 +748,18 @@ struct VfclibInst : public ModulePass {
   }
 
   Value *insertVectorizeRandUint64Call(IRBuilder<> &Builder, Instruction *I) {
-
+#if LLVM_VERSION_MAJOR < 9
+    VectorType *fpVT = dyn_cast<VectorType>(I->getType());
+#else
     FixedVectorType *fpVT = dyn_cast<FixedVectorType>(I->getType());
+#endif
     int size = fpVT->getNumElements();
+#if LLVM_VERSION_MAJOR < 9
+    VectorType *iVT = VectorType::get(Type::getInt64Ty(I->getContext()), size);
+#else
     FixedVectorType *iVT =
         FixedVectorType::get(Type::getInt64Ty(I->getContext()), size);
+#endif
     // Value *rand_uint64 = Builder.CreateAlloca(VT);
     // create undef value with the same type as the vector
     Value *rand_uint64 = UndefValue::get(iVT);
@@ -800,8 +832,13 @@ struct VfclibInst : public ModulePass {
       FunctionType *funcType = FunctionType::get(voidTy, {}, false);
 
       if (function == nullptr) {
+#if LLVM_VERSION_MAJOR < 9
+        function = Function::Create(funcType, Function::InternalLinkage,
+                                    function_name, &M);
+#else
         function = Function::Create(funcType, Function::InternalLinkage,
                                     function_name, M);
+#endif
       }
 
       BasicBlock *BB =
@@ -852,8 +889,13 @@ struct VfclibInst : public ModulePass {
         FunctionType *syscallTy =
             FunctionType::get(Type::getInt64Ty(Builder.getContext()),
                               {Type::getInt64Ty(Builder.getContext())}, true);
+#if LLVM_VERSION_MAJOR < 9
+        syscallF = Function::Create(syscallTy, Function::ExternalLinkage,
+                                    "syscall", &M);
+#else
         syscallF = Function::Create(syscallTy, Function::ExternalLinkage,
                                     "syscall", M);
+#endif
       }
 
       Value *syscall = Builder.CreateCall(
@@ -941,7 +983,12 @@ struct VfclibInst : public ModulePass {
                         Value **tau) {
     *sigma = Builder.CreateFMul(a, b, "sigma");
     Value *neg = Builder.CreateFNeg(*sigma);
+#if LLVM_VERSION_MAJOR < 9
+    std::vector<Value *> args = {a, b, neg};
+    *tau = Builder.CreateIntrinsic(Intrinsic::fma, args);
+#else
     *tau = Builder.CreateIntrinsic(Intrinsic::fma, {a->getType()}, {a, b, neg});
+#endif
   }
 
   // start sr_round_b64
@@ -972,22 +1019,38 @@ struct VfclibInst : public ModulePass {
                           Value *rand_double01) {
 
     bool isVector = sigma->getType()->isVectorTy();
+#if LLVM_VERSION_MAJOR < 9
+    unsigned int size =
+        (isVector) ? ((::llvm::VectorType *)sigma->getType())->getNumElements()
+                   : 1;
+#else
     int size =
         (isVector)
             ? ((::llvm::FixedVectorType *)sigma->getType())->getNumElements()
             : 1;
+#endif
 
     Value *ulp = nullptr;
     Constant *cst = nullptr, *cst2 = nullptr;
 
+#if LLVM_VERSION_MAJOR < 9
+    Type *fpTy =
+        (isVector) ? ((::llvm::VectorType *)sigma->getType())->getElementType()
+                   : sigma->getType();
+#else
     Type *fpTy =
         (isVector)
             ? ((::llvm::FixedVectorType *)sigma->getType())->getElementType()
             : sigma->getType();
+#endif
 
     if (fpTy->isFloatTy()) {
       if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+        unsigned int count = size;
+#else
         ElementCount count = ElementCount::getFixed(size);
+#endif
         ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-23"));
         cst = ConstantVector::getSplat(count, Builder.getInt32(0x7f800000));
         cst2 = ConstantVector::getSplat(count, Builder.getInt32(0x7fffffff));
@@ -1001,7 +1064,11 @@ struct VfclibInst : public ModulePass {
       }
     } else {
       if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+        unsigned int count = size;
+#else
         ElementCount count = ElementCount::getFixed(size);
+#endif
         ulp = ConstantFP::get(sigma->getType(), c99hextodouble("0x1.0p-52"));
         cst = ConstantVector::getSplat(count,
                                        Builder.getInt64(0x7ff0000000000000));
@@ -1020,14 +1087,27 @@ struct VfclibInst : public ModulePass {
 
     Type *srcTy = nullptr;
     if (isVector) {
-      srcTy = ((::llvm::FixedVectorType *)sigma->getType())->getElementType();
+#if LLVM_VERSION_MAJOR < 9
+      srcTy = (isVector)
+                  ? ((::llvm::VectorType *)sigma->getType())->getElementType()
+                  : sigma->getType();
+#else
+      srcTy =
+          (isVector)
+              ? ((::llvm::FixedVectorType *)sigma->getType())->getElementType()
+              : sigma->getType();
+#endif
     } else {
       srcTy = sigma->getType();
     }
 
     Type *fpAsIntTy = getFPAsIntType(srcTy);
     if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+      fpAsIntTy = VectorType::get(fpAsIntTy, size);
+#else
       fpAsIntTy = VectorType::get(fpAsIntTy, size, false);
+#endif
     }
 
     // if a float,  cast rand_double01 to float
@@ -1056,8 +1136,12 @@ struct VfclibInst : public ModulePass {
 
     Value *zero = nullptr;
     if (isVector) {
-      zero = ConstantVector::getSplat(ElementCount::getFixed(size),
-                                      ConstantFP::get(srcTy, 0.0));
+#if LLVM_VERSION_MAJOR < 9
+      unsigned int count = size;
+#else
+      ElementCount count = ElementCount::getFixed(size);
+#endif
+      zero = ConstantVector::getSplat(count, ConstantFP::get(srcTy, 0.0));
     } else {
       zero = ConstantFP::get(srcTy, 0.0);
     }
@@ -1128,7 +1212,11 @@ struct VfclibInst : public ModulePass {
     Value *b = static_cast<Value *>(&args[1]);
 
     Value *rand_double01 = nullptr;
+#if LLVM_VERSION_MAJOR < 9
+    if (VectorType *VT = dyn_cast<VectorType>(a->getType())) {
+#else
     if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+#endif
       rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
     } else {
       rand_double01 = insertRandDouble01Call(Builder, I);
@@ -1147,7 +1235,11 @@ struct VfclibInst : public ModulePass {
     Value *b = static_cast<Value *>(&args[1]);
 
     Value *rand_double01 = nullptr;
+#if LLVM_VERSION_MAJOR < 9
+    if (VectorType *VT = dyn_cast<VectorType>(a->getType())) {
+#else
     if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+#endif
       rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
     } else {
       rand_double01 = insertRandDouble01Call(Builder, I);
@@ -1223,7 +1315,11 @@ struct VfclibInst : public ModulePass {
     Value *sigma = nullptr, *tau = nullptr;
 
     Value *rand_double01 = nullptr;
+#if LLVM_VERSION_MAJOR < 9
+    if (VectorType *VT = dyn_cast<VectorType>(a->getType())) {
+#else
     if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+#endif
       rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
     } else {
       rand_double01 = insertRandDouble01Call(Builder, I);
@@ -1242,7 +1338,11 @@ struct VfclibInst : public ModulePass {
     Value *sigma = nullptr, *tau = nullptr;
 
     Value *rand_double01 = nullptr;
+#if LLVM_VERSION_MAJOR < 9
+    if (VectorType *VT = dyn_cast<VectorType>(a->getType())) {
+#else
     if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+#endif
       rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
     } else {
       rand_double01 = insertRandDouble01Call(Builder, I);
@@ -1256,8 +1356,13 @@ struct VfclibInst : public ModulePass {
     // clang-format on
     sigma = Builder.CreateFDiv(a, b);
     Value *neg = Builder.CreateFNeg(sigma);
+#if LLVM_VERSION_MAJOR < 9
+    std::vector<Value *> args_fma = {neg, b, a};
+    Value *fma = Builder.CreateIntrinsic(Intrinsic::fma, args_fma);
+#else
     Value *fma =
         Builder.CreateIntrinsic(Intrinsic::fma, {a->getType()}, {neg, b, a});
+#endif
     tau = Builder.CreateFDiv(fma, b);
 
     Value *sr_round = insertSRRounding(Builder, sigma, tau, rand_double01);
@@ -1273,7 +1378,11 @@ struct VfclibInst : public ModulePass {
     Value *ph = nullptr, *pl = nullptr, *uh = nullptr, *ul = nullptr;
 
     Value *rand_double01 = nullptr;
+#if LLVM_VERSION_MAJOR < 9
+    if (VectorType *VT = dyn_cast<VectorType>(a->getType())) {
+#else
     if (FixedVectorType *VT = dyn_cast<FixedVectorType>(a->getType())) {
+#endif
       rand_double01 = insertVectorizeRandDouble01Call(Builder, I);
     } else {
       rand_double01 = insertRandDouble01Call(Builder, I);
@@ -1283,9 +1392,13 @@ struct VfclibInst : public ModulePass {
     uh = Builder.CreateFAdd(c, ph);
     insertTwoSum(Builder, c, ph, &uh, &ul);
 
+#if LLVM_VERSION_MAJOR < 9
+    std::vector<Value *> args_sigma = {a, b, c};
+    Value *sigma = Builder.CreateIntrinsic(Intrinsic::fma, args_sigma);
+#else
     Value *sigma =
         Builder.CreateIntrinsic(Intrinsic::fma, {a->getType()}, {a, b, c});
-
+#endif
     Value *t = Builder.CreateFSub(uh, sigma);
     Value *error = Builder.CreateFAdd(pl, ul);
     Value *tau = Builder.CreateFAdd(error, t);
@@ -1341,8 +1454,13 @@ struct VfclibInst : public ModulePass {
     // if instruction is vector, update the name
     if (srcTy->isVectorTy()) {
       VectorType *VT = dyn_cast<VectorType>(srcTy);
+#if LLVM_VERSION_MAJOR < 9
+      unsigned int size = VT->getNumElements();
+#else
       ElementCount EC = VT->getElementCount();
-      function_name += "v" + std::to_string(EC.getFixedValue());
+      unsigned int size = EC.getFixedValue();
+#endif
+      function_name += "v" + std::to_string(size);
     }
 
     Function *function = I->getModule()->getFunction(function_name);
@@ -1404,7 +1522,11 @@ struct VfclibInst : public ModulePass {
     Type *srcTy = nullptr;
     bool isVector = I->getType()->isVectorTy();
     if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+      srcTy = ((::llvm::VectorType *)I->getType())->getElementType();
+#else
       srcTy = ((::llvm::FixedVectorType *)I->getType())->getElementType();
+#endif
     } else {
       srcTy = I->getType();
     }
@@ -1420,9 +1542,15 @@ struct VfclibInst : public ModulePass {
     if (srcTy->isFloatTy()) {
       Type *vecTy = nullptr;
       if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+        vecTy = VectorType::get(
+            Type::getInt32Ty(Builder.getContext()),
+            ((::llvm::VectorType *)I->getType())->getNumElements());
+#else
         vecTy = VectorType::get(
             Type::getInt32Ty(Builder.getContext()),
             ((::llvm::FixedVectorType *)I->getType())->getNumElements(), false);
+#endif
       } else {
         vecTy = Type::getInt32Ty(Builder.getContext());
       }
@@ -1432,6 +1560,14 @@ struct VfclibInst : public ModulePass {
     Value *one = nullptr, *mone = nullptr;
 
     if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+      one = ConstantVector::getSplat(
+          ((::llvm::VectorType *)I->getType())->getNumElements(),
+          ConstantInt::get(fpAsIntTy, 1));
+      mone = ConstantVector::getSplat(
+          ((::llvm::VectorType *)I->getType())->getNumElements(),
+          ConstantInt::get(fpAsIntTy, -1));
+#else
       one = ConstantVector::getSplat(
           ElementCount::getFixed(
               ((::llvm::FixedVectorType *)I->getType())->getNumElements()),
@@ -1440,6 +1576,7 @@ struct VfclibInst : public ModulePass {
           ElementCount::getFixed(
               ((::llvm::FixedVectorType *)I->getType())->getNumElements()),
           ConstantInt::get(fpAsIntTy, -1));
+#endif
     } else {
       one = ConstantInt::get(fpAsIntTy, 1);
       mone = ConstantInt::get(fpAsIntTy, -1);
@@ -1448,9 +1585,15 @@ struct VfclibInst : public ModulePass {
 
     Type *truncTy = nullptr;
     if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+      truncTy = VectorType::get(
+          Type::getInt1Ty(Builder.getContext()),
+          ((::llvm::VectorType *)I->getType())->getNumElements());
+#else
       truncTy = VectorType::get(
           Type::getInt1Ty(Builder.getContext()),
           ((::llvm::FixedVectorType *)I->getType())->getNumElements(), false);
+#endif
     } else {
       truncTy = Type::getInt1Ty(Builder.getContext());
     }
@@ -1461,9 +1604,14 @@ struct VfclibInst : public ModulePass {
 
     Type *bitCastTy = nullptr;
     if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+      bitCastTy = VectorType::get(
+          fpAsIntTy, ((::llvm::VectorType *)I->getType())->getNumElements());
+#else
       bitCastTy = VectorType::get(
           fpAsIntTy,
           ((::llvm::FixedVectorType *)I->getType())->getNumElements(), false);
+#endif
     } else {
       bitCastTy = fpAsIntTy;
     }

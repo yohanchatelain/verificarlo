@@ -6,7 +6,7 @@ else
 WARNING_FLAGS =
 endif
 
-libvfcinstrumentonline_la_CXXFLAGS = @LLVM_CPPFLAGS@ -I@INTERFLOP_INCLUDEDIR@
+libvfcinstrumentonline_la_CXXFLAGS = @LLVM_CPPFLAGS@ -I@INTERFLOP_INCLUDEDIR@ -Wfatal-errors 
 libvfcinstrumentonline_la_LDFLAGS = @LLVM_LDFLAGS@
 libvfcinstrumentonline_la_SOURCES = libVFCInstrumentOnline.cpp
 
