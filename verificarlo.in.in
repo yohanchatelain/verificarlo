@@ -26,6 +26,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import random
 
 PACKAGE_STRING = "@PACKAGE_STRING@"
 LIBDIR = "%LIBDIR%"
@@ -162,7 +163,6 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 def linker_mode(sources, options, libraries, output, args):
     if args.online_instrumentation:
         vfcwrapper_o = ""
-        libraries += " -lrand "
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
         compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
@@ -245,6 +245,8 @@ def apply_mca_instrumentation_pass(
     if args.online_instrumentation:
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
+        if args.online_instrumentation_seed:
+            extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
@@ -339,11 +341,6 @@ def compiler_mode(sources, options, output, args):
             ir = ins
             ins = get_tmp_filename(basename, ".3.ll", args)
 
-        if args.online_instrumentation:
-            libvfcinst = libvfcinstrumentonline
-        else:
-            libvfcinst = libvfcinstrument
-
         # Apply MCA instrumentation pass
         apply_mca_instrumentation_pass(
             ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
@@ -427,6 +424,12 @@ def parse_args():
         choices=["up-down", "sr"],
         type=str,
         help="Online instrumentation. (mode: up-down, sr)",
+    )
+    parser.add_argument(
+        "--online-instrumentation-seed",
+        default=random.randint(0, 2**32 - 1),
+        action="store",
+        help="Online instrumentation seed",
     )
 
     args, other = parser.parse_known_args()

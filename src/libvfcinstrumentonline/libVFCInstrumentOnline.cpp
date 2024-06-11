@@ -94,7 +94,7 @@ static cl::opt<std::string>
 
 static cl::opt<int> VfclibSeed("vfclibinst-seed",
                                cl::desc("Seed for the random number generator"),
-                               cl::value_desc("Seed"), cl::init(0));
+                               cl::value_desc("Seed"), cl::init(-1));
 
 static cl::opt<bool>
     VfclibInstInstrumentFMA("vfclibinst-inst-fma",
@@ -878,10 +878,55 @@ struct VfclibInst : public ModulePass {
           ConstantInt::get(Type::getInt1Ty(Builder.getContext()), 1),
           already_initialized);
 
-      ConstantInt *seed1 =
-          ConstantInt::get(Type::getInt64Ty(Builder.getContext()), VfclibSeed);
-      ConstantInt *seed2 = ConstantInt::get(
-          Type::getInt64Ty(Builder.getContext()), VfclibSeed + 32);
+      Value *seed1 = nullptr, *seed2 = nullptr;
+      if (VfclibSeed == -1) {
+        StructType *TimevalTy =
+            StructType::create(Builder.getContext(), "struct.timeval");
+        std::vector<Type *> Elements(2, Type::getInt64Ty(Builder.getContext()));
+        TimevalTy->setBody(Elements, /*isPacked=*/false);
+        FunctionType *GettimeofdayFuncType =
+            FunctionType::get(Type::getInt32Ty(Builder.getContext()),
+                              {PointerType::getUnqual(TimevalTy),
+                               Type::getInt8PtrTy(Builder.getContext())},
+                              false);
+#if LLVM_VERSION_MAJOR < 9
+        Constant *Gettimeofday =
+            M.getOrInsertFunction("gettimeofday", GettimeofdayFuncType);
+        Function *GettimeofdayFunc = dyn_cast<Function>(Gettimeofday);
+#else
+        FunctionCallee *Gettimeofday =
+            M.getOrInsertFunction("gettimeofday", GettimeofdayFuncType);
+        Function *GettimeofdayFunc =
+            dyn_cast<Function>(Gettimeofday.getCallee());
+#endif
+
+        AllocaInst *AllocaTimeval =
+            Builder.CreateAlloca(TimevalTy, nullptr, "timeval");
+        Value *BitcastTimeval = Builder.CreateBitCast(
+            AllocaTimeval, Type::getInt8PtrTy(Builder.getContext()),
+            "bitcast_timeval");
+        Builder.CreateCall(
+            GettimeofdayFunc,
+            {AllocaTimeval,
+             Constant::getNullValue(Type::getInt8PtrTy(Builder.getContext()))});
+        // Load timeval->tv_sec
+        Value *TvSecPtr =
+            Builder.CreateStructGEP(TimevalTy, AllocaTimeval, 0, "tv_sec_ptr");
+        seed1 = Builder.CreateLoad(Type::getInt64Ty(Builder.getContext()),
+                                   TvSecPtr, "tv_sec");
+
+        // Load timeval->tv_usec
+        Value *TvUsecPtr =
+            Builder.CreateStructGEP(TimevalTy, AllocaTimeval, 1, "tv_usec_ptr");
+        seed2 = Builder.CreateLoad(Type::getInt64Ty(Builder.getContext()),
+                                   TvUsecPtr, "tv_usec");
+
+      } else {
+        seed1 = ConstantInt::get(Type::getInt64Ty(Builder.getContext()),
+                                 VfclibSeed);
+        seed2 = ConstantInt::get(Type::getInt64Ty(Builder.getContext()),
+                                 VfclibSeed + 32);
+      }
 
       Value *xor1 = Builder.CreateXor(seed2, seed1);
       Function *syscallF = M.getFunction("syscall");
