@@ -422,7 +422,6 @@ struct VfclibInst : public ModulePass {
 
   /* Check if Instruction I is a valid instruction to replace */
   bool isValidInstruction(Instruction *I) {
-    errs() << "Instruction: " << *I << "\n";
     Type *opType = I->getOperand(0)->getType();
     if (opType->isVectorTy()) {
       return isValidVectorInstruction(opType);
@@ -895,7 +894,7 @@ struct VfclibInst : public ModulePass {
             M.getOrInsertFunction("gettimeofday", GettimeofdayFuncType);
         Function *GettimeofdayFunc = dyn_cast<Function>(Gettimeofday);
 #else
-        FunctionCallee *Gettimeofday =
+        FunctionCallee Gettimeofday =
             M.getOrInsertFunction("gettimeofday", GettimeofdayFuncType);
         Function *GettimeofdayFunc =
             dyn_cast<Function>(Gettimeofday.getCallee());
@@ -1579,6 +1578,22 @@ struct VfclibInst : public ModulePass {
       srcTy = I->getType();
     }
 
+    // add check to compare the result with 0 and return 0 if the result is 0
+    Constant *zeroFP = ConstantFP::get(I->getType(), 0.0);
+    if (isVector) {
+#if LLVM_VERSION_MAJOR < 9
+      unsigned int size =
+          ((::llvm::VectorType *)I->getType())->getNumElements();
+#else
+      FixedVectorType *VT = dyn_cast<FixedVectorType>(srcTy);
+      ElementCount size = VT->getElementCount();
+#endif
+      zeroFP = ConstantVector::getSplat(size, zeroFP);
+    }
+
+    Value *cmp = Builder.CreateFCmpOEQ(I, zeroFP, "is_zero");
+    users.insert(static_cast<User *>(cmp));
+
     Type *fpAsIntTy = getFPAsIntType(srcTy);
     Value *randomBits = nullptr;
     if (isVector) {
@@ -1669,7 +1684,11 @@ struct VfclibInst : public ModulePass {
     Value *newResult = Builder.CreateAdd(FPAsInt, noise, "add_noise");
     Value *fpNoised =
         Builder.CreateBitCast(newResult, I->getType(), "fp_noised");
-    return fpNoised;
+
+    Instruction *select = static_cast<Instruction *>(
+        Builder.CreateSelect(cmp, zeroFP, fpNoised, "select 0 if zero"));
+
+    return select;
   }
 
   /* Replace arithmetic instructions with MCA */
