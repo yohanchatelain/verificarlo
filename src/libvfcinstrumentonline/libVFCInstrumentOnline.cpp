@@ -581,7 +581,7 @@ struct VfclibInst : public ModulePass {
           /* initializer */ ConstantInt::get(uint64Ty, 0),
           /* name */ "rng_state.0",
           /* insertbefore */ nullptr,
-          /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+          /* threadmode */ GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
           /* addresspace */ 0,
           /* isExternallyInitialized */ false);
     }
@@ -594,7 +594,7 @@ struct VfclibInst : public ModulePass {
           /* initializer */ ConstantInt::get(uint64Ty, 0),
           /* name */ "rng_state.1",
           /* insertbefore */ nullptr,
-          /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+          /* threadmode */ GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
           /* addresspace */ 0,
           /* isExternallyInitialized */ false);
     }
@@ -668,7 +668,7 @@ struct VfclibInst : public ModulePass {
           /* initializer */ ConstantInt::get(uint64Ty, 0),
           /* name */ "rng_state.0",
           /* insertbefore */ nullptr,
-          /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+          /* threadmode */ GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
           /* addresspace */ 0,
           /* isExternallyInitialized */ false);
     }
@@ -681,7 +681,7 @@ struct VfclibInst : public ModulePass {
           /* initializer */ ConstantInt::get(uint64Ty, 0),
           /* name */ "rng_state.1",
           /* insertbefore */ nullptr,
-          /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+          /* threadmode */ GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
           /* addresspace */ 0,
           /* isExternallyInitialized */ false);
     }
@@ -859,7 +859,8 @@ struct VfclibInst : public ModulePass {
             ConstantInt::get(Type::getInt1Ty(Builder.getContext()), 0),
             /* name */ "already_initialized",
             /* insertbefore */ nullptr,
-            /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+            /* threadmode */
+            GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
             /* addresspace */ 0,
             /* isExternallyInitialized */ false);
       }
@@ -973,7 +974,8 @@ struct VfclibInst : public ModulePass {
             ConstantInt::get(Type::getInt64Ty(Builder.getContext()), 0),
             /* name */ "rng_state.0",
             /* insertbefore */ nullptr,
-            /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+            /* threadmode */
+            GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
             /* addresspace */ 0,
             /* isExternallyInitialized */ false);
       }
@@ -989,7 +991,8 @@ struct VfclibInst : public ModulePass {
             ConstantInt::get(Type::getInt64Ty(Builder.getContext()), 0),
             /* name */ "rng_state.1",
             /* insertbefore */ nullptr,
-            /* threadmode */ GlobalValue::ThreadLocalMode::LocalExecTLSModel,
+            /* threadmode */
+            GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
             /* addresspace */ 0,
             /* isExternallyInitialized */ false);
       }
@@ -1706,6 +1709,8 @@ struct VfclibInst : public ModulePass {
 
   bool isFMAOperation(Instruction &I) {
     CallInst *CI = static_cast<CallInst *>(&I);
+    if (CI->getCalledFunction() == nullptr)
+      return false;
     const std::string &name = CI->getCalledFunction()->getName().str();
     if (name == "llvm.fmuladd.f32")
       return true;
