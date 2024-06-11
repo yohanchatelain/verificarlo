@@ -297,12 +297,12 @@ def compiler_mode(sources, options, output, args):
 
         selectfunction = ""
         if args.function:
-            selectfunction = "-vfclibinst-function " + args.function
+            selectfunction = " -vfclibinst-function " + args.function
         else:
             if args.include_file:
-                selectfunction = "-vfclibinst-include-file " + args.include_file
+                selectfunction = " -vfclibinst-include-file " + args.include_file
             if args.exclude_file:
-                selectfunction += "-vfclibinst-exclude-file " + args.exclude_file
+                selectfunction += " -vfclibinst-exclude-file " + args.exclude_file
 
         if args.inst_func:
             # Apply function's instrumentation pass
@@ -314,19 +314,19 @@ def compiler_mode(sources, options, output, args):
 
         # Activate verbose mode
         if args.verbose:
-            extra_args += "-vfclibinst-verbose "
+            extra_args += " -vfclibinst-verbose "
 
         # Activate fcmp instrumentation
         if args.inst_fcmp:
-            extra_args += "-vfclibinst-inst-fcmp "
+            extra_args += " -vfclibinst-inst-fcmp "
 
         # Activate fma instrumentation
         if args.inst_fma:
-            extra_args += "-vfclibinst-inst-fma"
+            extra_args += " -vfclibinst-inst-fma"
 
         # Activate cast instrumentation
         if args.inst_cast:
-            extra_args += "-vfclibinst-inst-cast"
+            extra_args += " -vfclibinst-inst-cast"
 
         if args.inst_func:
             # Apply function's instrumentation pass
