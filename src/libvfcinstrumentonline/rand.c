@@ -6,201 +6,11 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-// #include "interflop/common/float_utils.h"
-#ifndef __FLOAT_STRUCT_H_
-#define __FLOAT_STRUCT_H_
-
-#include "interflop/common/float_const.h"
+#include "float_const.h"
+#include "float_struct.h"
+#include "shishua.h"
 #include <stdint.h>
 #include <stdlib.h>
-
-/* import from <quadmath-imp.h> */
-
-/* Frankly, if you have __float128, you have 64-bit integers, right?  */
-#ifndef UINT64_C
-#error "No way!"
-#endif
-
-/* Main union type we use to manipulate the floating-point type.  */
-
-typedef union {
-  __float128 f128;
-  __uint128_t u128;
-  __int128_t i128;
-
-  /* Generic fields */
-  __float128 type;
-  __int128_t i;
-  __uint128_t u;
-
-  struct
-#ifdef __MINGW32__
-      /* On mingw targets the ms-bitfields option is active by default.
-         Therefore enforce gnu-bitfield style.  */
-      __attribute__((gcc_struct))
-#endif
-  {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    unsigned sign : QUAD_SIGN_SIZE;
-    unsigned exponent : QUAD_EXP_SIZE;
-    uint64_t mant_high : QUAD_HX_PMAN_SIZE;
-    uint64_t mant_low : QUAD_LX_PMAN_SIZE;
-#else
-    uint64_t mant_low : QUAD_LX_PMAN_SIZE;
-    uint64_t mant_high : QUAD_HX_PMAN_SIZE;
-    unsigned exponent : QUAD_EXP_SIZE;
-    unsigned sign : QUAD_SIGN_SIZE;
-#endif
-  } ieee;
-
-  struct
-#ifdef __MINGW32__
-      /* On mingw targets the ms-bitfields option is active by default.
-         Therefore enforce gnu-bitfield style.  */
-      __attribute__((gcc_struct))
-#endif
-  {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    __uint128_t sign : QUAD_SIGN_SIZE;
-    __uint128_t exponent : QUAD_EXP_SIZE;
-    __uint128_t mantissa : QUAD_PMAN_SIZE;
-#else
-    __uint128_t mantissa : QUAD_PMAN_SIZE;
-    __uint128_t exponent : QUAD_EXP_SIZE;
-    __uint128_t sign : QUAD_SIGN_SIZE;
-#endif
-  } ieee128;
-
-  struct {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint64_t high;
-    uint64_t low;
-#else
-    uint64_t low;
-    uint64_t high;
-#endif
-  } words64;
-
-  struct {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint32_t w0;
-    uint32_t w1;
-    uint32_t w2;
-    uint32_t w3;
-#else
-    uint32_t w3;
-    uint32_t w2;
-    uint32_t w1;
-    uint32_t w0;
-#endif
-  } words32;
-
-  struct
-#ifdef __MINGW32__
-      /* Make sure we are using gnu-style bitfield handling.  */
-      __attribute__((gcc_struct))
-#endif
-  {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint64_t sign : QUAD_SIGN_SIZE;
-    uint64_t exponent : QUAD_EXP_SIZE;
-    uint64_t quiet_nan : QUAD_QUIET_NAN_SIZE;
-    uint64_t mant_high : QUAD_HX_PMAN_QNAN_SIZE;
-    uint64_t mant_low : QUAD_LX_PMAN_QNAN_SIZE;
-#else
-    uint64_t mant_low : QUAD_LX_PMAN_QNAN_SIZE;
-    uint64_t mant_high : QUAD_HX_PMAN_QNAN_SIZE;
-    uint64_t quiet_nan : QUAD_QUIET_NAN_SIZE;
-    uint64_t exponent : QUAD_EXP_SIZE;
-    uint64_t sign : QUAD_SIGN_SIZE;
-#endif
-  } nan;
-
-} binary128;
-
-typedef union {
-
-  double f64;
-  uint64_t u64;
-  int64_t s64;
-  uint32_t u32[2];
-
-  /* Generic fields */
-  double type;
-  uint64_t u;
-
-  struct {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint64_t sign : DOUBLE_SIGN_SIZE;
-    uint64_t exponent : DOUBLE_EXP_SIZE;
-    uint64_t mantissa : DOUBLE_PMAN_SIZE;
-#endif
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    uint64_t mantissa : DOUBLE_PMAN_SIZE;
-    uint64_t exponent : DOUBLE_EXP_SIZE;
-    uint64_t sign : DOUBLE_SIGN_SIZE;
-#endif
-  } ieee;
-
-  struct {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint32_t sign : DOUBLE_SIGN_SIZE;
-    uint32_t exponent : DOUBLE_EXP_SIZE;
-    uint32_t mantissa_high : DOUBLE_PMAN_HIGH_SIZE;
-    uint32_t mantissa_low : DOUBLE_PMAN_LOW_SIZE;
-#endif
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#if __FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint32_t mantissa_high : DOUBLE_PMAN_HIGH_SIZE;
-    uint32_t exponent : DOUBLE_EXP_SIZE;
-    uint32_t sign : DOUBLE_SIGN_SIZE;
-    uint32_t mantissa_low : DOUBLE_PMAN_LOW_SIZE;
-#else
-    uint32_t mantissa_low : DOUBLE_PMAN_LOW_SIZE;
-    uint32_t mantissa_high : DOUBLE_PMAN_HIGH_SIZE;
-    uint32_t exponent : DOUBLE_EXP_SIZE;
-    uint32_t sign : DOUBLE_SIGN_SIZE;
-#endif
-#endif
-  } ieee32;
-
-} binary64;
-
-typedef union {
-
-  float f32;
-  uint32_t u32;
-  int32_t s32;
-
-  /* Generic fields */
-  float type;
-  uint32_t u;
-
-  struct {
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    uint32_t sign : FLOAT_SIGN_SIZE;
-    uint32_t exponent : FLOAT_EXP_SIZE;
-    uint32_t mantissa : FLOAT_PMAN_SIZE;
-#endif
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    uint32_t mantissa : FLOAT_PMAN_SIZE;
-    uint32_t exponent : FLOAT_EXP_SIZE;
-    uint32_t sign : FLOAT_SIGN_SIZE;
-#endif
-  } ieee;
-
-} binary32;
-
-#define QUADFP_NAN 0
-#define QUADFP_INFINITE 1
-#define QUADFP_ZERO 2
-#define QUADFP_SUBNORMAL 3
-#define QUADFP_NORMAL 4
-#define fpclassifyq(x)                                                         \
-  __builtin_fpclassify(QUADFP_NAN, QUADFP_INFINITE, QUADFP_NORMAL,             \
-                       QUADFP_SUBNORMAL, QUADFP_ZERO, x)
-
-#endif /* __FLOAT_STRUCT_H_ */
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -214,11 +24,70 @@ typedef union {
   } while (0)
 #endif
 
+#ifdef XOROSHIRO
 #define __INTERNAL_RNG_STATE xoroshiro_state
-
 typedef uint64_t xoroshiro_state[2];
-
 static __thread xoroshiro_state rng_state;
+#elif defined(SHISHUA)
+static __thread prng_state rng_state;
+#else
+#error "No PRNG defined"
+#endif
+
+#ifdef __GNUC__
+typedef float float2 __attribute__((vector_size(8)));
+typedef float float4 __attribute__((vector_size(16)));
+typedef float float8 __attribute__((vector_size(32)));
+typedef float float16 __attribute__((vector_size(64)));
+typedef double double2 __attribute__((vector_size(16)));
+typedef double double4 __attribute__((vector_size(32)));
+typedef double double8 __attribute__((vector_size(64)));
+typedef double double16 __attribute__((vector_size(128)));
+typedef int32_t int2 __attribute__((vector_size(8)));
+typedef int32_t int4 __attribute__((vector_size(16)));
+typedef int32_t int8 __attribute__((vector_size(32)));
+typedef int32_t int16 __attribute__((vector_size(64)));
+typedef uint32_t uint2 __attribute__((vector_size(8)));
+typedef uint32_t uint4 __attribute__((vector_size(16)));
+typedef uint32_t uint8 __attribute__((vector_size(32)));
+typedef uint32_t uint16 __attribute__((vector_size(64)));
+typedef int64_t long2 __attribute__((vector_size(8)));
+typedef int64_t long4 __attribute__((vector_size(16)));
+typedef int64_t long8 __attribute__((vector_size(32)));
+typedef int64_t long16 __attribute__((vector_size(64)));
+typedef uint64_t ulong2 __attribute__((vector_size(8)));
+typedef uint64_t ulong4 __attribute__((vector_size(16)));
+typedef uint64_t ulong8 __attribute__((vector_size(32)));
+typedef uint64_t ulong16 __attribute__((vector_size(64)));
+#elif __clang__
+typedef double double2 __attribute__((ext_vector_type(2)));
+typedef double double4 __attribute__((ext_vector_type(4)));
+typedef double double8 __attribute__((ext_vector_type(8)));
+typedef double double16 __attribute__((ext_vector_type(16)));
+typedef float float2 __attribute__((ext_vector_type(2)));
+typedef float float4 __attribute__((ext_vector_type(4)));
+typedef float float8 __attribute__((ext_vector_type(8)));
+typedef float float16 __attribute__((ext_vector_type(16)));
+typedef int32_t int2 __attribute__((ext_vector_type(2)));
+typedef int32_t int4 __attribute__((ext_vector_type(4)));
+typedef int32_t int8 __attribute__((ext_vector_type(8)));
+typedef int32_t int16 __attribute__((ext_vector_type(16)));
+typedef uint32_t uint2 __attribute__((ext_vector_type(2)));
+typedef uint32_t uint4 __attribute__((ext_vector_type(4)));
+typedef uint32_t uint8 __attribute__((ext_vector_type(8)));
+typedef uint32_t uint16 __attribute__((ext_vector_type(16)));
+typedef int64_t long2 __attribute__((ext_vector_type(2)));
+typedef int64_t long4 __attribute__((ext_vector_type(4)));
+typedef int64_t long8 __attribute__((ext_vector_type(8)));
+typedef int64_t long16 __attribute__((ext_vector_type(16)));
+typedef uint64_t ulong2 __attribute__((ext_vector_type(2)));
+typedef uint64_t ulong4 __attribute__((ext_vector_type(4)));
+typedef uint64_t ulong8 __attribute__((ext_vector_type(8)));
+typedef uint64_t ulong16 __attribute__((ext_vector_type(16)));
+#else
+#error "Compiler must be gcc or clang"
+#endif
+
 static pid_t global_tid = 0;
 static bool already_initialized = 0;
 
@@ -231,7 +100,9 @@ uint64_t next_seed(uint64_t seed_state) {
 
 #define rotl(x, k) ((x) << (k)) | ((x) >> (64 - (k)))
 
-uint64_t get_rand_uint64(void) {
+__attribute__((noinline)) uint64_t get_rand_uint64(void) {
+#ifdef XOROSHIRO
+  // XOROSHIRO128++
   const uint64_t s0 = rng_state[0];
   uint64_t s1 = rng_state[1];
   const uint64_t result = rotl(s0 + s1, 17) + s0;
@@ -241,6 +112,78 @@ uint64_t get_rand_uint64(void) {
   rng_state[1] = rotl(s1, 28);                   // c
 
   return result;
+#elif defined(SHISHUA)
+  static int i = 0;
+  static uint8_t buf[32];
+  uint64_t rand = 0;
+  if (i % 4 == 0) {
+    prng_gen(&rng_state, buf);
+    i = 0;
+  }
+  memcpy(&rand, buf + i * 8, sizeof(uint64_t));
+  i++;
+
+  return rand;
+#else
+#error "No PRNG defined"
+#endif
+}
+
+__attribute__((noinline)) uint8_t get_rand_uint8(void) {
+#ifdef XOROSHIRO
+  return get_rand_uint64() & 0xFF;
+#elif defined(SHISHUA)
+  static int i = 0;
+  static uint8_t buf[32];
+  if (i % 32 == 0) {
+    prng_gen(&rng_state, buf);
+    i = 0;
+  }
+  i++;
+  return buf[i];
+#else
+#error "No PRNG defined"
+#endif
+}
+
+__attribute__((noinline)) uint16_t get_rand_uint16(void) {
+#ifdef XOROSHIRO
+  return get_rand_uint64() & 0xFFFF;
+#elif defined(SHISHUA)
+  static int i = 0;
+  static uint8_t buf[32];
+  uint16_t rand = 0;
+  if (i % 16 == 0) {
+    prng_gen(&rng_state, buf);
+    i = 0;
+  }
+  memcpy(&rand, buf + i * 2, sizeof(uint16_t));
+  i++;
+
+  return rand;
+#else
+#error "No PRNG defined"
+#endif
+}
+
+__attribute__((noinline)) uint32_t get_rand_uint32(void) {
+#ifdef XOROSHIRO
+  return get_rand_uint64() & 0xFFFFFFFF;
+#elif defined(SHISHUA)
+  static int i = 0;
+  static uint8_t buf[32];
+  uint32_t rand = 0;
+  if (i % 8 == 0) {
+    prng_gen(&rng_state, buf);
+    i = 0;
+  }
+  memcpy(&rand, buf + i * 4, sizeof(uint32_t));
+  i++;
+
+  return rand;
+#else
+#error "No PRNG defined"
+#endif
 }
 
 int32_t get_rand_float(float a) {
@@ -272,12 +215,20 @@ __attribute__((constructor)) static void init(void) {
   } else {
     return;
   }
-  uint64_t seed = 0;
+  uint64_t seed = 1;
   struct timeval t1;
   gettimeofday(&t1, NULL);
   seed = t1.tv_sec ^ t1.tv_usec ^ syscall(__NR_gettid);
+#ifdef XOROSHIRO
   rng_state[0] = next_seed(seed);
   rng_state[1] = next_seed(seed);
+#elif defined(SHISHUA)
+  uint64_t seed_state[4] = {next_seed(seed), next_seed(seed), next_seed(seed),
+                            next_seed(seed)};
+  prng_init(&rng_state, seed_state);
+#else
+#error "No PRNG defined"
+#endif
 }
 
 /* Returns the unbiased exponent of the binary32 f */
@@ -428,6 +379,165 @@ float sr_round_b32(float sigma, float tau, float z) {
   return round;
 }
 
+float ud_round_b32(float a) {
+  if (a == 0)
+    return a;
+  uint32_t a_bits = *(uint32_t *)&a;
+  uint32_t rand = get_rand_uint32();
+  a_bits += (rand & 0x01) ? 1 : -1;
+  return *(float *)&a_bits;
+}
+
+float2 ud_round_b32_2x(float2 a) {
+  if (a[0] == 0 && a[1] == 0)
+    return a;
+  uint2 a_bits = *(uint2 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x01) ? 1 : -1;
+  a_bits[1] += (rand & 0x02) ? 1 : -1;
+  return *(float2 *)&a_bits;
+}
+
+float4 ud_round_b32_4x(float4 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0)
+    return a;
+  uint4 a_bits = *(uint4 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x01) ? 1 : -1;
+  a_bits[1] += (rand & 0x02) ? 1 : -1;
+  a_bits[2] += (rand & 0x04) ? 1 : -1;
+  a_bits[3] += (rand & 0x08) ? 1 : -1;
+  return *(float4 *)&a_bits;
+}
+
+float8 ud_round_b32_8x(float8 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0)
+    return a;
+  uint8 a_bits = *(uint8 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x01) ? 1 : -1;
+  a_bits[1] += (rand & 0x02) ? 1 : -1;
+  a_bits[2] += (rand & 0x04) ? 1 : -1;
+  a_bits[3] += (rand & 0x08) ? 1 : -1;
+  a_bits[4] += (rand & 0x10) ? 1 : -1;
+  a_bits[5] += (rand & 0x20) ? 1 : -1;
+  a_bits[6] += (rand & 0x40) ? 1 : -1;
+  a_bits[7] += (rand & 0x80) ? 1 : -1;
+
+  return *(float8 *)&a_bits;
+}
+
+float16 ud_round_b32_16x(float16 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
+      a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
+      a[15] == 0)
+    return a;
+  uint16 a_bits = *(uint16 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x0001) ? 1 : -1;
+  a_bits[1] += (rand & 0x0002) ? 1 : -1;
+  a_bits[2] += (rand & 0x0004) ? 1 : -1;
+  a_bits[3] += (rand & 0x0008) ? 1 : -1;
+  a_bits[4] += (rand & 0x0010) ? 1 : -1;
+  a_bits[5] += (rand & 0x0020) ? 1 : -1;
+  a_bits[6] += (rand & 0x0040) ? 1 : -1;
+  a_bits[7] += (rand & 0x0080) ? 1 : -1;
+  a_bits[8] += (rand & 0x0100) ? 1 : -1;
+  a_bits[9] += (rand & 0x0200) ? 1 : -1;
+  a_bits[10] += (rand & 0x0400) ? 1 : -1;
+  a_bits[11] += (rand & 0x0800) ? 1 : -1;
+  a_bits[12] += (rand & 0x1000) ? 1 : -1;
+  a_bits[13] += (rand & 0x2000) ? 1 : -1;
+  a_bits[14] += (rand & 0x4000) ? 1 : -1;
+  a_bits[15] += (rand & 0x8000) ? 1 : -1;
+  return *(float16 *)&a_bits;
+}
+
+double2 ud_round_b64_2x(double2 a) {
+  if (a[0] == 0 && a[1] == 0)
+    return a;
+  ulong2 a_bits = *(ulong2 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x01) ? 1 : -1;
+  a_bits[1] += (rand & 0x02) ? 1 : -1;
+  return *(double2 *)&a_bits;
+}
+
+double4 ud_round_b64_4x(double4 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0)
+    return a;
+  ulong4 a_bits = *(ulong4 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x01) ? 1 : -1;
+  a_bits[1] += (rand & 0x02) ? 1 : -1;
+  a_bits[2] += (rand & 0x04) ? 1 : -1;
+  a_bits[3] += (rand & 0x08) ? 1 : -1;
+  return *(double4 *)&a_bits;
+}
+
+double8 ud_round_b64_8x(double8 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0)
+    return a;
+  ulong8 a_bits = *(ulong8 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x01) ? 1 : -1;
+  a_bits[1] += (rand & 0x02) ? 1 : -1;
+  a_bits[2] += (rand & 0x04) ? 1 : -1;
+  a_bits[3] += (rand & 0x08) ? 1 : -1;
+  a_bits[4] += (rand & 0x10) ? 1 : -1;
+  a_bits[5] += (rand & 0x20) ? 1 : -1;
+  a_bits[6] += (rand & 0x40) ? 1 : -1;
+  a_bits[7] += (rand & 0x80) ? 1 : -1;
+  return *(double8 *)&a_bits;
+}
+
+double16 ud_round_b64_16x(double16 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
+      a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
+      a[15] == 0)
+    return a;
+  ulong16 a_bits = *(ulong16 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x0001) ? 1 : -1;
+  a_bits[1] += (rand & 0x0002) ? 1 : -1;
+  a_bits[2] += (rand & 0x0004) ? 1 : -1;
+  a_bits[3] += (rand & 0x0008) ? 1 : -1;
+  a_bits[4] += (rand & 0x0010) ? 1 : -1;
+  a_bits[5] += (rand & 0x0020) ? 1 : -1;
+  a_bits[6] += (rand & 0x0040) ? 1 : -1;
+  a_bits[7] += (rand & 0x0080) ? 1 : -1;
+  a_bits[8] += (rand & 0x0100) ? 1 : -1;
+  a_bits[9] += (rand & 0x0200) ? 1 : -1;
+  a_bits[10] += (rand & 0x0400) ? 1 : -1;
+  a_bits[11] += (rand & 0x0800) ? 1 : -1;
+  a_bits[12] += (rand & 0x1000) ? 1 : -1;
+  a_bits[13] += (rand & 0x2000) ? 1 : -1;
+  a_bits[14] += (rand & 0x4000) ? 1 : -1;
+  a_bits[15] += (rand & 0x8000) ? 1 : -1;
+  return *(double16 *)&a_bits;
+}
+
+double ud_round_b64(double a) {
+  if (a == 0)
+    return a;
+  uint64_t a_bits = *(uint64_t *)&a;
+  uint64_t rand = get_rand_uint8() & 1;
+  a_bits += (rand) ? 1 : -1;
+  return *(double *)&a_bits;
+}
+
 void twosum_b64(double a, double b, double *tau, double *sigma) {
   // Compute tau and sigma
   *sigma = a + b;
@@ -469,6 +579,60 @@ double add2_double(double a, double b) {
   debug_print("\tsigma + round: %+.13a\n", sigma + round);
   debug_print("%s\n", "=== add2_double ===");
   return sigma + round;
+}
+
+double addUD_double(double a, double b) {
+  debug_print("%s\n", "=== addUD_double ===");
+  // compute SR(a+b)
+  debug_print("\ta: %+.13a\n", a);
+  debug_print("\tb: %+.13a\n", b);
+  double round = ud_round_b64(a + b);
+  debug_print("\tround: %+.13a\n", round);
+  debug_print("%s\n", "=== addUD_double ===");
+  return round;
+}
+
+double subUD_double(double a, double b) { return addUD_double(a, -b); }
+
+double mulUD_double(double a, double b) {
+  // if a and b satisfy the condition (5.1), compute SR(a*b)
+  double round = ud_round_b64(a * b);
+  return round;
+}
+
+double divUD_double(double a, double b) {
+  // compute SR(a/b)
+  debug_print("%s\n", "=== divUD_double ===");
+  double round = ud_round_b64(a / b);
+  debug_print("\tround: %+.13a\n", round);
+  debug_print("%s\n", "=== divUD_double ===");
+  return round;
+}
+
+float addUD_float(float a, float b) {
+  // compute SR(a+b)
+  float round = ud_round_b32(a + b);
+  return round;
+}
+
+float2 addUD_float_2x(float2 a, float2 b) {
+  // compute SR(a+b)
+  float2 round = ud_round_b32_2x(a + b);
+  return round;
+}
+
+float subUD_float(float a, float b) { return addUD_float(a, -b); }
+
+float mulUD_float(float a, float b) {
+  // if a and b satisfy the condition (5.1), compute SR(a*b)
+  float round = ud_round_b32(a * b);
+  return round;
+}
+
+float divUD_float(float a, float b) {
+  // compute SR(a/b)
+  float round = ud_round_b32(a / b);
+  return round;
 }
 
 double sub2_double(double a, double b) { return add2_double(a, -b); }
