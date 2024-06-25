@@ -14,14 +14,9 @@
 
 #ifdef DEBUG
 #include <stdio.h>
-#define debug_print(fmt, ...)                                                  \
-  do {                                                                         \
-    fprintf(stderr, fmt, __VA_ARGS__);                                         \
-  } while (0)
+#define debug_print(fmt, ...) fprintf(stderr, fmt, __VA_ARGS__);
 #else
-#define debug_print(fmt, ...)                                                  \
-  do {                                                                         \
-  } while (0)
+#define debug_print(fmt, ...)
 #endif
 
 #ifdef XOROSHIRO
@@ -39,51 +34,75 @@ typedef float float2 __attribute__((vector_size(8)));
 typedef float float4 __attribute__((vector_size(16)));
 typedef float float8 __attribute__((vector_size(32)));
 typedef float float16 __attribute__((vector_size(64)));
+typedef float float32 __attribute__((vector_size(128)));
+typedef float float64 __attribute__((vector_size(256)));
 typedef double double2 __attribute__((vector_size(16)));
 typedef double double4 __attribute__((vector_size(32)));
 typedef double double8 __attribute__((vector_size(64)));
 typedef double double16 __attribute__((vector_size(128)));
+typedef double double32 __attribute__((vector_size(256)));
+typedef double double64 __attribute__((vector_size(512)));
 typedef int32_t int2 __attribute__((vector_size(8)));
 typedef int32_t int4 __attribute__((vector_size(16)));
 typedef int32_t int8 __attribute__((vector_size(32)));
 typedef int32_t int16 __attribute__((vector_size(64)));
+typedef int32_t int32 __attribute__((vector_size(128)));
+typedef int32_t int64 __attribute__((vector_size(256)));
 typedef uint32_t uint2 __attribute__((vector_size(8)));
 typedef uint32_t uint4 __attribute__((vector_size(16)));
 typedef uint32_t uint8 __attribute__((vector_size(32)));
 typedef uint32_t uint16 __attribute__((vector_size(64)));
-typedef int64_t long2 __attribute__((vector_size(8)));
-typedef int64_t long4 __attribute__((vector_size(16)));
-typedef int64_t long8 __attribute__((vector_size(32)));
-typedef int64_t long16 __attribute__((vector_size(64)));
-typedef uint64_t ulong2 __attribute__((vector_size(8)));
-typedef uint64_t ulong4 __attribute__((vector_size(16)));
-typedef uint64_t ulong8 __attribute__((vector_size(32)));
-typedef uint64_t ulong16 __attribute__((vector_size(64)));
+typedef uint32_t uint32 __attribute__((vector_size(128)));
+typedef uint32_t uint64 __attribute__((vector_size(256)));
+typedef int64_t long2 __attribute__((vector_size(16)));
+typedef int64_t long4 __attribute__((vector_size(32)));
+typedef int64_t long8 __attribute__((vector_size(64)));
+typedef int64_t long16 __attribute__((vector_size(128)));
+typedef int64_t long32 __attribute__((vector_size(256)));
+typedef int64_t long64 __attribute__((vector_size(512)));
+typedef uint64_t ulong2 __attribute__((vector_size(16)));
+typedef uint64_t ulong4 __attribute__((vector_size(32)));
+typedef uint64_t ulong8 __attribute__((vector_size(64)));
+typedef uint64_t ulong16 __attribute__((vector_size(128)));
+typedef uint64_t ulong32 __attribute__((vector_size(256)));
+typedef uint64_t ulong64 __attribute__((vector_size(512)));
 #elif __clang__
 typedef double double2 __attribute__((ext_vector_type(2)));
 typedef double double4 __attribute__((ext_vector_type(4)));
 typedef double double8 __attribute__((ext_vector_type(8)));
 typedef double double16 __attribute__((ext_vector_type(16)));
+typedef double double32 __attribute__((ext_vector_type(32)));
+typedef double double64 __attribute__((ext_vector_type(64)));
 typedef float float2 __attribute__((ext_vector_type(2)));
 typedef float float4 __attribute__((ext_vector_type(4)));
 typedef float float8 __attribute__((ext_vector_type(8)));
 typedef float float16 __attribute__((ext_vector_type(16)));
+typedef float float32 __attribute__((ext_vector_type(32));
+typedef float float64 __attribute__((ext_vector_type(64)));
 typedef int32_t int2 __attribute__((ext_vector_type(2)));
 typedef int32_t int4 __attribute__((ext_vector_type(4)));
 typedef int32_t int8 __attribute__((ext_vector_type(8)));
 typedef int32_t int16 __attribute__((ext_vector_type(16)));
+typedef int32_t int32 __attribute__((ext_vector_type(32)));
+typedef int32_t int64 __attribute__((ext_vector_type(64)));
 typedef uint32_t uint2 __attribute__((ext_vector_type(2)));
 typedef uint32_t uint4 __attribute__((ext_vector_type(4)));
 typedef uint32_t uint8 __attribute__((ext_vector_type(8)));
 typedef uint32_t uint16 __attribute__((ext_vector_type(16)));
+typedef uint32_t uint32 __attribute__((ext_vector_type(32)));
+typedef uint32_t uint64 __attribute__((ext_vector_type(64)));
 typedef int64_t long2 __attribute__((ext_vector_type(2)));
 typedef int64_t long4 __attribute__((ext_vector_type(4)));
 typedef int64_t long8 __attribute__((ext_vector_type(8)));
 typedef int64_t long16 __attribute__((ext_vector_type(16)));
+typedef int64_t long32 __attribute__((ext_vector_type(32)));
+typedef int64_t long64 __attribute__((ext_vector_type(64)));
 typedef uint64_t ulong2 __attribute__((ext_vector_type(2)));
 typedef uint64_t ulong4 __attribute__((ext_vector_type(4)));
 typedef uint64_t ulong8 __attribute__((ext_vector_type(8)));
 typedef uint64_t ulong16 __attribute__((ext_vector_type(16)));
+typedef uint64_t ulong32 __attribute__((ext_vector_type(32)));
+typedef uint64_t ulong64 __attribute__((ext_vector_type(64)));
 #else
 #error "Compiler must be gcc or clang"
 #endif
@@ -380,8 +399,9 @@ float sr_round_b32(float sigma, float tau, float z) {
 }
 
 float ud_round_b32(float a) {
-  if (a == 0)
+  if (a == 0) {
     return a;
+  }
   uint32_t a_bits = *(uint32_t *)&a;
   uint32_t rand = get_rand_uint32();
   a_bits += (rand & 0x01) ? 1 : -1;
@@ -389,8 +409,9 @@ float ud_round_b32(float a) {
 }
 
 float2 ud_round_b32_2x(float2 a) {
-  if (a[0] == 0 && a[1] == 0)
+  if (a[0] == 0 && a[1] == 0) {
     return a;
+  }
   uint2 a_bits = *(uint2 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -400,8 +421,9 @@ float2 ud_round_b32_2x(float2 a) {
 }
 
 float4 ud_round_b32_4x(float4 a) {
-  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0)
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0) {
     return a;
+  }
   uint4 a_bits = *(uint4 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -414,8 +436,9 @@ float4 ud_round_b32_4x(float4 a) {
 
 float8 ud_round_b32_8x(float8 a) {
   if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
-      a[5] == 0 && a[6] == 0 && a[7] == 0)
+      a[5] == 0 && a[6] == 0 && a[7] == 0) {
     return a;
+  }
   uint8 a_bits = *(uint8 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -435,8 +458,9 @@ float16 ud_round_b32_16x(float16 a) {
   if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
       a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
       a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
-      a[15] == 0)
+      a[15] == 0) {
     return a;
+  }
   uint16 a_bits = *(uint16 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -459,9 +483,145 @@ float16 ud_round_b32_16x(float16 a) {
   return *(float16 *)&a_bits;
 }
 
-double2 ud_round_b64_2x(double2 a) {
-  if (a[0] == 0 && a[1] == 0)
+float32 ud_round_b32_32x(float32 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
+      a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
+      a[15] == 0 && a[16] == 0 && a[17] == 0 && a[18] == 0 && a[19] == 0 &&
+      a[20] == 0 && a[21] == 0 && a[22] == 0 && a[23] == 0 && a[24] == 0 &&
+      a[25] == 0 && a[26] == 0 && a[27] == 0 && a[28] == 0 && a[29] == 0 &&
+      a[30] == 0 && a[31] == 0) {
     return a;
+  }
+  uint32 a_bits = *(uint32 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x00000001) ? 1 : -1;
+  a_bits[1] += (rand & 0x00000002) ? 1 : -1;
+  a_bits[2] += (rand & 0x00000040) ? 1 : -1;
+  a_bits[3] += (rand & 0x00000080) ? 1 : -1;
+  a_bits[4] += (rand & 0x00000100) ? 1 : -1;
+  a_bits[5] += (rand & 0x00000200) ? 1 : -1;
+  a_bits[6] += (rand & 0x00000400) ? 1 : -1;
+  a_bits[7] += (rand & 0x00000800) ? 1 : -1;
+  a_bits[8] += (rand & 0x00000100) ? 1 : -1;
+  a_bits[9] += (rand & 0x00000200) ? 1 : -1;
+  a_bits[10] += (rand & 0x00000400) ? 1 : -1;
+  a_bits[11] += (rand & 0x00000800) ? 1 : -1;
+  a_bits[12] += (rand & 0x00001000) ? 1 : -1;
+  a_bits[13] += (rand & 0x00002000) ? 1 : -1;
+  a_bits[14] += (rand & 0x00004000) ? 1 : -1;
+  a_bits[15] += (rand & 0x00008000) ? 1 : -1;
+  a_bits[16] += (rand & 0x00010000) ? 1 : -1;
+  a_bits[17] += (rand & 0x00020000) ? 1 : -1;
+  a_bits[18] += (rand & 0x00040000) ? 1 : -1;
+  a_bits[19] += (rand & 0x00080000) ? 1 : -1;
+  a_bits[20] += (rand & 0x00100000) ? 1 : -1;
+  a_bits[21] += (rand & 0x00200000) ? 1 : -1;
+  a_bits[22] += (rand & 0x00400000) ? 1 : -1;
+  a_bits[23] += (rand & 0x00800000) ? 1 : -1;
+  a_bits[24] += (rand & 0x01000000) ? 1 : -1;
+  a_bits[25] += (rand & 0x02000000) ? 1 : -1;
+  a_bits[26] += (rand & 0x04000000) ? 1 : -1;
+  a_bits[27] += (rand & 0x08000000) ? 1 : -1;
+  a_bits[28] += (rand & 0x10000000) ? 1 : -1;
+  a_bits[29] += (rand & 0x20000000) ? 1 : -1;
+  a_bits[30] += (rand & 0x40000000) ? 1 : -1;
+  a_bits[31] += (rand & 0x80000000) ? 1 : -1;
+  return *(float32 *)&a_bits;
+}
+
+float64 ud_round_b32_64x(float64 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
+      a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
+      a[15] == 0 && a[16] == 0 && a[17] == 0 && a[18] == 0 && a[19] == 0 &&
+      a[20] == 0 && a[21] == 0 && a[22] == 0 && a[23] == 0 && a[24] == 0 &&
+      a[25] == 0 && a[26] == 0 && a[27] == 0 && a[28] == 0 && a[29] == 0 &&
+      a[30] == 0 && a[31] == 0 && a[32] == 0 && a[33] == 0 && a[34] == 0 &&
+      a[35] == 0 && a[36] == 0 && a[37] == 0 && a[38] == 0 && a[39] == 0 &&
+      a[40] == 0 && a[41] == 0 && a[42] == 0 && a[43] == 0 && a[44] == 0 &&
+      a[45] == 0 && a[46] == 0 && a[47] == 0 && a[48] == 0 && a[49] == 0 &&
+      a[50] == 0 && a[51] == 0 && a[52] == 0 && a[53] == 0 && a[54] == 0 &&
+      a[55] == 0 && a[56] == 0 && a[57] == 0 && a[58] == 0 && a[59] == 0 &&
+      a[60] == 0 && a[61] == 0 && a[62] == 0 && a[63] == 0) {
+    return a;
+  }
+  uint64 a_bits = *(uint64 *)&a;
+  uint32_t rand1 = get_rand_uint32();
+  uint32_t rand2 = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand1 & 0x00000001) ? 1 : -1;
+  a_bits[1] += (rand1 & 0x00000002) ? 1 : -1;
+  a_bits[2] += (rand1 & 0x00000004) ? 1 : -1;
+  a_bits[3] += (rand1 & 0x00000008) ? 1 : -1;
+  a_bits[4] += (rand1 & 0x00000010) ? 1 : -1;
+  a_bits[5] += (rand1 & 0x00000020) ? 1 : -1;
+  a_bits[6] += (rand1 & 0x00000040) ? 1 : -1;
+  a_bits[7] += (rand1 & 0x00000080) ? 1 : -1;
+  a_bits[8] += (rand1 & 0x00000100) ? 1 : -1;
+  a_bits[9] += (rand1 & 0x00000200) ? 1 : -1;
+  a_bits[10] += (rand1 & 0x00000400) ? 1 : -1;
+  a_bits[11] += (rand1 & 0x00000800) ? 1 : -1;
+  a_bits[12] += (rand1 & 0x00001000) ? 1 : -1;
+  a_bits[13] += (rand1 & 0x00002000) ? 1 : -1;
+  a_bits[14] += (rand1 & 0x00004000) ? 1 : -1;
+  a_bits[15] += (rand1 & 0x00008000) ? 1 : -1;
+  a_bits[16] += (rand1 & 0x00010000) ? 1 : -1;
+  a_bits[17] += (rand1 & 0x00020000) ? 1 : -1;
+  a_bits[18] += (rand1 & 0x00040000) ? 1 : -1;
+  a_bits[19] += (rand1 & 0x00080000) ? 1 : -1;
+  a_bits[20] += (rand1 & 0x00100000) ? 1 : -1;
+  a_bits[21] += (rand1 & 0x00200000) ? 1 : -1;
+  a_bits[22] += (rand1 & 0x00400000) ? 1 : -1;
+  a_bits[23] += (rand1 & 0x00800000) ? 1 : -1;
+  a_bits[24] += (rand1 & 0x01000000) ? 1 : -1;
+  a_bits[25] += (rand1 & 0x02000000) ? 1 : -1;
+  a_bits[26] += (rand1 & 0x04000000) ? 1 : -1;
+  a_bits[27] += (rand1 & 0x08000000) ? 1 : -1;
+  a_bits[28] += (rand1 & 0x10000000) ? 1 : -1;
+  a_bits[29] += (rand1 & 0x20000000) ? 1 : -1;
+  a_bits[30] += (rand1 & 0x40000000) ? 1 : -1;
+  a_bits[31] += (rand1 & 0x80000000) ? 1 : -1;
+  a_bits[32] += (rand2 & 0x00000001) ? 1 : -1;
+  a_bits[33] += (rand2 & 0x00000002) ? 1 : -1;
+  a_bits[34] += (rand2 & 0x00000004) ? 1 : -1;
+  a_bits[35] += (rand2 & 0x00000008) ? 1 : -1;
+  a_bits[36] += (rand2 & 0x00000010) ? 1 : -1;
+  a_bits[37] += (rand2 & 0x00000020) ? 1 : -1;
+  a_bits[38] += (rand2 & 0x00000040) ? 1 : -1;
+  a_bits[39] += (rand2 & 0x00000080) ? 1 : -1;
+  a_bits[40] += (rand2 & 0x00000100) ? 1 : -1;
+  a_bits[41] += (rand2 & 0x00000200) ? 1 : -1;
+  a_bits[42] += (rand2 & 0x00000400) ? 1 : -1;
+  a_bits[43] += (rand2 & 0x00000800) ? 1 : -1;
+  a_bits[44] += (rand2 & 0x00001000) ? 1 : -1;
+  a_bits[45] += (rand2 & 0x00002000) ? 1 : -1;
+  a_bits[46] += (rand2 & 0x00004000) ? 1 : -1;
+  a_bits[47] += (rand2 & 0x00008000) ? 1 : -1;
+  a_bits[48] += (rand2 & 0x00010000) ? 1 : -1;
+  a_bits[49] += (rand2 & 0x00020000) ? 1 : -1;
+  a_bits[50] += (rand2 & 0x00040000) ? 1 : -1;
+  a_bits[51] += (rand2 & 0x00080000) ? 1 : -1;
+  a_bits[52] += (rand2 & 0x00100000) ? 1 : -1;
+  a_bits[53] += (rand2 & 0x00200000) ? 1 : -1;
+  a_bits[54] += (rand2 & 0x00400000) ? 1 : -1;
+  a_bits[55] += (rand2 & 0x00800000) ? 1 : -1;
+  a_bits[56] += (rand2 & 0x01000000) ? 1 : -1;
+  a_bits[57] += (rand2 & 0x02000000) ? 1 : -1;
+  a_bits[58] += (rand2 & 0x04000000) ? 1 : -1;
+  a_bits[59] += (rand2 & 0x08000000) ? 1 : -1;
+  a_bits[60] += (rand2 & 0x10000000) ? 1 : -1;
+  a_bits[61] += (rand2 & 0x20000000) ? 1 : -1;
+  a_bits[62] += (rand2 & 0x40000000) ? 1 : -1;
+  a_bits[63] += (rand2 & 0x80000000) ? 1 : -1;
+  return *(float64 *)&a_bits;
+}
+
+double2 ud_round_b64_2x(double2 a) {
+  if (a[0] == 0 && a[1] == 0) {
+    return a;
+  }
   ulong2 a_bits = *(ulong2 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -471,22 +631,24 @@ double2 ud_round_b64_2x(double2 a) {
 }
 
 double4 ud_round_b64_4x(double4 a) {
-  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0)
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0) {
     return a;
+  }
   ulong4 a_bits = *(ulong4 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
-  a_bits[0] += (rand & 0x01) ? 1 : -1;
-  a_bits[1] += (rand & 0x02) ? 1 : -1;
-  a_bits[2] += (rand & 0x04) ? 1 : -1;
-  a_bits[3] += (rand & 0x08) ? 1 : -1;
+  a_bits[0] += (rand & 0x1) ? 1 : -1;
+  a_bits[1] += (rand & 0x2) ? 1 : -1;
+  a_bits[2] += (rand & 0x4) ? 1 : -1;
+  a_bits[3] += (rand & 0x8) ? 1 : -1;
   return *(double4 *)&a_bits;
 }
 
 double8 ud_round_b64_8x(double8 a) {
   if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
-      a[5] == 0 && a[6] == 0 && a[7] == 0)
+      a[5] == 0 && a[6] == 0 && a[7] == 0) {
     return a;
+  }
   ulong8 a_bits = *(ulong8 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -505,8 +667,9 @@ double16 ud_round_b64_16x(double16 a) {
   if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
       a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
       a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
-      a[15] == 0)
+      a[15] == 0) {
     return a;
+  }
   ulong16 a_bits = *(ulong16 *)&a;
   uint32_t rand = get_rand_uint32();
   // use vectorized operations to add 1 or -1 to each element of the vector
@@ -527,6 +690,141 @@ double16 ud_round_b64_16x(double16 a) {
   a_bits[14] += (rand & 0x4000) ? 1 : -1;
   a_bits[15] += (rand & 0x8000) ? 1 : -1;
   return *(double16 *)&a_bits;
+}
+
+double32 ud_round_b64_32x(double32 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
+      a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
+      a[15] == 0 && a[16] == 0 && a[17] == 0 && a[18] == 0 && a[19] == 0 &&
+      a[20] == 0 && a[21] == 0 && a[22] == 0 && a[23] == 0 && a[24] == 0 &&
+      a[25] == 0 && a[26] == 0 && a[27] == 0 && a[28] == 0 && a[29] == 0 &&
+      a[30] == 0 && a[31] == 0) {
+    return a;
+  }
+  ulong32 a_bits = *(ulong32 *)&a;
+  uint32_t rand = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand & 0x00000001) ? 1 : -1;
+  a_bits[1] += (rand & 0x00000002) ? 1 : -1;
+  a_bits[2] += (rand & 0x00000004) ? 1 : -1;
+  a_bits[3] += (rand & 0x00000008) ? 1 : -1;
+  a_bits[4] += (rand & 0x00000010) ? 1 : -1;
+  a_bits[5] += (rand & 0x00000020) ? 1 : -1;
+  a_bits[6] += (rand & 0x00000040) ? 1 : -1;
+  a_bits[7] += (rand & 0x00000080) ? 1 : -1;
+  a_bits[8] += (rand & 0x00000100) ? 1 : -1;
+  a_bits[9] += (rand & 0x00000200) ? 1 : -1;
+  a_bits[10] += (rand & 0x00000400) ? 1 : -1;
+  a_bits[11] += (rand & 0x00000800) ? 1 : -1;
+  a_bits[12] += (rand & 0x00001000) ? 1 : -1;
+  a_bits[13] += (rand & 0x00002000) ? 1 : -1;
+  a_bits[14] += (rand & 0x00004000) ? 1 : -1;
+  a_bits[15] += (rand & 0x00008000) ? 1 : -1;
+  a_bits[16] += (rand & 0x00010000) ? 1 : -1;
+  a_bits[17] += (rand & 0x00020000) ? 1 : -1;
+  a_bits[18] += (rand & 0x00040000) ? 1 : -1;
+  a_bits[19] += (rand & 0x00080000) ? 1 : -1;
+  a_bits[20] += (rand & 0x00100000) ? 1 : -1;
+  a_bits[21] += (rand & 0x00200000) ? 1 : -1;
+  a_bits[22] += (rand & 0x00400000) ? 1 : -1;
+  a_bits[23] += (rand & 0x00800000) ? 1 : -1;
+  a_bits[24] += (rand & 0x01000000) ? 1 : -1;
+  a_bits[25] += (rand & 0x02000000) ? 1 : -1;
+  a_bits[26] += (rand & 0x04000000) ? 1 : -1;
+  a_bits[27] += (rand & 0x08000000) ? 1 : -1;
+  a_bits[28] += (rand & 0x10000000) ? 1 : -1;
+  a_bits[29] += (rand & 0x20000000) ? 1 : -1;
+  a_bits[30] += (rand & 0x40000000) ? 1 : -1;
+  a_bits[31] += (rand & 0x80000000) ? 1 : -1;
+  return *(ulong32 *)&a_bits;
+}
+
+double64 ud_round_b64_64x(double64 a) {
+  if (a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0 && a[4] == 0 &&
+      a[5] == 0 && a[6] == 0 && a[7] == 0 && a[8] == 0 && a[9] == 0 &&
+      a[10] == 0 && a[11] == 0 && a[12] == 0 && a[13] == 0 && a[14] == 0 &&
+      a[15] == 0 && a[16] == 0 && a[17] == 0 && a[18] == 0 && a[19] == 0 &&
+      a[20] == 0 && a[21] == 0 && a[22] == 0 && a[23] == 0 && a[24] == 0 &&
+      a[25] == 0 && a[26] == 0 && a[27] == 0 && a[28] == 0 && a[29] == 0 &&
+      a[30] == 0 && a[31] == 0 && a[32] == 0 && a[33] == 0 && a[34] == 0 &&
+      a[35] == 0 && a[36] == 0 && a[37] == 0 && a[38] == 0 && a[39] == 0 &&
+      a[40] == 0 && a[41] == 0 && a[42] == 0 && a[43] == 0 && a[44] == 0 &&
+      a[45] == 0 && a[46] == 0 && a[47] == 0 && a[48] == 0 && a[49] == 0 &&
+      a[50] == 0 && a[51] == 0 && a[52] == 0 && a[53] == 0 && a[54] == 0 &&
+      a[55] == 0 && a[56] == 0 && a[57] == 0 && a[58] == 0 && a[59] == 0 &&
+      a[60] == 0 && a[61] == 0 && a[62] == 0 && a[63] == 0) {
+    return a;
+  }
+  ulong64 a_bits = *(ulong64 *)&a;
+  uint32_t rand1 = get_rand_uint32();
+  uint32_t rand2 = get_rand_uint32();
+  // use vectorized operations to add 1 or -1 to each element of the vector
+  a_bits[0] += (rand1 & 0x00000001) ? 1 : -1;
+  a_bits[1] += (rand1 & 0x00000002) ? 1 : -1;
+  a_bits[2] += (rand1 & 0x00000004) ? 1 : -1;
+  a_bits[3] += (rand1 & 0x00000008) ? 1 : -1;
+  a_bits[4] += (rand1 & 0x00000100) ? 1 : -1;
+  a_bits[5] += (rand1 & 0x00000200) ? 1 : -1;
+  a_bits[6] += (rand1 & 0x00000400) ? 1 : -1;
+  a_bits[7] += (rand1 & 0x00000800) ? 1 : -1;
+  a_bits[8] += (rand1 & 0x00000100) ? 1 : -1;
+  a_bits[9] += (rand1 & 0x00000200) ? 1 : -1;
+  a_bits[10] += (rand1 & 0x00000400) ? 1 : -1;
+  a_bits[11] += (rand1 & 0x00000800) ? 1 : -1;
+  a_bits[12] += (rand1 & 0x00001000) ? 1 : -1;
+  a_bits[13] += (rand1 & 0x00002000) ? 1 : -1;
+  a_bits[14] += (rand1 & 0x00004000) ? 1 : -1;
+  a_bits[15] += (rand1 & 0x00008000) ? 1 : -1;
+  a_bits[16] += (rand1 & 0x00010000) ? 1 : -1;
+  a_bits[17] += (rand1 & 0x00020000) ? 1 : -1;
+  a_bits[18] += (rand1 & 0x00040000) ? 1 : -1;
+  a_bits[19] += (rand1 & 0x00080000) ? 1 : -1;
+  a_bits[20] += (rand1 & 0x00100000) ? 1 : -1;
+  a_bits[21] += (rand1 & 0x00200000) ? 1 : -1;
+  a_bits[22] += (rand1 & 0x00400000) ? 1 : -1;
+  a_bits[23] += (rand1 & 0x00800000) ? 1 : -1;
+  a_bits[24] += (rand1 & 0x01000000) ? 1 : -1;
+  a_bits[25] += (rand1 & 0x02000000) ? 1 : -1;
+  a_bits[26] += (rand1 & 0x04000000) ? 1 : -1;
+  a_bits[27] += (rand1 & 0x08000000) ? 1 : -1;
+  a_bits[28] += (rand1 & 0x10000000) ? 1 : -1;
+  a_bits[29] += (rand1 & 0x20000000) ? 1 : -1;
+  a_bits[30] += (rand1 & 0x40000000) ? 1 : -1;
+  a_bits[31] += (rand1 & 0x80000000) ? 1 : -1;
+  a_bits[32] += (rand2 & 0x00000001) ? 1 : -1;
+  a_bits[33] += (rand2 & 0x00000002) ? 1 : -1;
+  a_bits[34] += (rand2 & 0x00000004) ? 1 : -1;
+  a_bits[35] += (rand2 & 0x00000008) ? 1 : -1;
+  a_bits[36] += (rand2 & 0x00000010) ? 1 : -1;
+  a_bits[37] += (rand2 & 0x00000020) ? 1 : -1;
+  a_bits[38] += (rand2 & 0x00000040) ? 1 : -1;
+  a_bits[39] += (rand2 & 0x00000080) ? 1 : -1;
+  a_bits[40] += (rand2 & 0x00000100) ? 1 : -1;
+  a_bits[41] += (rand2 & 0x00000200) ? 1 : -1;
+  a_bits[42] += (rand2 & 0x00000400) ? 1 : -1;
+  a_bits[43] += (rand2 & 0x00000800) ? 1 : -1;
+  a_bits[44] += (rand2 & 0x00001000) ? 1 : -1;
+  a_bits[45] += (rand2 & 0x00002000) ? 1 : -1;
+  a_bits[46] += (rand2 & 0x00004000) ? 1 : -1;
+  a_bits[47] += (rand2 & 0x00008000) ? 1 : -1;
+  a_bits[48] += (rand2 & 0x00010000) ? 1 : -1;
+  a_bits[49] += (rand2 & 0x00020000) ? 1 : -1;
+  a_bits[50] += (rand2 & 0x00040000) ? 1 : -1;
+  a_bits[51] += (rand2 & 0x00080000) ? 1 : -1;
+  a_bits[52] += (rand2 & 0x00100000) ? 1 : -1;
+  a_bits[53] += (rand2 & 0x00200000) ? 1 : -1;
+  a_bits[54] += (rand2 & 0x00400000) ? 1 : -1;
+  a_bits[55] += (rand2 & 0x00800000) ? 1 : -1;
+  a_bits[56] += (rand2 & 0x01000000) ? 1 : -1;
+  a_bits[57] += (rand2 & 0x02000000) ? 1 : -1;
+  a_bits[58] += (rand2 & 0x04000000) ? 1 : -1;
+  a_bits[59] += (rand2 & 0x08000000) ? 1 : -1;
+  a_bits[60] += (rand2 & 0x10000000) ? 1 : -1;
+  a_bits[61] += (rand2 & 0x20000000) ? 1 : -1;
+  a_bits[62] += (rand2 & 0x40000000) ? 1 : -1;
+  a_bits[63] += (rand2 & 0x80000000) ? 1 : -1;
+  return *(double64 *)&a_bits;
 }
 
 double ud_round_b64(double a) {

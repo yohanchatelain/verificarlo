@@ -1103,6 +1103,7 @@ struct VfclibInst : public ModulePass {
   }
 
   Value *insertNextSeed(Module &M, IRBuilder<> &Builder, Value *I) {
+    Type *int64Ty = Type::getInt64Ty(M.getContext());
     Constant *nextSeedCst1 = ConstantInt::get(int64Ty, -7046029254386353131);
     Value *add = Builder.CreateAdd(I, nextSeedCst1);
     Value *lshr1 = Builder.CreateLShr(add, 30);
@@ -1115,7 +1116,7 @@ struct VfclibInst : public ModulePass {
     Value *mul2 = Builder.CreateMul(xor4, nextSeedCst3);
     Value *lshr3 = Builder.CreateLShr(mul2, 31);
     Value *xor5 = Builder.CreateXor(lshr3, mul2);
-    return xor5
+    return xor5;
   }
 
   // clang-format off
@@ -1718,7 +1719,7 @@ struct VfclibInst : public ModulePass {
   }
 
   Value *getOrCreateUpDownFunction(IRBuilder<> &Builder, Instruction *I,
-                                   Fops opCode) {
+                                   Fops opCode, std::set<User *> &users) {
     Module *M = Builder.GetInsertBlock()->getParent()->getParent();
     Type *srcTy = I->getType();
 
@@ -1757,7 +1758,7 @@ struct VfclibInst : public ModulePass {
       Builder.SetInsertPoint(BB);
 
       Function::arg_iterator args = function->arg_begin();
-      Value *sr_op = createUpDownOp(Builder, I, &*args, opCode);
+      Value *sr_op = createUpDownOp(Builder, I, &*args, opCode, users);
       Builder.CreateRet(sr_op);
       Builder.ClearInsertionPoint();
     }
@@ -1783,28 +1784,97 @@ struct VfclibInst : public ModulePass {
 
   Value *replaceArithmeticWithMCACall_UpOrDown(IRBuilder<> &Builder,
                                                Instruction *I,
-                                               std::set<User *> &users) {}
+                                               std::set<User *> &users) {
+    Fops opCode = mustReplace(*I);
+    Value *value = getOrCreateUpDownFunction(Builder, I, opCode, users);
+    return value;
+  }
+
+  Value *insertOriginalInstruction(IRBuilder<> &Builder, Instruction *I,
+                                   Fops opCode, Function::arg_iterator args) {
+    Value *op = nullptr;
+    Value *arg1 = nullptr, *arg2 = nullptr, *arg3 = nullptr;
+    switch (opCode) {
+    case Fops::FOP_ADD:
+      arg1 = &*args;
+      args++;
+      arg2 = &*args;
+      op = Builder.CreateFAdd(arg1, arg2);
+      break;
+    case Fops::FOP_SUB:
+      arg1 = &*args;
+      args++;
+      arg2 = &*args;
+      op = Builder.CreateFSub(arg1, arg2);
+      break;
+    case Fops::FOP_MUL:
+      arg1 = &*args;
+      args++;
+      arg2 = &*args;
+      op = Builder.CreateFMul(arg1, arg2);
+      break;
+    case Fops::FOP_DIV:
+      arg1 = &*args;
+      args++;
+      arg2 = &*args;
+      op = Builder.CreateFDiv(arg1, arg2);
+      break;
+    case Fops::FOP_FMA:
+      // arg1 = &*args;
+      // args++;
+      // arg2 = &*args;
+      // args++;
+      // arg3 = &*args;
+      op = CREATE_FMA_CALL(Builder, arg1->getType(), args);
+      break;
+    default:
+      errs() << "Unsupported opcode: " << opCode << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+    return op;
+  }
 
   Value *createUpDownOp(IRBuilder<> &Builder, Instruction *I,
-                        Function::arg_iterator args, Fops opCode) {
+                        Function::arg_iterator args, Fops opCode,
+                        std::set<User *> &users) {
 
     Type *srcTy = nullptr;
     bool isVector = I->getType()->isVectorTy();
     VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
     srcTy = (isVector) ? VT->getElementType() : I->getType();
 
+    BasicBlock *entryBB = Builder.GetInsertBlock();
+    BasicBlock *noiseBB =
+        BasicBlock::Create(I->getContext(), "noise", entryBB->getParent());
+    BasicBlock *retBB =
+        BasicBlock::Create(I->getContext(), "ret", entryBB->getParent());
+
+    Builder.SetInsertPoint(entryBB);
+
+    Instruction *op = static_cast<Instruction *>(
+        insertOriginalInstruction(Builder, I, opCode, args));
+
     // add check to compare the result with 0 and return 0 if the result is 0
     Constant *zeroFP = ConstantFP::get(I->getType(), 0.0);
+    Value *cmp = Builder.CreateFCmpOEQ(op, zeroFP, "is_zero");
 
-    Value *cmp = Builder.CreateFCmpOEQ(I, zeroFP, "is_zero");
-    users.insert(static_cast<User *>(cmp));
+    // if vector instruction, check that at least one element is not zero
+    if (isVector) {
+      Value *orCmp = Builder.CreateOrReduce(cmp);
+      Value *zeroBool = ConstantInt::get(Type::getInt1Ty(I->getContext()), 0);
+      cmp = Builder.CreateICmpNE(orCmp, zeroBool);
+    }
+
+    Builder.CreateCondBr(cmp, retBB, noiseBB);
+
+    Builder.SetInsertPoint(noiseBB);
 
     Type *fpAsIntTy = getFPAsIntType(srcTy);
     Value *randomBits = nullptr;
     if (isVector and VfclibInstRNG == "xoroshiro") {
-      insertVectorizeRandUint64Call(Builder, I, &randomBits);
+      insertVectorizeRandUint64Call(Builder, op, &randomBits);
     } else {
-      insertRandUint64Call(Builder, I, &randomBits);
+      insertRandUint64Call(Builder, op, &randomBits);
     }
 
     if (srcTy->isFloatTy()) {
@@ -1824,8 +1894,10 @@ struct VfclibInst : public ModulePass {
 
     if (isVector) {
       VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
-      one = ConstantVector::getSplat(VT->getElementCount(), one);
-      mone = ConstantVector::getSplat(VT->getElementCount(), mone);
+      uint32_t size = VT->getNumElements();
+      auto count = CREATE_VECTOR_ELEMENT_COUNT(size);
+      one = ConstantVector::getSplat(count, one);
+      mone = ConstantVector::getSplat(count, mone);
     }
 
     Value *randomBit = Builder.CreateAnd(randomBits, one, "get_random_bit");
@@ -1851,16 +1923,24 @@ struct VfclibInst : public ModulePass {
       bitCastTy = fpAsIntTy;
     }
 
-    Value *FPAsInt = Builder.CreateBitCast(I, bitCastTy, "fpAsInt");
+    Value *FPAsInt = Builder.CreateBitCast(op, bitCastTy, "fpAsInt");
     users.insert(static_cast<User *>(FPAsInt));
     Value *newResult = Builder.CreateAdd(FPAsInt, noise, "add_noise");
     Value *fpNoised =
         Builder.CreateBitCast(newResult, I->getType(), "fp_noised");
+    Builder.CreateBr(retBB);
 
-    Instruction *select = static_cast<Instruction *>(
-        Builder.CreateSelect(cmp, zeroFP, fpNoised, "select 0 if zero"));
+    Builder.SetInsertPoint(retBB);
 
-    return select;
+    // Instruction *select = static_cast<Instruction *>(
+    //     Builder.CreateSelect(cmp, zeroFP, fpNoised, "select 0 if zero"));
+
+    // retBB
+    PHINode *phiNode = Builder.CreatePHI(I->getType(), 2);
+    phiNode->addIncoming(fpNoised, noiseBB);
+    phiNode->addIncoming(zeroFP, entryBB);
+
+    return phiNode;
   }
 
   /* Replace arithmetic instructions with MCA */
@@ -1945,6 +2025,8 @@ struct VfclibInst : public ModulePass {
         if (users.find(ii) == users.end()) {
           for (auto &op : ii->operands()) {
             if (op.get() == from) {
+              errs() << "Replacing " << *from << " with " << *to << " in "
+                     << *ii << '\n';
               op.set(to);
             }
           }
@@ -1971,16 +2053,23 @@ struct VfclibInst : public ModulePass {
         errs() << "Instrumenting" << *I << '\n';
       std::set<User *> fp_users;
       Value *value = replaceWithMCACall(M, I, opCode, fp_users);
-      if (value != nullptr and VfclibInstMode != "up-down") {
+      if (value != nullptr) {
         I->replaceAllUsesWith(value);
         I->eraseFromParent();
-      } else if (value != nullptr and VfclibInstMode == "up-down") {
-        // We need to replace the original instruction with the noised
-        // instruction for all the users of the original instruction after the
-        // noise is added
-        replaceUsageWith(fp_users, I, value);
+        modified = true;
       }
-      modified = true;
+      // if (value != nullptr and VfclibInstMode != "up-down") {
+      //   I->replaceAllUsesWith(value);
+      //   I->eraseFromParent();
+      //   modified = true;
+      // } else if (value != nullptr and VfclibInstMode == "up-down") {
+      //   // We need to replace the original instruction with the noised
+      //   // instruction for all the users of the original instruction after
+      //   the
+      //   // noise is added
+      //   replaceUsageWith(fp_users, I, value);
+      //   modified = true;
+      // }
     }
 
     return modified;

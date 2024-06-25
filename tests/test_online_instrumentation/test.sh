@@ -7,9 +7,6 @@ set -e
 if [[ $? != 0 ]]; then
     echo "Failed!"
     exit 1
-else
-    echo "Success!"
-    exit 0
 fi
 
 ./test_vector.sh
