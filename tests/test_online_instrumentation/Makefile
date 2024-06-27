@@ -14,20 +14,24 @@ ifndef optimization
 $(error optimization is not set)
 endif
 
+ifndef rng
+$(error rng is not set)
+endif
+
 ifdef size
 vector_size=-DSIZE=$(size)
-BINARY=test_$(type)_$(optimization)_$(operator)_$(size)
+BINARY=test_$(type)_$(optimization)_$(operator)_$(size)_$(rng)
 SOURCE=test_vector.c
 INCLUDE= 
 else
-BINARY=test_$(type)_$(optimization)_$(operator)
+BINARY=test_$(type)_$(optimization)_$(operator)_$(rng)
 SOURCE=test.c
 INCLUDE=--include-file=include-functions.txt
 endif
 
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi --online-instrumentation=up-down # --show-cmd --verbose
-LDFLAGS=--online-instrumentation=up-down -lm
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi --online-instrumentation=up-down --online-instrumentation-rng=$(rng) # --show-cmd --verbose
+LDFLAGS=--online-instrumentation=up-down --online-instrumentation-rng=$(rng) -lm
 
 all:
 	$(CC) $(CFLAGS) -c $(SOURCE) -o $(BINARY).o

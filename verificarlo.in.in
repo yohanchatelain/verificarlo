@@ -245,8 +245,10 @@ def apply_mca_instrumentation_pass(
     if args.online_instrumentation:
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
+        extra_args += f" -vfclibinst-rng {args.online_instrumentation_rng} "
         if args.online_instrumentation_seed:
             extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
+
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
@@ -427,8 +429,15 @@ def parse_args():
     )
     parser.add_argument(
         "--online-instrumentation-seed",
+        type=int,
+        help="Online instrumentation seed (default: random)",
+    )
+    parser.add_argument(
+        "--online-instrumentation-rng",
+        choices=["xoroshiro", "shishua"],
+        default="xoroshiro",
         action="store",
-        help="Online instrumentation seed",
+        help="Online instrumentation RNG",
     )
 
     args, other = parser.parse_known_args()

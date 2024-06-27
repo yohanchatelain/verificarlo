@@ -34,9 +34,18 @@
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/IRReader/IRReader.h>
+#include <llvm/MC/SubtargetFeature.h>
+#include <llvm/Support/Alignment.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/TargetRegistry.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
 #pragma GCC diagnostic pop
 
+#include <cmath>
 #include <cxxabi.h>
 #include <fstream>
 #include <functional>
@@ -138,7 +147,13 @@ const std::set<unsigned> validVectorSizes = {2, 4, 8, 16, 32, 64};
 struct VfclibInst : public ModulePass {
   static char ID;
 
-  VfclibInst() : ModulePass(ID) {}
+  VfclibInst() : ModulePass(ID) {
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
+  }
 
   void print_backtrace() {
     void *buffer[100];
@@ -688,18 +703,35 @@ struct VfclibInst : public ModulePass {
   void insertRandUint64ShishuaCall(IRBuilder<> &Builder, Instruction *I,
                                    Value **rand) {
 
-    Function *originalFunction = I->getParent()->getParent();
+    int nbBytesRequested = 1;
+    if (I->getType()->isVectorTy()) {
+      auto *vecTy = static_cast<VectorType *>(I->getType());
+      nbBytesRequested = (int)ceil(vecTy->getElementCount() / 8.0);
+    }
 
     Module *M = I->getModule();
+    if (Function *shishua = M->getFunction("_shishua_uint64")) {
+      *rand = Builder.CreateCall(shishua);
+      return;
+    }
+
+    BasicBlock *caller = Builder.GetInsertBlock();
+    Function *originalFunction = I->getParent()->getParent();
+    Type *int8Ty = Type::getInt8Ty(M->getContext());
     Type *int32Ty = Type::getInt32Ty(M->getContext());
     Type *int64Ty = Type::getInt64Ty(M->getContext());
     Type *floatTy = Type::getFloatTy(M->getContext());
     Type *int32x8Ty = GET_VECTOR_TYPE(int32Ty, 8);
     Type *int64x4Ty = GET_VECTOR_TYPE(int64Ty, 4);
 
-    FunctionType *shishuType = FunctionType::get(int64Ty, {}, false);
+    FunctionType *shishuType = FunctionType::get(int64Ty, {int64Ty}, false);
+
+    Argument *nbBytesRequested = &*shishuType->arg_begin();
+
     Function *shishua = getOrInsertFunction(M, "_shishua_uint64", shishuType);
 
+    errs() << "Inserting shishua call\n";
+    errs() << "shishua: " << *shishua << "\n";
     BasicBlock *entryBB =
         BasicBlock::Create(Builder.getContext(), "entry", shishua);
     BasicBlock *rngBB =
@@ -708,8 +740,9 @@ struct VfclibInst : public ModulePass {
         BasicBlock::Create(Builder.getContext(), "end", shishua);
 
     Builder.SetInsertPoint(entryBB);
+
     GlobalVariable *rand_uint64_i = getGVRandUint64Counter(*M);
-    Value *randUint64ILoad = Builder.CreateLoad(int64Ty, rand_uint64_i);
+    Value *randUint64ILoad = Builder.CreateLoad(int8Ty, rand_uint64_i);
     Value *randUint64IAnd =
         Builder.CreateAnd(randUint64ILoad, Builder.getInt8(3));
     Value *randUint64ICmp =
@@ -772,29 +805,77 @@ struct VfclibInst : public ModulePass {
     Builder.CreateBr(endBB);
 
     Builder.SetInsertPoint(endBB);
-    PHINode *phiNode = Builder.CreatePHI(int32Ty, 2);
-    phiNode->addIncoming(Builder.getInt32(0), rngBB);
+    PHINode *phiNode = Builder.CreatePHI(int8Ty, 2);
+    phiNode->addIncoming(Builder.getInt8(0), rngBB);
     phiNode->addIncoming(randUint64ILoad, entryBB);
+
     Value *shl = Builder.CreateShl(phiNode, 3, "", false, true);
     Value *sext = Builder.CreateSExt(shl, int64Ty);
-    Value *gep = Builder.CreateGEP(rand_uint64_buffer->getType(),
-                                   rand_uint64_buffer, {0, sext});
+    std::vector<Value *> gepIndices = {Builder.getInt64(0), sext};
+    auto uint8Ty = Type::getInt8Ty(M->getContext());
+    ArrayType *arrayType = ArrayType::get(uint8Ty, 32);
+    // create a GEP with opaque pointer type
+    Value *gep = Builder.CreateGEP(arrayType, rand_uint64_buffer, gepIndices);
     Value *bitcast5 = Builder.CreateBitCast(gep, int64Ty->getPointerTo());
     Value *load = Builder.CreateLoad(int64Ty, bitcast5);
-    Value *add5 = Builder.CreateNSWAdd(phiNode, Builder.getInt32(1));
+    Value *add5 = Builder.CreateNSWAdd(phiNode, nbBytesRequested);
     Builder.CreateStore(add5, rand_uint64_i);
     Builder.CreateRet(load);
 
-    Builder.SetInsertPoint(I);
-    *rand = Builder.CreateCall(shishua);
+    Builder.SetInsertPoint(caller);
+    std::vector<Value *> args = {Builder.getInt64(nbBytesRequested)};
+    *rand = Builder.CreateCall(shishua, args);
   }
 
-  // TODO: check that arch support avx2, raise a warning if not
+  void checkAVX2Support() {
+    if (not cpuTargetInfo("+avx2")) {
+      errs() << "AVX2 is not supported on this machine\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+  }
+
+  bool cpuTargetInfo(const std::string &feature) {
+    static bool print = false;
+    // Detect the host CPU
+    llvm::StringRef CPU = llvm::sys::getHostCPUName();
+    if (not print) {
+      errs() << "CPU: " << CPU << "\n";
+    }
+    llvm::SubtargetFeatures Features;
+    llvm::StringMap<bool> HostFeatures;
+    if (llvm::sys::getHostCPUFeatures(HostFeatures)) {
+      for (auto &Feature : HostFeatures) {
+        Features.AddFeature(Feature.first(), Feature.second);
+      }
+    }
+
+    // Check for AVX2 feature
+    auto features = Features.getFeatures();
+    if (not print) {
+      errs() << "Features: ";
+      for (auto &f : features) {
+        errs() << f << " ";
+      }
+      errs() << "\n";
+    }
+
+    bool HasFeature =
+        std::find(features.begin(), features.end(), feature) != features.end();
+
+    if (not print) {
+      llvm::outs() << feature << " support: " << (HasFeature ? "Yes" : "No")
+                   << "\n";
+    }
+    print = true;
+    return HasFeature;
+  }
+
   void insertRandUint64Call(IRBuilder<> &Builder, Instruction *I,
                             Value **rand) {
     if (VfclibInstRNG == "xoroshiro") {
       insertRandUint64XoroshiroCall(Builder, I, rand);
     } else if (VfclibInstRNG == "shishua") {
+      checkAVX2Support();
       insertRandUint64ShishuaCall(Builder, I, rand);
     } else {
       errs() << "Unsupported RNG function: " << VfclibInstRNG << "\n";
@@ -1096,7 +1177,7 @@ struct VfclibInst : public ModulePass {
           /* threadmode */ GlobalValue::ThreadLocalMode::GeneralDynamicTLSModel,
           /* addresspace */ 0,
           /* isExternallyInitialized */ false);
-      Align align = Align(32);
+      auto align = Align(32);
       rand_uint64_buf->setAlignment(align);
     }
     return rand_uint64_buf;
@@ -1116,6 +1197,32 @@ struct VfclibInst : public ModulePass {
     Value *mul2 = Builder.CreateMul(xor4, nextSeedCst3);
     Value *lshr3 = Builder.CreateLShr(mul2, 31);
     Value *xor5 = Builder.CreateXor(lshr3, mul2);
+    return xor5;
+  }
+
+  Value *insertNextSeedVectorize(Module &M, IRBuilder<> &Builder, Value *I) {
+    Type *int64Ty = Type::getInt64Ty(M.getContext());
+    VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
+    auto count = VT->getNumElements();
+    auto size = CREATE_VECTOR_ELEMENT_COUNT(count);
+    auto *nextSeedCst1 = ConstantInt::get(int64Ty, -7046029254386353131);
+    auto *nextSeedCst1Vec = ConstantVector::getSplat(size, nextSeedCst1);
+    auto *add = Builder.CreateAdd(I, nextSeedCst1Vec);
+    auto *cst30 = ConstantVector::getSplat(size, Builder.getInt64(30));
+    auto *lshr1 = Builder.CreateLShr(add, cst30);
+    auto *xor3 = Builder.CreateXor(lshr1, add);
+    auto *nextSeedCst2 = ConstantInt::get(int64Ty, -4658895280553007687);
+    auto *nextSeedCst2Vec = ConstantVector::getSplat(size, nextSeedCst2);
+    auto *mul1 = Builder.CreateMul(xor3, nextSeedCst2Vec);
+    auto *cst27 = ConstantVector::getSplat(size, Builder.getInt64(27));
+    auto *lshr2 = Builder.CreateLShr(mul1, cst27);
+    auto *xor4 = Builder.CreateXor(lshr2, mul1);
+    auto *nextSeedCst3 = ConstantInt::get(int64Ty, -7723592293110705685);
+    auto *nextSeedCst3Vec = ConstantVector::getSplat(size, nextSeedCst3);
+    auto *mul2 = Builder.CreateMul(xor4, nextSeedCst3Vec);
+    auto *cst31 = ConstantVector::getSplat(size, Builder.getInt64(31));
+    auto *lshr3 = Builder.CreateLShr(mul2, cst31);
+    auto *xor5 = Builder.CreateXor(lshr3, mul2);
     return xor5;
   }
 
@@ -1194,7 +1301,7 @@ struct VfclibInst : public ModulePass {
       Type *int8PtrTy = Type::getInt8PtrTy(Builder.getContext());
       Type *int32Ty = Type::getInt32Ty(Builder.getContext());
       Type *int64Ty = Type::getInt64Ty(Builder.getContext());
-      Value *seed1 = nullptr, *seed2 = nullptr;
+      Value *seed = nullptr;
 
       if (VfclibSeed == -1) {
         StructType *TimevalTy =
@@ -1213,36 +1320,57 @@ struct VfclibInst : public ModulePass {
         // Load timeval->tv_sec
         Value *TvSecPtr =
             Builder.CreateStructGEP(TimevalTy, AllocaTimeval, 0, "tv_sec_ptr");
-        seed1 = Builder.CreateLoad(int64Ty, TvSecPtr, "tv_sec");
+        Value *tvsec = Builder.CreateLoad(int64Ty, TvSecPtr, "tv_sec");
 
         // Load timeval->tv_usec
         Value *TvUsecPtr =
             Builder.CreateStructGEP(TimevalTy, AllocaTimeval, 1, "tv_usec_ptr");
-        seed2 = Builder.CreateLoad(int64Ty, TvUsecPtr, "tv_usec");
-
+        Value *tvusec = Builder.CreateLoad(int64Ty, TvUsecPtr, "tv_usec");
+        Function *syscallF = getOrCreateSyscallFunction(M);
+        Constant *gettidSyscallId = ConstantInt::get(int64Ty, SYS_gettid);
+        Value *syscall = Builder.CreateCall(syscallF, gettidSyscallId);
+        Value *xor1 = Builder.CreateXor(tvsec, tvusec);
+        seed = Builder.CreateXor(xor1, syscall);
       } else {
-        seed1 = ConstantInt::get(int64Ty, VfclibSeed);
-        seed2 = ConstantInt::get(int64Ty, VfclibSeed + 32);
+        seed = ConstantInt::get(int64Ty, VfclibSeed);
       }
-      Value *xor1 = Builder.CreateXor(seed2, seed1);
 
-      Function *syscallF = getOrCreateSyscallFunction(M);
+      if (VfclibInstRNG == "xoroshiro") {
+        Value *nextSeed = insertNextSeed(M, Builder, seed);
+        GlobalVariable *rng_state0 = getGVRNGState(M, "rng_state.0");
+        Builder.CreateStore(nextSeed, rng_state0);
+        nextSeed = insertNextSeed(M, Builder, nextSeed);
+        GlobalVariable *rng_state1 = getGVRNGState(M, "rng_state.1");
+        Builder.CreateStore(nextSeed, rng_state1);
+      } else if (VfclibInstRNG == "shishua") {
 
-      Constant *gettidSyscallId = ConstantInt::get(int64Ty, SYS_gettid);
-      Value *syscall = Builder.CreateCall(syscallF, gettidSyscallId);
-      Value *xor2 = Builder.CreateXor(xor1, syscall);
-      Value *nextSeed = insertNextSeed(M, Builder, xor2);
+        Value *nextSeed1 = insertNextSeed(M, Builder, seed);
+        Value *nextSeed2 = insertNextSeed(M, Builder, nextSeed1);
+        Value *nextSeed3 = insertNextSeed(M, Builder, nextSeed2);
+        Value *nextSeed4 = insertNextSeed(M, Builder, nextSeed3);
+        // create a vector with the 4 seeds
+        VECTOR_TYPE *VT = GET_VECTOR_TYPE(int64Ty, 4);
+        Value *seeds = UndefValue::get(VT);
+        seeds =
+            Builder.CreateInsertElement(seeds, nextSeed1, Builder.getInt32(0));
+        seeds =
+            Builder.CreateInsertElement(seeds, nextSeed2, Builder.getInt32(1));
+        seeds =
+            Builder.CreateInsertElement(seeds, nextSeed3, Builder.getInt32(2));
+        seeds =
+            Builder.CreateInsertElement(seeds, nextSeed4, Builder.getInt32(3));
 
-      GlobalVariable *rng_state0 = getGVRNGState(M, "rng_state.0");
-      Builder.CreateStore(nextSeed, rng_state0);
-      GlobalVariable *rng_state1 = getGVRNGState(M, "rng_state.1");
-      Builder.CreateStore(nextSeed, rng_state1);
-
-      if (VfclibInstRNG == "shishua") {
+        GlobalVariable *rng_state0 = getGVRNGState(M, "rng_state.0");
+        Builder.CreateStore(seeds, rng_state0);
+        seeds = insertNextSeedVectorize(M, Builder, seeds);
+        GlobalVariable *rng_state1 = getGVRNGState(M, "rng_state.1");
+        Builder.CreateStore(seeds, rng_state1);
         GlobalVariable *rng_state2 = getGVRNGState(M, "rng_state.2");
-        Builder.CreateStore(nextSeed, rng_state2);
+        seeds = insertNextSeedVectorize(M, Builder, seeds);
+        Builder.CreateStore(seeds, rng_state2);
         GlobalVariable *rng_state3 = getGVRNGState(M, "rng_state.3");
-        Builder.CreateStore(nextSeed, rng_state3);
+        seeds = insertNextSeedVectorize(M, Builder, seeds);
+        Builder.CreateStore(seeds, rng_state3);
       }
 
       Builder.CreateBr(retBB);
