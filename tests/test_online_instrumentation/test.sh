@@ -2,6 +2,7 @@
 
 set -e
 
+echo "Test scalar"
 ./test_scalar.sh
 
 if [[ $? != 0 ]]; then
@@ -9,6 +10,7 @@ if [[ $? != 0 ]]; then
     exit 1
 fi
 
+echo "Test vector"
 ./test_vector.sh
 
 if [[ $? != 0 ]]; then
