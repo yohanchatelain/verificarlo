@@ -11,10 +11,15 @@ typedef struct prng_state {
   __m256i counter;
 } prng_state;
 
+#ifndef SHISHUA_RNG_BUFFER_SIZE
+#define SHISHUA_RNG_BUFFER_SIZE 256
+#endif
+
 // buf's size must be a multiple of 32 bytes.
 // 8 * 4B = 32B (8 uint32_t)
 // 4 * 8B = 32B (4 uint64_t)
-static inline void prng_gen(prng_state *s, uint8_t buf[static 32]) {
+static inline void prng_gen(prng_state *s,
+                            uint8_t buf[static SHISHUA_RNG_BUFFER_SIZE]) {
   __m256i s0 = s->state[0], counter = s->counter, s1 = s->state[1],
           o = s->output, t0, t1, t2, t3, u0, u1, u2, u3;
   // The following shuffles move weak (low-diffusion) 32-bit parts of 64-bit

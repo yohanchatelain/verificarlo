@@ -39,7 +39,12 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/SourceMgr.h>
+#if LLVM_VERSION_MAJOR >= 11
+#undef PIC
+#include <llvm/MC/TargetRegistry.h>
+#else
 #include <llvm/Support/TargetRegistry.h>
+#endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
@@ -143,6 +148,9 @@ std::map<Type::TypeID, std::string> validTypesMap = {
 
 /* valid vector sizes to instrument */
 const std::set<unsigned> validVectorSizes = {2, 4, 8, 16, 32, 64};
+
+/* SHISHUA buffer size */
+const unsigned shishua_buffer_size = 128;
 
 struct VfclibInst : public ModulePass {
   static char ID;
@@ -656,6 +664,27 @@ struct VfclibInst : public ModulePass {
     return ConstantVector::get(constants);
   }
 
+  template <typename T>
+  Value *getVectorConstant(Module *M, std::vector<T> values) {
+    // define Type *ty depending on the type of T
+    Type *ty = nullptr;
+    if (std::is_same<T, int32_t>::value or std::is_same<T, uint32_t>::value) {
+      ty = Type::getInt32Ty(M->getContext());
+    } else if (std::is_same<T, int64_t>::value or
+               std::is_same<T, uint64_t>::value) {
+      ty = Type::getInt64Ty(M->getContext());
+    } else {
+      errs() << "Unsupported type: " << typeid(T).name() << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+
+    std::vector<Constant *> constants;
+    for (auto value : values) {
+      constants.push_back(ConstantInt::get(ty, value));
+    }
+    return ConstantVector::get(constants);
+  }
+
   // clang-format off
   // ; Function Attrs: mustprogress nofree noinline norecurse nosync nounwind uwtable willreturn
   // define dso_local i64 @get_rand_uint64() local_unnamed_addr #4 {
@@ -706,12 +735,18 @@ struct VfclibInst : public ModulePass {
     int nbBytesRequested = 1;
     if (I->getType()->isVectorTy()) {
       auto *vecTy = static_cast<VectorType *>(I->getType());
-      nbBytesRequested = (int)ceil(vecTy->getElementCount() / 8.0);
+#if LLVM_VERSION_MAJOR >= 11
+      auto size = vecTy->getElementCount().getKnownMinValue();
+#else
+      auto size = vecTy->getElementCount();
+#endif
+      nbBytesRequested = (int)ceil(size / 8.0);
     }
 
     Module *M = I->getModule();
     if (Function *shishua = M->getFunction("_shishua_uint64")) {
-      *rand = Builder.CreateCall(shishua);
+      std::vector<Value *> args = {Builder.getInt32(nbBytesRequested)};
+      *rand = Builder.CreateCall(shishua, args);
       return;
     }
 
@@ -724,11 +759,11 @@ struct VfclibInst : public ModulePass {
     Type *int32x8Ty = GET_VECTOR_TYPE(int32Ty, 8);
     Type *int64x4Ty = GET_VECTOR_TYPE(int64Ty, 4);
 
-    FunctionType *shishuType = FunctionType::get(int64Ty, {int64Ty}, false);
-
-    Argument *nbBytesRequested = &*shishuType->arg_begin();
+    FunctionType *shishuType = FunctionType::get(int64Ty, {int32Ty}, false);
 
     Function *shishua = getOrInsertFunction(M, "_shishua_uint64", shishuType);
+
+    Argument *nbBytesRequestedArg = &*shishua->arg_begin();
 
     errs() << "Inserting shishua call\n";
     errs() << "shishua: " << *shishua << "\n";
@@ -739,59 +774,72 @@ struct VfclibInst : public ModulePass {
     BasicBlock *endBB =
         BasicBlock::Create(Builder.getContext(), "end", shishua);
 
+    // entry block
     Builder.SetInsertPoint(entryBB);
-
     GlobalVariable *rand_uint64_i = getGVRandUint64Counter(*M);
-    Value *randUint64ILoad = Builder.CreateLoad(int8Ty, rand_uint64_i);
-    Value *randUint64IAnd =
-        Builder.CreateAnd(randUint64ILoad, Builder.getInt8(3));
+    auto *randUint64ILoad = Builder.CreateLoad(int32Ty, rand_uint64_i);
+    randUint64ILoad->setAlignment(Align(4));
+    //  %2 = icmp sgt i32 %1, 120
+    auto cstICmpSgt = 0;
+    switch (nbBytesRequested) {
+    case 1:
+      cstICmpSgt = 127;
+      break;
+    case 2:
+      cstICmpSgt = 126;
+      break;
+    case 3:
+      cstICmpSgt = 124;
+      break;
+    case 4:
+      cstICmpSgt = 120;
+      break;
+    default:
+      errs() << "Unsupported number of bytes requested: " << nbBytesRequested
+             << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
     Value *randUint64ICmp =
-        Builder.CreateICmpEQ(randUint64IAnd, Builder.getInt8(0));
+        Builder.CreateICmpSGT(randUint64ILoad, Builder.getInt32(cstICmpSgt));
     Builder.CreateCondBr(randUint64ICmp, rngBB, endBB);
 
+    // rng block
     Builder.SetInsertPoint(rngBB);
     GlobalVariable *rng_state0 = getGVRNGState(M, "rng_state.0");
     GlobalVariable *rng_state3 = getGVRNGState(M, "rng_state.3");
     GlobalVariable *rng_state1 = getGVRNGState(M, "rng_state.1");
     GlobalVariable *rng_state2 = getGVRNGState(M, "rng_state.2");
 
-    Value *rngState0Load = Builder.CreateLoad(int64x4Ty, rng_state0);
-    Value *rngState3Load = Builder.CreateLoad(int64x4Ty, rng_state3);
-    Value *rngState1Load = Builder.CreateLoad(int64x4Ty, rng_state1);
-    Value *rngState2Load = Builder.CreateLoad(int64x4Ty, rng_state2);
+    auto *rngState0Load = Builder.CreateLoad(int64x4Ty, rng_state0);
+    auto *rngState3Load = Builder.CreateLoad(int64x4Ty, rng_state3);
+    auto *rngState1Load = Builder.CreateLoad(int64x4Ty, rng_state1);
+    auto *rngState2Load = Builder.CreateLoad(int64x4Ty, rng_state2);
+
+    rngState0Load->setAlignment(Align(32));
+    rngState1Load->setAlignment(Align(32));
+    rngState3Load->setAlignment(Align(32));
+    rngState2Load->setAlignment(Align(32));
 
     GlobalVariable *rand_uint64_buffer = getGVRandUint64Buffer(*M);
     Value *bitcast =
         Builder.CreateBitCast(rand_uint64_buffer, int64x4Ty->getPointerTo());
     Builder.CreateStore(rngState2Load, bitcast);
-
     Value *add1 = Builder.CreateAdd(rngState1Load, rngState3Load);
-
     Value *cst = getVectorConstant<int64_t>(M, {7, 5, 3, 1});
-    // ConstantVector::get({Builder.getInt64(7), Builder.getInt64(5),
-    //                      Builder.getInt64(3), Builder.getInt64(1)});
     Value *add2 = Builder.CreateAdd(rngState3Load, cst);
-    Value *cst2 =
-        ConstantVector::get({Builder.getInt64(1), Builder.getInt64(1),
-                             Builder.getInt64(1), Builder.getInt64(1)});
+    Value *cst2 = getVectorConstant<int64_t>(M, {1, 1, 1, 1});
     Value *lshr1 = Builder.CreateLShr(rngState0Load, cst2);
-    Value *cst3 =
-        ConstantVector::get({Builder.getInt64(3), Builder.getInt64(3),
-                             Builder.getInt64(3), Builder.getInt64(3)});
+    Value *cst3 = getVectorConstant<int64_t>(M, {3, 3, 3, 3});
     Value *lshr2 = Builder.CreateLShr(add1, cst3);
     Value *bitcast1 = Builder.CreateBitCast(rngState0Load, int32x8Ty);
-    Value *shufflePermutation1 = ConstantVector::get(
-        {Builder.getInt32(5), Builder.getInt32(6), Builder.getInt32(7),
-         Builder.getInt32(0), Builder.getInt32(1), Builder.getInt32(2),
-         Builder.getInt32(3), Builder.getInt32(4)});
+    Value *shufflePermutation1 =
+        getVectorConstant<int32_t>(M, {5, 6, 7, 0, 1, 2, 3, 4});
     Value *shuffle1 = Builder.CreateShuffleVector(
         bitcast1, UndefValue::get(int32x8Ty), shufflePermutation1);
     Value *bitcast2 = Builder.CreateBitCast(shuffle1, int64x4Ty);
     Value *bitcast3 = Builder.CreateBitCast(add1, int32x8Ty);
-    Value *shufflePermutation2 = ConstantVector::get(
-        {Builder.getInt32(3), Builder.getInt32(4), Builder.getInt32(5),
-         Builder.getInt32(6), Builder.getInt32(7), Builder.getInt32(0),
-         Builder.getInt32(1), Builder.getInt32(2)});
+    Value *shufflePermutation2 =
+        getVectorConstant<int32_t>(M, {3, 4, 5, 6, 7, 0, 1, 2});
     Value *shuffle2 = Builder.CreateShuffleVector(
         bitcast3, UndefValue::get(int32x8Ty), shufflePermutation2);
     Value *bitcast4 = Builder.CreateBitCast(shuffle2, int64x4Ty);
@@ -804,27 +852,29 @@ struct VfclibInst : public ModulePass {
     Builder.CreateStore(xor1, rng_state2);
     Builder.CreateBr(endBB);
 
+    // end block
     Builder.SetInsertPoint(endBB);
-    PHINode *phiNode = Builder.CreatePHI(int8Ty, 2);
-    phiNode->addIncoming(Builder.getInt8(0), rngBB);
+    PHINode *phiNode = Builder.CreatePHI(int32Ty, 2);
+    phiNode->addIncoming(Builder.getInt32(0), rngBB);
     phiNode->addIncoming(randUint64ILoad, entryBB);
-
     Value *shl = Builder.CreateShl(phiNode, 3, "", false, true);
     Value *sext = Builder.CreateSExt(shl, int64Ty);
     std::vector<Value *> gepIndices = {Builder.getInt64(0), sext};
-    auto uint8Ty = Type::getInt8Ty(M->getContext());
-    ArrayType *arrayType = ArrayType::get(uint8Ty, 32);
+    ArrayType *arrayType = ArrayType::get(int8Ty, shishua_buffer_size);
     // create a GEP with opaque pointer type
     Value *gep = Builder.CreateGEP(arrayType, rand_uint64_buffer, gepIndices);
     Value *bitcast5 = Builder.CreateBitCast(gep, int64Ty->getPointerTo());
     Value *load = Builder.CreateLoad(int64Ty, bitcast5);
-    Value *add5 = Builder.CreateNSWAdd(phiNode, nbBytesRequested);
-    Builder.CreateStore(add5, rand_uint64_i);
+    Value *add5 = Builder.CreateNSWAdd(phiNode, nbBytesRequestedArg);
+    auto *store = Builder.CreateStore(add5, rand_uint64_i);
+    store->setAlignment(Align(4));
     Builder.CreateRet(load);
 
     Builder.SetInsertPoint(caller);
-    std::vector<Value *> args = {Builder.getInt64(nbBytesRequested)};
+    std::vector<Value *> args = {Builder.getInt32(nbBytesRequested)};
     *rand = Builder.CreateCall(shishua, args);
+    errs() << "Shishua call inserted\n";
+    errs() << "rand: " << **rand << "\n";
   }
 
   void checkAVX2Support() {
@@ -1137,17 +1187,16 @@ struct VfclibInst : public ModulePass {
   }
 
   GlobalVariable *getGVRandUint64Counter(Module &M) {
-
-    const std::string name = "get_rand_uint64.i";
-    Type *uint8Ty = Type::getInt8Ty(M.getContext());
+    Type *int32Ty = Type::getInt32Ty(M.getContext());
+    const std::string name = "shishua_buffer_index";
     GlobalVariable *rand_uint64_i = M.getGlobalVariable(name, true);
     if (rand_uint64_i == nullptr) {
       rand_uint64_i = new GlobalVariable(
           M,
-          /* type */ uint8Ty,
+          /* type */ int32Ty,
           /* isConstant */ false,
           /* linkage */ GlobalValue::InternalLinkage,
-          /* initializer */ ConstantInt::get(uint8Ty, 0),
+          /* initializer */ ConstantInt::get(int32Ty, 0),
           /* name */
           name,
           /* insertbefore */ nullptr,
@@ -1161,9 +1210,9 @@ struct VfclibInst : public ModulePass {
   // @get_rand_uint64.buf = internal unnamed_addr global [32 x i8]
   // zeroinitializer, align 32
   GlobalVariable *getGVRandUint64Buffer(Module &M) {
-    const std::string name = "get_rand_uint64.buf";
+    const std::string name = "shishua_buffer";
     Type *uint8Ty = Type::getInt8Ty(M.getContext());
-    ArrayType *arrayType = ArrayType::get(uint8Ty, 32);
+    ArrayType *arrayType = ArrayType::get(uint8Ty, shishua_buffer_size);
     GlobalVariable *rand_uint64_buf = M.getGlobalVariable(name, true);
     if (rand_uint64_buf == nullptr) {
       rand_uint64_buf = new GlobalVariable(
@@ -1970,6 +2019,7 @@ struct VfclibInst : public ModulePass {
     bool isVector = I->getType()->isVectorTy();
     VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
     srcTy = (isVector) ? VT->getElementType() : I->getType();
+    Type *fpAsIntTy = getFPAsIntType(srcTy);
 
     BasicBlock *entryBB = Builder.GetInsertBlock();
     BasicBlock *noiseBB =
@@ -1977,96 +2027,99 @@ struct VfclibInst : public ModulePass {
     BasicBlock *retBB =
         BasicBlock::Create(I->getContext(), "ret", entryBB->getParent());
 
+    // entry block
     Builder.SetInsertPoint(entryBB);
-
     Instruction *op = static_cast<Instruction *>(
         insertOriginalInstruction(Builder, I, opCode, args));
 
-    // add check to compare the result with 0 and return 0 if the result is 0
-    Constant *zeroFP = ConstantFP::get(I->getType(), 0.0);
-    Value *cmp = Builder.CreateFCmpOEQ(op, zeroFP, "is_zero");
+    uint32_t size = 1;
+    auto count = CREATE_VECTOR_ELEMENT_COUNT(size);
 
-    // if vector instruction, check that at least one element is not zero
+    Value *randomBits = nullptr, *zeroinitializerInt = nullptr,
+          *zeroinitializerFP = nullptr, *cmp = nullptr, *bitcast = nullptr,
+          *icmp = nullptr;
+    Type *bitCastTy = nullptr;
     if (isVector) {
-      Value *orCmp = Builder.CreateOrReduce(cmp);
-      Value *zeroBool = ConstantInt::get(Type::getInt1Ty(I->getContext()), 0);
-      cmp = Builder.CreateICmpNE(orCmp, zeroBool);
+      srcTy = VT->getElementType();
+      size = VT->getNumElements();
+      count = CREATE_VECTOR_ELEMENT_COUNT(size);
+      auto *vecIntTy = VECTOR_TYPE::get(fpAsIntTy, size);
+      zeroinitializerFP = ConstantAggregateZero::get(I->getType());
+      zeroinitializerInt = ConstantAggregateZero::get(vecIntTy);
+      cmp = Builder.CreateFCmpUNE(op, zeroinitializerFP, "is_zero");
+      auto *intNTy = Type::getIntNTy(I->getContext(), VT->getNumElements());
+      bitcast = Builder.CreateBitCast(cmp, intNTy);
+      icmp = Builder.CreateICmpEQ(bitcast, zeroinitializerInt);
+      Builder.CreateCondBr(icmp, retBB, noiseBB);
+      bitCastTy = VECTOR_TYPE::get(fpAsIntTy, VT->getNumElements());
+    } else {
+      srcTy = I->getType();
+      zeroinitializerFP = ConstantFP::get(srcTy, 0.0);
+      zeroinitializerInt = ConstantInt::get(fpAsIntTy, 0);
+      Constant *zeroFP = ConstantFP::get(I->getType(), 0.0);
+      cmp = Builder.CreateFCmpOEQ(op, zeroFP, "is_zero");
+      Builder.CreateCondBr(cmp, retBB, noiseBB);
+      bitCastTy = fpAsIntTy;
     }
 
-    Builder.CreateCondBr(cmp, retBB, noiseBB);
-
     Builder.SetInsertPoint(noiseBB);
+    Value *fpAsInt = Builder.CreateBitCast(op, bitCastTy, "fpAsInt");
+    users.insert(static_cast<User *>(fpAsInt));
 
-    Type *fpAsIntTy = getFPAsIntType(srcTy);
-    Value *randomBits = nullptr;
     if (isVector and VfclibInstRNG == "xoroshiro") {
       insertVectorizeRandUint64Call(Builder, op, &randomBits);
     } else {
       insertRandUint64Call(Builder, op, &randomBits);
     }
 
-    if (srcTy->isFloatTy()) {
-      Type *int32Ty = Type::getInt32Ty(Builder.getContext());
-      Type *vecTy = nullptr;
-      if (isVector) {
-        VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
-        vecTy = VECTOR_TYPE::get(int32Ty, VT->getNumElements());
-      } else {
-        vecTy = int32Ty;
+    if (isVector) {
+      // clang-format off
+      // % 8 = insertelement<4 x i32> poison, i32 % 7, i64 0 
+      // % 9 = shufflevector<4 x i32> % 8, <4 x i32> poison, <4 x i32> zeroinitializer 
+      // % 10 = and<4 x i32> % 9, <i32 1, i32 2, i32 4, i32 8>
+      // clang-format on
+      if (srcTy->isFloatTy()) {
+        randomBits = Builder.CreateBitCast(randomBits, fpAsIntTy);
       }
-      randomBits = Builder.CreateTrunc(randomBits, vecTy);
+      auto *vecTy = VECTOR_TYPE::get(Builder.getInt32Ty(), size);
+      auto *poison = UndefValue::get(vecTy);
+      auto *zero = Builder.getInt64(0);
+      auto *insert = Builder.CreateInsertElement(poison, randomBits, zero);
+      auto *shuffle =
+          Builder.CreateShuffleVector(insert, poison, zeroinitializerInt);
+      std::vector<uint32_t> pow2;
+      for (unsigned i = 0; i < VT->getNumElements(); i++) {
+        pow2.push_back(1 << i);
+      }
+      Module *M = Builder.GetInsertBlock()->getParent()->getParent();
+      auto *cstPow2 = getVectorConstant<uint32_t>(M, pow2);
+      randomBits = Builder.CreateAnd(shuffle, cstPow2);
+    } else {
+      // %6 = and i32 %5, 1
+      randomBits = Builder.CreateAnd(randomBits, 1);
     }
 
-    Constant *one = ConstantInt::get(fpAsIntTy, 1);
-    Constant *mone = ConstantInt::get(fpAsIntTy, -1);
+    auto *icmp2 = Builder.CreateICmpEQ(randomBits, zeroinitializerInt);
 
+    Constant *one = *mone = nullptr;
     if (isVector) {
-      VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
-      uint32_t size = VT->getNumElements();
-      auto count = CREATE_VECTOR_ELEMENT_COUNT(size);
       one = ConstantVector::getSplat(count, one);
       mone = ConstantVector::getSplat(count, mone);
-    }
-
-    Value *randomBit = Builder.CreateAnd(randomBits, one, "get_random_bit");
-
-    Type *boolTy = Type::getInt1Ty(Builder.getContext());
-    Type *truncTy = nullptr;
-    if (isVector) {
-      VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
-      truncTy = VECTOR_TYPE::get(boolTy, VT->getNumElements());
     } else {
-      truncTy = boolTy;
+      one = ConstantInt::get(fpAsIntTy, 1);
+      mone = ConstantInt::get(fpAsIntTy, -1);
     }
 
-    randomBit = Builder.CreateTrunc(randomBit, truncTy, "random_bit_to_bool");
-    // Add +1 or -1 to fpAsInt depending on the random bit
-    Value *noise = Builder.CreateSelect(randomBit, one, mone, "noise");
-
-    Type *bitCastTy = nullptr;
-    if (isVector) {
-      VECTOR_TYPE *VT = dyn_cast<VECTOR_TYPE>(I->getType());
-      bitCastTy = VECTOR_TYPE::get(fpAsIntTy, VT->getNumElements());
-    } else {
-      bitCastTy = fpAsIntTy;
-    }
-
-    Value *FPAsInt = Builder.CreateBitCast(op, bitCastTy, "fpAsInt");
-    users.insert(static_cast<User *>(FPAsInt));
-    Value *newResult = Builder.CreateAdd(FPAsInt, noise, "add_noise");
-    Value *fpNoised =
-        Builder.CreateBitCast(newResult, I->getType(), "fp_noised");
+    auto *select = Builder.CreateSelect(icmp2, mone, one);
+    auto *add2 = Builder.CreateAdd(fpAsInt, select);
+    auto *fpNoised = Builder.CreateBitCast(add2, I->getType());
     Builder.CreateBr(retBB);
 
+    // ret block
     Builder.SetInsertPoint(retBB);
-
-    // Instruction *select = static_cast<Instruction *>(
-    //     Builder.CreateSelect(cmp, zeroFP, fpNoised, "select 0 if zero"));
-
-    // retBB
     PHINode *phiNode = Builder.CreatePHI(I->getType(), 2);
     phiNode->addIncoming(fpNoised, noiseBB);
-    phiNode->addIncoming(zeroFP, entryBB);
+    phiNode->addIncoming(op, entryBB);
 
     return phiNode;
   }

@@ -25,6 +25,8 @@ typedef uint64_t xoroshiro_state[2];
 static __thread xoroshiro_state rng_state;
 #elif defined(SHISHUA)
 static __thread prng_state rng_state;
+static int shishua_buffer_index = 0;
+static uint8_t buf[SHISHUA_RNG_BUFFER_SIZE];
 #else
 #error "No PRNG defined"
 #endif
@@ -41,7 +43,7 @@ uint64_t next_seed(uint64_t seed_state) {
 
 #define rotl(x, k) ((x) << (k)) | ((x) >> (64 - (k)))
 
-__attribute__((noinline)) uint64_t get_rand_uint64(void) {
+__attribute__((noinline)) uint64_t _get_rand_uint64(void) {
 #ifdef XOROSHIRO
   // XOROSHIRO128++
   const uint64_t s0 = rng_state[0];
@@ -54,78 +56,118 @@ __attribute__((noinline)) uint64_t get_rand_uint64(void) {
 
   return result;
 #elif defined(SHISHUA)
-  static int i = 0;
-  static uint8_t buf[32];
   uint64_t rand = 0;
-  if (i % 4 == 0) {
+  const int bytes = sizeof(uint64_t);
+  if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {
     prng_gen(&rng_state, buf);
-    i = 0;
+    shishua_buffer_index = 0;
   }
-  memcpy(&rand, buf + i * 8, sizeof(uint64_t));
-  i++;
-
+  memcpy(&rand, buf + shishua_buffer_index * bytes, bytes);
+  shishua_buffer_index += bytes;
   return rand;
 #else
 #error "No PRNG defined"
 #endif
 }
 
-__attribute__((noinline)) uint8_t get_rand_uint8(void) {
+#ifdef XOROSHIRO
+#define DEFINE_GET_RAND_UINTN(N)                                               \
+  __attribute__((noinline)) uint##N##_t get_rand_uint##N(void) {               \
+    return _get_rand_uint64() & UINT64_C(0xFFFFFFFFFFFFFFFF) >> (64 - N);      \
+  }
+#elif defined(SHISHUA)
+#define DEFINE_GET_RAND_UINTN(N)                                               \
+  __attribute__((noinline)) uint##N##_t get_rand_uint##N(void) {               \
+    uint##N##_t rand = 0;                                                      \
+    const int bytes = sizeof(rand);                                            \
+    if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {              \
+      prng_gen(&rng_state, buf);                                               \
+      shishua_buffer_index = 0;                                                \
+    }                                                                          \
+    memcpy(&rand, buf + shishua_buffer_index * bytes, bytes);                  \
+    shishua_buffer_index += bytes;                                             \
+    return rand;                                                               \
+  }
+#else
+#error "No PRNG defined"
+#endif
+
+__attribute__((noinline)) uint8_t _get_rand_uint8(void) {
 #ifdef XOROSHIRO
   return get_rand_uint64() & 0xFF;
 #elif defined(SHISHUA)
-  static int i = 0;
-  static uint8_t buf[32];
-  if (i % 32 == 0) {
+  if (shishua_buffer_index + 1 > SHISHUA_RNG_BUFFER_SIZE) {
     prng_gen(&rng_state, buf);
-    i = 0;
+    shishua_buffer_index = 0;
   }
-  i++;
-  return buf[i];
-#else
-#error "No PRNG defined"
-#endif
-}
-
-__attribute__((noinline)) uint16_t get_rand_uint16(void) {
-#ifdef XOROSHIRO
-  return get_rand_uint64() & 0xFFFF;
-#elif defined(SHISHUA)
-  static int i = 0;
-  static uint8_t buf[32];
-  uint16_t rand = 0;
-  if (i % 16 == 0) {
-    prng_gen(&rng_state, buf);
-    i = 0;
-  }
-  memcpy(&rand, buf + i * 2, sizeof(uint16_t));
-  i++;
-
+  uint8_t rand = buf[shishua_buffer_index];
+  shishua_buffer_index++;
   return rand;
 #else
 #error "No PRNG defined"
 #endif
 }
 
-__attribute__((noinline)) uint32_t get_rand_uint32(void) {
-#ifdef XOROSHIRO
-  return get_rand_uint64() & 0xFFFFFFFF;
-#elif defined(SHISHUA)
-  static int i = 0;
-  static uint8_t buf[32];
-  uint32_t rand = 0;
-  if (i % 8 == 0) {
-    prng_gen(&rng_state, buf);
-    i = 0;
-  }
-  memcpy(&rand, buf + i * 4, sizeof(uint32_t));
-  i++;
+DEFINE_GET_RAND_UINTN(8);
+DEFINE_GET_RAND_UINTN(16);
+DEFINE_GET_RAND_UINTN(32);
+DEFINE_GET_RAND_UINTN(64);
 
-  return rand;
-#else
-#error "No PRNG defined"
-#endif
-}
+// __attribute__((noinline)) uint16_t get_rand_uint16(void) {
+// #ifdef XOROSHIRO
+//   return get_rand_uint64() & 0xFFFF;
+// #elif defined(SHISHUA)
+//   uint16_t rand = 0;
+//   const int bytes = sizeof(rand);
+//   if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {
+//     prng_gen(&rng_state, buf);
+//     shishua_buffer_index = 0;
+//   }
+//   memcpy(&rand, shishua_buffer_index + i * bytes, bytes);
+//   i += bytes;
+//   return rand;
+// #else
+// #error "No PRNG defined"
+// #endif
+// }
+
+// __attribute__((noinline)) uint32_t get_rand_uint32(void) {
+// #ifdef XOROSHIRO
+//   return get_rand_uint64() & 0xFFFFFFFF;
+// #elif defined(SHISHUA)
+//   uint32_t rand = 0;
+//   const int bytes = sizeof(uint32_t);
+//   if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {
+//     prng_gen(&rng_state, buf);
+//     shishua_buffer_index = 0;
+//   }
+//   memcpy(&rand, shishua_buffer_index + i * bytes, bytes);
+//   i += bytes;
+//   return rand;
+// #else
+// #error "No PRNG defined"
+// #endif
+// }
+
+// __attribute__((noinline)) uint64_t get_rand_uintN(int nb) {
+// #ifdef XOROSHIRO
+//   return get_rand_uint64();
+// #elif defined(SHISHUA)
+//   static int i = 0;
+//   static uint8_t buf[SHISHUA_RNG_BUFFER_SIZE];
+//   uint32_t rand = 0;
+//   if (i + nb > SHISHUA_RNG_BUFFER_SIZE) {
+//     prng_gen(&rng_state, buf);
+//     i = 0;
+//   }
+//   memcpy(&rand, buf + i * nb, nb);
+//   i += nb;
+
+//   return rand;
+// #else
+// #error "No PRNG defined"
+// #endif
+// }
 
 int32_t get_rand_float(float a) {
   const uint64_t half_max_int = (uint64_t)(UINT64_MAX / 2);
@@ -325,7 +367,7 @@ float ud_round_b32(float a) {
     return a;
   }
   uint32_t a_bits = *(uint32_t *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   a_bits += (rand & 0x01) ? 1 : -1;
   return *(float *)&a_bits;
 }
@@ -335,7 +377,7 @@ float2 ud_round_b32_2x(float2 a) {
     return a;
   }
   uint2 a_bits = *(uint2 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x01) ? 1 : -1;
   a_bits[1] += (rand & 0x02) ? 1 : -1;
@@ -347,7 +389,7 @@ float4 ud_round_b32_4x(float4 a) {
     return a;
   }
   uint4 a_bits = *(uint4 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x01) ? 1 : -1;
   a_bits[1] += (rand & 0x02) ? 1 : -1;
@@ -362,7 +404,7 @@ float8 ud_round_b32_8x(float8 a) {
     return a;
   }
   uint8 a_bits = *(uint8 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x01) ? 1 : -1;
   a_bits[1] += (rand & 0x02) ? 1 : -1;
@@ -384,7 +426,7 @@ float16 ud_round_b32_16x(float16 a) {
     return a;
   }
   uint16 a_bits = *(uint16 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x0001) ? 1 : -1;
   a_bits[1] += (rand & 0x0002) ? 1 : -1;
@@ -416,7 +458,7 @@ float32 ud_round_b32_32x(float32 a) {
     return a;
   }
   uint32 a_bits = *(uint32 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x00000001) ? 1 : -1;
   a_bits[1] += (rand & 0x00000002) ? 1 : -1;
@@ -470,73 +512,72 @@ float64 ud_round_b32_64x(float64 a) {
     return a;
   }
   uint64 a_bits = *(uint64 *)&a;
-  uint32_t rand1 = get_rand_uint32();
-  uint32_t rand2 = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
-  a_bits[0] += (rand1 & 0x00000001) ? 1 : -1;
-  a_bits[1] += (rand1 & 0x00000002) ? 1 : -1;
-  a_bits[2] += (rand1 & 0x00000004) ? 1 : -1;
-  a_bits[3] += (rand1 & 0x00000008) ? 1 : -1;
-  a_bits[4] += (rand1 & 0x00000010) ? 1 : -1;
-  a_bits[5] += (rand1 & 0x00000020) ? 1 : -1;
-  a_bits[6] += (rand1 & 0x00000040) ? 1 : -1;
-  a_bits[7] += (rand1 & 0x00000080) ? 1 : -1;
-  a_bits[8] += (rand1 & 0x00000100) ? 1 : -1;
-  a_bits[9] += (rand1 & 0x00000200) ? 1 : -1;
-  a_bits[10] += (rand1 & 0x00000400) ? 1 : -1;
-  a_bits[11] += (rand1 & 0x00000800) ? 1 : -1;
-  a_bits[12] += (rand1 & 0x00001000) ? 1 : -1;
-  a_bits[13] += (rand1 & 0x00002000) ? 1 : -1;
-  a_bits[14] += (rand1 & 0x00004000) ? 1 : -1;
-  a_bits[15] += (rand1 & 0x00008000) ? 1 : -1;
-  a_bits[16] += (rand1 & 0x00010000) ? 1 : -1;
-  a_bits[17] += (rand1 & 0x00020000) ? 1 : -1;
-  a_bits[18] += (rand1 & 0x00040000) ? 1 : -1;
-  a_bits[19] += (rand1 & 0x00080000) ? 1 : -1;
-  a_bits[20] += (rand1 & 0x00100000) ? 1 : -1;
-  a_bits[21] += (rand1 & 0x00200000) ? 1 : -1;
-  a_bits[22] += (rand1 & 0x00400000) ? 1 : -1;
-  a_bits[23] += (rand1 & 0x00800000) ? 1 : -1;
-  a_bits[24] += (rand1 & 0x01000000) ? 1 : -1;
-  a_bits[25] += (rand1 & 0x02000000) ? 1 : -1;
-  a_bits[26] += (rand1 & 0x04000000) ? 1 : -1;
-  a_bits[27] += (rand1 & 0x08000000) ? 1 : -1;
-  a_bits[28] += (rand1 & 0x10000000) ? 1 : -1;
-  a_bits[29] += (rand1 & 0x20000000) ? 1 : -1;
-  a_bits[30] += (rand1 & 0x40000000) ? 1 : -1;
-  a_bits[31] += (rand1 & 0x80000000) ? 1 : -1;
-  a_bits[32] += (rand2 & 0x00000001) ? 1 : -1;
-  a_bits[33] += (rand2 & 0x00000002) ? 1 : -1;
-  a_bits[34] += (rand2 & 0x00000004) ? 1 : -1;
-  a_bits[35] += (rand2 & 0x00000008) ? 1 : -1;
-  a_bits[36] += (rand2 & 0x00000010) ? 1 : -1;
-  a_bits[37] += (rand2 & 0x00000020) ? 1 : -1;
-  a_bits[38] += (rand2 & 0x00000040) ? 1 : -1;
-  a_bits[39] += (rand2 & 0x00000080) ? 1 : -1;
-  a_bits[40] += (rand2 & 0x00000100) ? 1 : -1;
-  a_bits[41] += (rand2 & 0x00000200) ? 1 : -1;
-  a_bits[42] += (rand2 & 0x00000400) ? 1 : -1;
-  a_bits[43] += (rand2 & 0x00000800) ? 1 : -1;
-  a_bits[44] += (rand2 & 0x00001000) ? 1 : -1;
-  a_bits[45] += (rand2 & 0x00002000) ? 1 : -1;
-  a_bits[46] += (rand2 & 0x00004000) ? 1 : -1;
-  a_bits[47] += (rand2 & 0x00008000) ? 1 : -1;
-  a_bits[48] += (rand2 & 0x00010000) ? 1 : -1;
-  a_bits[49] += (rand2 & 0x00020000) ? 1 : -1;
-  a_bits[50] += (rand2 & 0x00040000) ? 1 : -1;
-  a_bits[51] += (rand2 & 0x00080000) ? 1 : -1;
-  a_bits[52] += (rand2 & 0x00100000) ? 1 : -1;
-  a_bits[53] += (rand2 & 0x00200000) ? 1 : -1;
-  a_bits[54] += (rand2 & 0x00400000) ? 1 : -1;
-  a_bits[55] += (rand2 & 0x00800000) ? 1 : -1;
-  a_bits[56] += (rand2 & 0x01000000) ? 1 : -1;
-  a_bits[57] += (rand2 & 0x02000000) ? 1 : -1;
-  a_bits[58] += (rand2 & 0x04000000) ? 1 : -1;
-  a_bits[59] += (rand2 & 0x08000000) ? 1 : -1;
-  a_bits[60] += (rand2 & 0x10000000) ? 1 : -1;
-  a_bits[61] += (rand2 & 0x20000000) ? 1 : -1;
-  a_bits[62] += (rand2 & 0x40000000) ? 1 : -1;
-  a_bits[63] += (rand2 & 0x80000000) ? 1 : -1;
+  a_bits[0] += (rand & 0x0000000000000001) ? 1 : -1;
+  a_bits[1] += (rand & 0x0000000000000002) ? 1 : -1;
+  a_bits[2] += (rand & 0x0000000000000004) ? 1 : -1;
+  a_bits[3] += (rand & 0x0000000000000008) ? 1 : -1;
+  a_bits[4] += (rand & 0x0000000000000010) ? 1 : -1;
+  a_bits[5] += (rand & 0x0000000000000020) ? 1 : -1;
+  a_bits[6] += (rand & 0x0000000000000040) ? 1 : -1;
+  a_bits[7] += (rand & 0x0000000000000080) ? 1 : -1;
+  a_bits[8] += (rand & 0x0000000000000100) ? 1 : -1;
+  a_bits[9] += (rand & 0x0000000000000200) ? 1 : -1;
+  a_bits[10] += (rand & 0x0000000000000400) ? 1 : -1;
+  a_bits[11] += (rand & 0x0000000000000800) ? 1 : -1;
+  a_bits[12] += (rand & 0x0000000000001000) ? 1 : -1;
+  a_bits[13] += (rand & 0x0000000000002000) ? 1 : -1;
+  a_bits[14] += (rand & 0x0000000000004000) ? 1 : -1;
+  a_bits[15] += (rand & 0x0000000000008000) ? 1 : -1;
+  a_bits[16] += (rand & 0x0000000000010000) ? 1 : -1;
+  a_bits[17] += (rand & 0x0000000000020000) ? 1 : -1;
+  a_bits[18] += (rand & 0x0000000000040000) ? 1 : -1;
+  a_bits[19] += (rand & 0x0000000000080000) ? 1 : -1;
+  a_bits[20] += (rand & 0x0000000000100000) ? 1 : -1;
+  a_bits[21] += (rand & 0x0000000000200000) ? 1 : -1;
+  a_bits[22] += (rand & 0x0000000000400000) ? 1 : -1;
+  a_bits[23] += (rand & 0x0000000000800000) ? 1 : -1;
+  a_bits[24] += (rand & 0x0000000001000000) ? 1 : -1;
+  a_bits[25] += (rand & 0x0000000002000000) ? 1 : -1;
+  a_bits[26] += (rand & 0x0000000004000000) ? 1 : -1;
+  a_bits[27] += (rand & 0x0000000008000000) ? 1 : -1;
+  a_bits[28] += (rand & 0x0000000010000000) ? 1 : -1;
+  a_bits[29] += (rand & 0x0000000020000000) ? 1 : -1;
+  a_bits[30] += (rand & 0x0000000040000000) ? 1 : -1;
+  a_bits[31] += (rand & 0x0000000080000000) ? 1 : -1;
+  a_bits[32] += (rand & 0x0000000100000000) ? 1 : -1;
+  a_bits[33] += (rand & 0x0000000200000000) ? 1 : -1;
+  a_bits[34] += (rand & 0x0000000400000000) ? 1 : -1;
+  a_bits[35] += (rand & 0x0000000800000000) ? 1 : -1;
+  a_bits[36] += (rand & 0x0000001000000000) ? 1 : -1;
+  a_bits[37] += (rand & 0x0000002000000000) ? 1 : -1;
+  a_bits[38] += (rand & 0x0000004000000000) ? 1 : -1;
+  a_bits[39] += (rand & 0x0000008000000000) ? 1 : -1;
+  a_bits[40] += (rand & 0x0000010000000000) ? 1 : -1;
+  a_bits[41] += (rand & 0x0000020000000000) ? 1 : -1;
+  a_bits[42] += (rand & 0x0000040000000000) ? 1 : -1;
+  a_bits[43] += (rand & 0x0000080000000000) ? 1 : -1;
+  a_bits[44] += (rand & 0x0000100000000000) ? 1 : -1;
+  a_bits[45] += (rand & 0x0000200000000000) ? 1 : -1;
+  a_bits[46] += (rand & 0x0000400000000000) ? 1 : -1;
+  a_bits[47] += (rand & 0x0000800000000000) ? 1 : -1;
+  a_bits[48] += (rand & 0x0001000000000000) ? 1 : -1;
+  a_bits[49] += (rand & 0x0002000000000000) ? 1 : -1;
+  a_bits[50] += (rand & 0x0004000000000000) ? 1 : -1;
+  a_bits[51] += (rand & 0x0008000000000000) ? 1 : -1;
+  a_bits[52] += (rand & 0x0010000000000000) ? 1 : -1;
+  a_bits[53] += (rand & 0x0020000000000000) ? 1 : -1;
+  a_bits[54] += (rand & 0x0040000000000000) ? 1 : -1;
+  a_bits[55] += (rand & 0x0080000000000000) ? 1 : -1;
+  a_bits[56] += (rand & 0x0100000000000000) ? 1 : -1;
+  a_bits[57] += (rand & 0x0200000000000000) ? 1 : -1;
+  a_bits[58] += (rand & 0x0400000000000000) ? 1 : -1;
+  a_bits[59] += (rand & 0x0800000000000000) ? 1 : -1;
+  a_bits[60] += (rand & 0x1000000000000000) ? 1 : -1;
+  a_bits[61] += (rand & 0x2000000000000000) ? 1 : -1;
+  a_bits[62] += (rand & 0x4000000000000000) ? 1 : -1;
+  a_bits[63] += (rand & 0x8000000000000000) ? 1 : -1;
   return *(float64 *)&a_bits;
 }
 
@@ -545,7 +586,7 @@ double2 ud_round_b64_2x(double2 a) {
     return a;
   }
   ulong2 a_bits = *(ulong2 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x01) ? 1 : -1;
   a_bits[1] += (rand & 0x02) ? 1 : -1;
@@ -557,7 +598,7 @@ double4 ud_round_b64_4x(double4 a) {
     return a;
   }
   ulong4 a_bits = *(ulong4 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x1) ? 1 : -1;
   a_bits[1] += (rand & 0x2) ? 1 : -1;
@@ -572,7 +613,7 @@ double8 ud_round_b64_8x(double8 a) {
     return a;
   }
   ulong8 a_bits = *(ulong8 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x01) ? 1 : -1;
   a_bits[1] += (rand & 0x02) ? 1 : -1;
@@ -593,7 +634,7 @@ double16 ud_round_b64_16x(double16 a) {
     return a;
   }
   ulong16 a_bits = *(ulong16 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x0001) ? 1 : -1;
   a_bits[1] += (rand & 0x0002) ? 1 : -1;
@@ -625,7 +666,7 @@ double32 ud_round_b64_32x(double32 a) {
     return a;
   }
   ulong32 a_bits = *(ulong32 *)&a;
-  uint32_t rand = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
   a_bits[0] += (rand & 0x00000001) ? 1 : -1;
   a_bits[1] += (rand & 0x00000002) ? 1 : -1;
@@ -659,7 +700,7 @@ double32 ud_round_b64_32x(double32 a) {
   a_bits[29] += (rand & 0x20000000) ? 1 : -1;
   a_bits[30] += (rand & 0x40000000) ? 1 : -1;
   a_bits[31] += (rand & 0x80000000) ? 1 : -1;
-  return *(ulong32 *)&a_bits;
+  return *(double32 *)&a_bits;
 }
 
 double64 ud_round_b64_64x(double64 a) {
@@ -679,73 +720,72 @@ double64 ud_round_b64_64x(double64 a) {
     return a;
   }
   ulong64 a_bits = *(ulong64 *)&a;
-  uint32_t rand1 = get_rand_uint32();
-  uint32_t rand2 = get_rand_uint32();
+  uint64_t rand = get_rand_uint64();
   // use vectorized operations to add 1 or -1 to each element of the vector
-  a_bits[0] += (rand1 & 0x00000001) ? 1 : -1;
-  a_bits[1] += (rand1 & 0x00000002) ? 1 : -1;
-  a_bits[2] += (rand1 & 0x00000004) ? 1 : -1;
-  a_bits[3] += (rand1 & 0x00000008) ? 1 : -1;
-  a_bits[4] += (rand1 & 0x00000100) ? 1 : -1;
-  a_bits[5] += (rand1 & 0x00000200) ? 1 : -1;
-  a_bits[6] += (rand1 & 0x00000400) ? 1 : -1;
-  a_bits[7] += (rand1 & 0x00000800) ? 1 : -1;
-  a_bits[8] += (rand1 & 0x00000100) ? 1 : -1;
-  a_bits[9] += (rand1 & 0x00000200) ? 1 : -1;
-  a_bits[10] += (rand1 & 0x00000400) ? 1 : -1;
-  a_bits[11] += (rand1 & 0x00000800) ? 1 : -1;
-  a_bits[12] += (rand1 & 0x00001000) ? 1 : -1;
-  a_bits[13] += (rand1 & 0x00002000) ? 1 : -1;
-  a_bits[14] += (rand1 & 0x00004000) ? 1 : -1;
-  a_bits[15] += (rand1 & 0x00008000) ? 1 : -1;
-  a_bits[16] += (rand1 & 0x00010000) ? 1 : -1;
-  a_bits[17] += (rand1 & 0x00020000) ? 1 : -1;
-  a_bits[18] += (rand1 & 0x00040000) ? 1 : -1;
-  a_bits[19] += (rand1 & 0x00080000) ? 1 : -1;
-  a_bits[20] += (rand1 & 0x00100000) ? 1 : -1;
-  a_bits[21] += (rand1 & 0x00200000) ? 1 : -1;
-  a_bits[22] += (rand1 & 0x00400000) ? 1 : -1;
-  a_bits[23] += (rand1 & 0x00800000) ? 1 : -1;
-  a_bits[24] += (rand1 & 0x01000000) ? 1 : -1;
-  a_bits[25] += (rand1 & 0x02000000) ? 1 : -1;
-  a_bits[26] += (rand1 & 0x04000000) ? 1 : -1;
-  a_bits[27] += (rand1 & 0x08000000) ? 1 : -1;
-  a_bits[28] += (rand1 & 0x10000000) ? 1 : -1;
-  a_bits[29] += (rand1 & 0x20000000) ? 1 : -1;
-  a_bits[30] += (rand1 & 0x40000000) ? 1 : -1;
-  a_bits[31] += (rand1 & 0x80000000) ? 1 : -1;
-  a_bits[32] += (rand2 & 0x00000001) ? 1 : -1;
-  a_bits[33] += (rand2 & 0x00000002) ? 1 : -1;
-  a_bits[34] += (rand2 & 0x00000004) ? 1 : -1;
-  a_bits[35] += (rand2 & 0x00000008) ? 1 : -1;
-  a_bits[36] += (rand2 & 0x00000010) ? 1 : -1;
-  a_bits[37] += (rand2 & 0x00000020) ? 1 : -1;
-  a_bits[38] += (rand2 & 0x00000040) ? 1 : -1;
-  a_bits[39] += (rand2 & 0x00000080) ? 1 : -1;
-  a_bits[40] += (rand2 & 0x00000100) ? 1 : -1;
-  a_bits[41] += (rand2 & 0x00000200) ? 1 : -1;
-  a_bits[42] += (rand2 & 0x00000400) ? 1 : -1;
-  a_bits[43] += (rand2 & 0x00000800) ? 1 : -1;
-  a_bits[44] += (rand2 & 0x00001000) ? 1 : -1;
-  a_bits[45] += (rand2 & 0x00002000) ? 1 : -1;
-  a_bits[46] += (rand2 & 0x00004000) ? 1 : -1;
-  a_bits[47] += (rand2 & 0x00008000) ? 1 : -1;
-  a_bits[48] += (rand2 & 0x00010000) ? 1 : -1;
-  a_bits[49] += (rand2 & 0x00020000) ? 1 : -1;
-  a_bits[50] += (rand2 & 0x00040000) ? 1 : -1;
-  a_bits[51] += (rand2 & 0x00080000) ? 1 : -1;
-  a_bits[52] += (rand2 & 0x00100000) ? 1 : -1;
-  a_bits[53] += (rand2 & 0x00200000) ? 1 : -1;
-  a_bits[54] += (rand2 & 0x00400000) ? 1 : -1;
-  a_bits[55] += (rand2 & 0x00800000) ? 1 : -1;
-  a_bits[56] += (rand2 & 0x01000000) ? 1 : -1;
-  a_bits[57] += (rand2 & 0x02000000) ? 1 : -1;
-  a_bits[58] += (rand2 & 0x04000000) ? 1 : -1;
-  a_bits[59] += (rand2 & 0x08000000) ? 1 : -1;
-  a_bits[60] += (rand2 & 0x10000000) ? 1 : -1;
-  a_bits[61] += (rand2 & 0x20000000) ? 1 : -1;
-  a_bits[62] += (rand2 & 0x40000000) ? 1 : -1;
-  a_bits[63] += (rand2 & 0x80000000) ? 1 : -1;
+  a_bits[0] += (rand & 0x0000000000000001) ? 1 : -1;
+  a_bits[1] += (rand & 0x0000000000000002) ? 1 : -1;
+  a_bits[2] += (rand & 0x0000000000000004) ? 1 : -1;
+  a_bits[3] += (rand & 0x0000000000000008) ? 1 : -1;
+  a_bits[4] += (rand & 0x0000000000000010) ? 1 : -1;
+  a_bits[5] += (rand & 0x0000000000000020) ? 1 : -1;
+  a_bits[6] += (rand & 0x0000000000000040) ? 1 : -1;
+  a_bits[7] += (rand & 0x0000000000000080) ? 1 : -1;
+  a_bits[8] += (rand & 0x0000000000000100) ? 1 : -1;
+  a_bits[9] += (rand & 0x0000000000000200) ? 1 : -1;
+  a_bits[10] += (rand & 0x0000000000000400) ? 1 : -1;
+  a_bits[11] += (rand & 0x0000000000000800) ? 1 : -1;
+  a_bits[12] += (rand & 0x0000000000001000) ? 1 : -1;
+  a_bits[13] += (rand & 0x0000000000002000) ? 1 : -1;
+  a_bits[14] += (rand & 0x0000000000004000) ? 1 : -1;
+  a_bits[15] += (rand & 0x0000000000008000) ? 1 : -1;
+  a_bits[16] += (rand & 0x0000000000010000) ? 1 : -1;
+  a_bits[17] += (rand & 0x0000000000020000) ? 1 : -1;
+  a_bits[18] += (rand & 0x0000000000040000) ? 1 : -1;
+  a_bits[19] += (rand & 0x0000000000080000) ? 1 : -1;
+  a_bits[20] += (rand & 0x0000000000100000) ? 1 : -1;
+  a_bits[21] += (rand & 0x0000000000200000) ? 1 : -1;
+  a_bits[22] += (rand & 0x0000000000400000) ? 1 : -1;
+  a_bits[23] += (rand & 0x0000000000800000) ? 1 : -1;
+  a_bits[24] += (rand & 0x0000000001000000) ? 1 : -1;
+  a_bits[25] += (rand & 0x0000000002000000) ? 1 : -1;
+  a_bits[26] += (rand & 0x0000000004000000) ? 1 : -1;
+  a_bits[27] += (rand & 0x0000000008000000) ? 1 : -1;
+  a_bits[28] += (rand & 0x0000000010000000) ? 1 : -1;
+  a_bits[29] += (rand & 0x0000000020000000) ? 1 : -1;
+  a_bits[30] += (rand & 0x0000000040000000) ? 1 : -1;
+  a_bits[31] += (rand & 0x0000000080000000) ? 1 : -1;
+  a_bits[32] += (rand & 0x0000000100000000) ? 1 : -1;
+  a_bits[33] += (rand & 0x0000000200000000) ? 1 : -1;
+  a_bits[34] += (rand & 0x0000000400000000) ? 1 : -1;
+  a_bits[35] += (rand & 0x0000000800000000) ? 1 : -1;
+  a_bits[36] += (rand & 0x0000001000000000) ? 1 : -1;
+  a_bits[37] += (rand & 0x0000002000000000) ? 1 : -1;
+  a_bits[38] += (rand & 0x0000004000000000) ? 1 : -1;
+  a_bits[39] += (rand & 0x0000008000000000) ? 1 : -1;
+  a_bits[40] += (rand & 0x0000010000000000) ? 1 : -1;
+  a_bits[41] += (rand & 0x0000020000000000) ? 1 : -1;
+  a_bits[42] += (rand & 0x0000040000000000) ? 1 : -1;
+  a_bits[43] += (rand & 0x0000080000000000) ? 1 : -1;
+  a_bits[44] += (rand & 0x0000100000000000) ? 1 : -1;
+  a_bits[45] += (rand & 0x0000200000000000) ? 1 : -1;
+  a_bits[46] += (rand & 0x0000400000000000) ? 1 : -1;
+  a_bits[47] += (rand & 0x0000800000000000) ? 1 : -1;
+  a_bits[48] += (rand & 0x0001000000000000) ? 1 : -1;
+  a_bits[49] += (rand & 0x0002000000000000) ? 1 : -1;
+  a_bits[50] += (rand & 0x0004000000000000) ? 1 : -1;
+  a_bits[51] += (rand & 0x0008000000000000) ? 1 : -1;
+  a_bits[52] += (rand & 0x0010000000000000) ? 1 : -1;
+  a_bits[53] += (rand & 0x0020000000000000) ? 1 : -1;
+  a_bits[54] += (rand & 0x0040000000000000) ? 1 : -1;
+  a_bits[55] += (rand & 0x0080000000000000) ? 1 : -1;
+  a_bits[56] += (rand & 0x0100000000000000) ? 1 : -1;
+  a_bits[57] += (rand & 0x0200000000000000) ? 1 : -1;
+  a_bits[58] += (rand & 0x0400000000000000) ? 1 : -1;
+  a_bits[59] += (rand & 0x0800000000000000) ? 1 : -1;
+  a_bits[60] += (rand & 0x1000000000000000) ? 1 : -1;
+  a_bits[61] += (rand & 0x2000000000000000) ? 1 : -1;
+  a_bits[62] += (rand & 0x4000000000000000) ? 1 : -1;
+  a_bits[63] += (rand & 0x8000000000000000) ? 1 : -1;
   return *(double64 *)&a_bits;
 }
 
