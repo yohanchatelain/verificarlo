@@ -61,8 +61,32 @@ float fma_float(float a, float b, float c) { return __builtin_fmaf(a, b, c); }
     abort();                                                                   \
   }
 
-__attribute__((noinline)) REAL operator(char op, REAL a, REAL b, REAL c) {
-  OPERATOR(a, b, c)
+__attribute__((noinline)) REAL operator(char op, REAL a, REAL b,
+                                        REAL c){OPERATOR(a, b, c)}
+
+int64_t CALL_SHISHUA(int32_t) {
+  return 0;
+}
+
+void print_shishua_info(uint32_t shishua_buffer_index, uint8_t *buf) {
+  printf("Shishua buffer: \n");
+  printf("Buffer index: %d\n", shishua_buffer_index);
+  for (int i = 0; i < 256; i++) {
+    if (i != 0 && i % 32 == 0)
+      printf("\n");
+    printf("%02x ", buf[i]);
+  }
+  printf("\n");
+}
+
+void shishua_test() {
+  for (int i = 0; i < 512; i++) {
+    print_shishua_info(0, NULL);
+    if (i != 0 && i % 32 == 0)
+      printf("\n");
+    printf("SHISHUA: %ld\n", CALL_SHISHUA(0));
+  }
+  printf("\n");
 }
 
 int main(int argc, const char *argv[]) {
@@ -86,6 +110,8 @@ int main(int argc, const char *argv[]) {
   }
 
   printf("%.13a\n", operator(op, a, b, c));
+
+  shishua_test();
 
   return EXIT_SUCCESS;
 }

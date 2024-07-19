@@ -18,6 +18,10 @@ ifndef rng
 $(error rng is not set)
 endif
 
+ifdef debug
+DEBUG=--show-cmd --verbose --save-temps
+endif
+
 ifdef size
 vector_size=-DSIZE=$(size)
 BINARY=test_$(type)_$(optimization)_$(operator)_$(size)_$(rng)
@@ -30,7 +34,7 @@ INCLUDE=--include-file=include-functions.txt
 endif
 
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi --online-instrumentation=up-down --online-instrumentation-rng=$(rng) # --show-cmd --verbose
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi --online-instrumentation=up-down --online-instrumentation-rng=$(rng) $(DEBUG)
 LDFLAGS=--online-instrumentation=up-down --online-instrumentation-rng=$(rng) -lm
 
 all:

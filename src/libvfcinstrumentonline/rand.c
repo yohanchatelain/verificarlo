@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -59,7 +60,7 @@ __attribute__((noinline)) uint64_t _get_rand_uint64(void) {
   uint64_t rand = 0;
   const int bytes = sizeof(uint64_t);
   if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {
-    prng_gen(&rng_state, buf);
+    shishua_gen(&rng_state, buf);
     shishua_buffer_index = 0;
   }
   memcpy(&rand, buf + shishua_buffer_index * bytes, bytes);
@@ -81,7 +82,7 @@ __attribute__((noinline)) uint64_t _get_rand_uint64(void) {
     uint##N##_t rand = 0;                                                      \
     const int bytes = sizeof(rand);                                            \
     if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {              \
-      prng_gen(&rng_state, buf);                                               \
+      shishua_gen(&rng_state, buf);                                            \
       shishua_buffer_index = 0;                                                \
     }                                                                          \
     memcpy(&rand, buf + shishua_buffer_index * bytes, bytes);                  \
@@ -97,7 +98,7 @@ __attribute__((noinline)) uint8_t _get_rand_uint8(void) {
   return get_rand_uint64() & 0xFF;
 #elif defined(SHISHUA)
   if (shishua_buffer_index + 1 > SHISHUA_RNG_BUFFER_SIZE) {
-    prng_gen(&rng_state, buf);
+    shishua_gen(&rng_state, buf);
     shishua_buffer_index = 0;
   }
   uint8_t rand = buf[shishua_buffer_index];
@@ -108,66 +109,38 @@ __attribute__((noinline)) uint8_t _get_rand_uint8(void) {
 #endif
 }
 
+void print_buffer() {
+#ifdef SHISHUA
+  printf("Shishua buffer: \n");
+  printf("Buffer index: %d\n", shishua_buffer_index);
+  for (int i = 0; i < SHISHUA_RNG_BUFFER_SIZE; i++) {
+    printf("%02x ", buf[i]);
+  }
+  printf("\n");
+#endif
+}
+
+void print_buffer_(int32_t shishua_buffer_index, uint8_t *buf) {
+#ifdef SHISHUA
+  printf("Shishua buffer: \n");
+  printf("Buffer index: %d\n", shishua_buffer_index);
+  for (int i = 0; i < SHISHUA_RNG_BUFFER_SIZE; i++) {
+    printf("%02x ", buf[i]);
+  }
+  printf("\n");
+#endif
+}
+
+__attribute__((optnone)) void print_buffer_call() {
+#ifdef SHISHUA
+  print_buffer_(shishua_buffer_index, buf);
+#endif
+}
+
 DEFINE_GET_RAND_UINTN(8);
 DEFINE_GET_RAND_UINTN(16);
 DEFINE_GET_RAND_UINTN(32);
 DEFINE_GET_RAND_UINTN(64);
-
-// __attribute__((noinline)) uint16_t get_rand_uint16(void) {
-// #ifdef XOROSHIRO
-//   return get_rand_uint64() & 0xFFFF;
-// #elif defined(SHISHUA)
-//   uint16_t rand = 0;
-//   const int bytes = sizeof(rand);
-//   if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {
-//     prng_gen(&rng_state, buf);
-//     shishua_buffer_index = 0;
-//   }
-//   memcpy(&rand, shishua_buffer_index + i * bytes, bytes);
-//   i += bytes;
-//   return rand;
-// #else
-// #error "No PRNG defined"
-// #endif
-// }
-
-// __attribute__((noinline)) uint32_t get_rand_uint32(void) {
-// #ifdef XOROSHIRO
-//   return get_rand_uint64() & 0xFFFFFFFF;
-// #elif defined(SHISHUA)
-//   uint32_t rand = 0;
-//   const int bytes = sizeof(uint32_t);
-//   if (shishua_buffer_index + bytes > SHISHUA_RNG_BUFFER_SIZE) {
-//     prng_gen(&rng_state, buf);
-//     shishua_buffer_index = 0;
-//   }
-//   memcpy(&rand, shishua_buffer_index + i * bytes, bytes);
-//   i += bytes;
-//   return rand;
-// #else
-// #error "No PRNG defined"
-// #endif
-// }
-
-// __attribute__((noinline)) uint64_t get_rand_uintN(int nb) {
-// #ifdef XOROSHIRO
-//   return get_rand_uint64();
-// #elif defined(SHISHUA)
-//   static int i = 0;
-//   static uint8_t buf[SHISHUA_RNG_BUFFER_SIZE];
-//   uint32_t rand = 0;
-//   if (i + nb > SHISHUA_RNG_BUFFER_SIZE) {
-//     prng_gen(&rng_state, buf);
-//     i = 0;
-//   }
-//   memcpy(&rand, buf + i * nb, nb);
-//   i += nb;
-
-//   return rand;
-// #else
-// #error "No PRNG defined"
-// #endif
-// }
 
 int32_t get_rand_float(float a) {
   const uint64_t half_max_int = (uint64_t)(UINT64_MAX / 2);
@@ -793,7 +766,7 @@ double ud_round_b64(double a) {
   if (a == 0)
     return a;
   uint64_t a_bits = *(uint64_t *)&a;
-  uint64_t rand = get_rand_uint8() & 1;
+  uint64_t rand = get_rand_uint64() & 1;
   a_bits += (rand) ? 1 : -1;
   return *(double *)&a_bits;
 }

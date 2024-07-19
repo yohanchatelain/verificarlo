@@ -150,7 +150,7 @@ std::map<Type::TypeID, std::string> validTypesMap = {
 const std::set<unsigned> validVectorSizes = {2, 4, 8, 16, 32, 64};
 
 /* SHISHUA buffer size */
-const unsigned shishua_buffer_size = 128;
+const unsigned shishua_buffer_size = 256;
 
 struct VfclibInst : public ModulePass {
   static char ID;
@@ -686,6 +686,275 @@ struct VfclibInst : public ModulePass {
   }
 
   // clang-format off
+// ; Function Attrs: nofree nosync nounwind uwtable
+// define dso_local void @prng_init(%struct.prng_state* nocapture noundef %0, i64* nocapture noundef readonly %1) local_unnamed_addr #0 {
+//   %3 = bitcast %struct.prng_state* %0 to i8*
+//   tail call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 32 dereferenceable(288) %3, i8 0, i64 288, i1 false)
+//   %4 = bitcast i64* %1 to <2 x i64>*
+//   %5 = load <2 x i64>, <2 x i64>* %4, align 8, !tbaa !5
+//   %6 = xor <2 x i64> %5, <i64 -7046029254386353131, i64 1189556596181725777>
+//   %7 = shufflevector <2 x i64> %6, <2 x i64> poison, <4 x i32> <i32 0, i32 undef, i32 1, i32 undef>
+//   %8 = shufflevector <4 x i64> %7, <4 x i64> <i64 poison, i64 -892627106017720268, i64 poison, i64 -545944830069338475>, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+//   %9 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 0, i64 0
+//   store <4 x i64> %8, <4 x i64>* %9, align 32, !tbaa !9
+//   %10 = getelementptr inbounds i64, i64* %1, i64 2
+//   %11 = bitcast i64* %10 to <2 x i64>*
+//   %12 = load <2 x i64>, <2 x i64>* %11, align 8, !tbaa !5
+//   %13 = xor <2 x i64> %12, <i64 2839502734486567807, i64 110460275991261186>
+//   %14 = shufflevector <2 x i64> %13, <2 x i64> poison, <4 x i32> <i32 0, i32 undef, i32 1, i32 undef>
+//   %15 = shufflevector <4 x i64> %14, <4 x i64> <i64 poison, i64 236162295891329663, i64 poison, i64 -4479309611371635146>, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+//   %16 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 0, i64 1
+//   store <4 x i64> %15, <4 x i64>* %16, align 32, !tbaa !9
+//   %17 = bitcast i64* %10 to <2 x i64>*
+//   %18 = load <2 x i64>, <2 x i64>* %17, align 8, !tbaa !5
+//   %19 = xor <2 x i64> %18, <i64 -1122848012216334466, i64 7265192206765856386>
+//   %20 = shufflevector <2 x i64> %19, <2 x i64> poison, <4 x i32> <i32 0, i32 undef, i32 1, i32 undef>
+//   %21 = shufflevector <4 x i64> %20, <4 x i64> <i64 poison, i64 -8826037744653468218, i64 poison, i64 -3828890033620796447>, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+//   %22 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 0, i64 2
+//   store <4 x i64> %21, <4 x i64>* %22, align 32, !tbaa !9
+//   %23 = bitcast i64* %1 to <2 x i64>*
+//   %24 = load <2 x i64>, <2 x i64>* %23, align 8, !tbaa !5
+//   %25 = xor <2 x i64> %24, <i64 7092663332016702257, i64 5124052612680614565>
+//   %26 = shufflevector <2 x i64> %25, <2 x i64> poison, <4 x i32> <i32 0, i32 undef, i32 1, i32 undef>
+//   %27 = shufflevector <4 x i64> %26, <4 x i64> <i64 poison, i64 -4902383178752919651, i64 poison, i64 -88656438464157979>, <4 x i32> <i32 0, i32 5, i32 2, i32 7>
+//   br label %35
+
+// 28:                                               ; preds = %35
+//   %29 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 0, i64 3
+//   %30 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 2
+//   %31 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 1, i64 3
+//   %32 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 1, i64 2
+//   %33 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 1, i64 1
+//   %34 = getelementptr inbounds %struct.prng_state, %struct.prng_state* %0, i64 0, i32 1, i64 0
+//   store <4 x i64> %228, <4 x i64>* %9, align 32, !tbaa !9
+//   store <4 x i64> %227, <4 x i64>* %16, align 32, !tbaa !9
+//   store <4 x i64> %226, <4 x i64>* %22, align 32, !tbaa !9
+//   store <4 x i64> %225, <4 x i64>* %29, align 32, !tbaa !9
+//   store <4 x i64> %229, <4 x i64>* %30, align 32, !tbaa !9
+//   store <4 x i64> %225, <4 x i64>* %34, align 32, !tbaa !9
+//   store <4 x i64> %226, <4 x i64>* %33, align 32, !tbaa !9
+//   store <4 x i64> %227, <4 x i64>* %32, align 32, !tbaa !9
+//   store <4 x i64> %228, <4 x i64>* %31, align 32, !tbaa !9
+//   ret void
+
+// 35:                                               ; preds = %2, %35
+//   %36 = phi i64 [ 0, %2 ], [ %230, %35 ]
+//   %37 = phi <4 x i64> [ %8, %2 ], [ %228, %35 ]
+//   %38 = phi <4 x i64> [ %15, %2 ], [ %227, %35 ]
+//   %39 = phi <4 x i64> [ %21, %2 ], [ %226, %35 ]
+//   %40 = phi <4 x i64> [ %27, %2 ], [ %225, %35 ]
+//   %41 = phi <4 x i64> [ zeroinitializer, %2 ], [ %229, %35 ]
+//   %42 = add <4 x i64> %41, %38
+//   %43 = add <4 x i64> %41, %40
+//   %44 = or <4 x i64> %41, <i64 7, i64 5, i64 3, i64 1>
+//   %45 = lshr <4 x i64> %37, <i64 1, i64 1, i64 1, i64 1>
+//   %46 = lshr <4 x i64> %42, <i64 3, i64 3, i64 3, i64 3>
+//   %47 = lshr <4 x i64> %39, <i64 1, i64 1, i64 1, i64 1>
+//   %48 = lshr <4 x i64> %43, <i64 3, i64 3, i64 3, i64 3>
+//   %49 = bitcast <4 x i64> %37 to <8 x i32>
+//   %50 = shufflevector <8 x i32> %49, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %51 = bitcast <8 x i32> %50 to <4 x i64>
+//   %52 = bitcast <4 x i64> %42 to <8 x i32>
+//   %53 = shufflevector <8 x i32> %52, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %54 = bitcast <8 x i32> %53 to <4 x i64>
+//   %55 = bitcast <4 x i64> %39 to <8 x i32>
+//   %56 = shufflevector <8 x i32> %55, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %57 = bitcast <8 x i32> %56 to <4 x i64>
+//   %58 = bitcast <4 x i64> %43 to <8 x i32>
+//   %59 = shufflevector <8 x i32> %58, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %60 = bitcast <8 x i32> %59 to <4 x i64>
+//   %61 = add <4 x i64> %45, %51
+//   %62 = add <4 x i64> %47, %57
+//   %63 = add <4 x i64> %46, %44
+//   %64 = add <4 x i64> %63, %54
+//   %65 = add <4 x i64> %48, %44
+//   %66 = add <4 x i64> %65, %60
+//   %67 = add <4 x i64> %41, <i64 14, i64 10, i64 6, i64 2>
+//   %68 = lshr <4 x i64> %61, <i64 1, i64 1, i64 1, i64 1>
+//   %69 = lshr <4 x i64> %64, <i64 3, i64 3, i64 3, i64 3>
+//   %70 = lshr <4 x i64> %62, <i64 1, i64 1, i64 1, i64 1>
+//   %71 = lshr <4 x i64> %66, <i64 3, i64 3, i64 3, i64 3>
+//   %72 = bitcast <4 x i64> %61 to <8 x i32>
+//   %73 = shufflevector <8 x i32> %72, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %74 = bitcast <8 x i32> %73 to <4 x i64>
+//   %75 = bitcast <4 x i64> %64 to <8 x i32>
+//   %76 = shufflevector <8 x i32> %75, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %77 = bitcast <8 x i32> %76 to <4 x i64>
+//   %78 = bitcast <4 x i64> %62 to <8 x i32>
+//   %79 = shufflevector <8 x i32> %78, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %80 = bitcast <8 x i32> %79 to <4 x i64>
+//   %81 = bitcast <4 x i64> %66 to <8 x i32>
+//   %82 = shufflevector <8 x i32> %81, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %83 = bitcast <8 x i32> %82 to <4 x i64>
+//   %84 = add <4 x i64> %68, %74
+//   %85 = add <4 x i64> %70, %80
+//   %86 = add <4 x i64> %69, %67
+//   %87 = add <4 x i64> %86, %77
+//   %88 = add <4 x i64> %71, %67
+//   %89 = add <4 x i64> %88, %83
+//   %90 = add <4 x i64> %41, <i64 21, i64 15, i64 9, i64 3>
+//   %91 = lshr <4 x i64> %84, <i64 1, i64 1, i64 1, i64 1>
+//   %92 = lshr <4 x i64> %87, <i64 3, i64 3, i64 3, i64 3>
+//   %93 = lshr <4 x i64> %85, <i64 1, i64 1, i64 1, i64 1>
+//   %94 = lshr <4 x i64> %89, <i64 3, i64 3, i64 3, i64 3>
+//   %95 = bitcast <4 x i64> %84 to <8 x i32>
+//   %96 = shufflevector <8 x i32> %95, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %97 = bitcast <8 x i32> %96 to <4 x i64>
+//   %98 = bitcast <4 x i64> %87 to <8 x i32>
+//   %99 = shufflevector <8 x i32> %98, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %100 = bitcast <8 x i32> %99 to <4 x i64>
+//   %101 = bitcast <4 x i64> %85 to <8 x i32>
+//   %102 = shufflevector <8 x i32> %101, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %103 = bitcast <8 x i32> %102 to <4 x i64>
+//   %104 = bitcast <4 x i64> %89 to <8 x i32>
+//   %105 = shufflevector <8 x i32> %104, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %106 = bitcast <8 x i32> %105 to <4 x i64>
+//   %107 = add <4 x i64> %91, %97
+//   %108 = add <4 x i64> %93, %103
+//   %109 = add <4 x i64> %92, %90
+//   %110 = add <4 x i64> %109, %100
+//   %111 = add <4 x i64> %94, %90
+//   %112 = add <4 x i64> %111, %106
+//   %113 = add <4 x i64> %41, <i64 28, i64 20, i64 12, i64 4>
+//   %114 = lshr <4 x i64> %107, <i64 1, i64 1, i64 1, i64 1>
+//   %115 = lshr <4 x i64> %110, <i64 3, i64 3, i64 3, i64 3>
+//   %116 = lshr <4 x i64> %108, <i64 1, i64 1, i64 1, i64 1>
+//   %117 = lshr <4 x i64> %112, <i64 3, i64 3, i64 3, i64 3>
+//   %118 = bitcast <4 x i64> %107 to <8 x i32>
+//   %119 = shufflevector <8 x i32> %118, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %120 = bitcast <8 x i32> %119 to <4 x i64>
+//   %121 = bitcast <4 x i64> %110 to <8 x i32>
+//   %122 = shufflevector <8 x i32> %121, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %123 = bitcast <8 x i32> %122 to <4 x i64>
+//   %124 = bitcast <4 x i64> %108 to <8 x i32>
+//   %125 = shufflevector <8 x i32> %124, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %126 = bitcast <8 x i32> %125 to <4 x i64>
+//   %127 = bitcast <4 x i64> %112 to <8 x i32>
+//   %128 = shufflevector <8 x i32> %127, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %129 = bitcast <8 x i32> %128 to <4 x i64>
+//   %130 = add <4 x i64> %114, %120
+//   %131 = add <4 x i64> %116, %126
+//   %132 = add <4 x i64> %115, %113
+//   %133 = add <4 x i64> %132, %123
+//   %134 = add <4 x i64> %117, %113
+//   %135 = add <4 x i64> %134, %129
+//   %136 = add <4 x i64> %41, <i64 35, i64 25, i64 15, i64 5>
+//   %137 = lshr <4 x i64> %130, <i64 1, i64 1, i64 1, i64 1>
+//   %138 = lshr <4 x i64> %133, <i64 3, i64 3, i64 3, i64 3>
+//   %139 = lshr <4 x i64> %131, <i64 1, i64 1, i64 1, i64 1>
+//   %140 = lshr <4 x i64> %135, <i64 3, i64 3, i64 3, i64 3>
+//   %141 = bitcast <4 x i64> %130 to <8 x i32>
+//   %142 = shufflevector <8 x i32> %141, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %143 = bitcast <8 x i32> %142 to <4 x i64>
+//   %144 = bitcast <4 x i64> %133 to <8 x i32>
+//   %145 = shufflevector <8 x i32> %144, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %146 = bitcast <8 x i32> %145 to <4 x i64>
+//   %147 = bitcast <4 x i64> %131 to <8 x i32>
+//   %148 = shufflevector <8 x i32> %147, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %149 = bitcast <8 x i32> %148 to <4 x i64>
+//   %150 = bitcast <4 x i64> %135 to <8 x i32>
+//   %151 = shufflevector <8 x i32> %150, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %152 = bitcast <8 x i32> %151 to <4 x i64>
+//   %153 = add <4 x i64> %137, %143
+//   %154 = add <4 x i64> %139, %149
+//   %155 = add <4 x i64> %138, %136
+//   %156 = add <4 x i64> %155, %146
+//   %157 = add <4 x i64> %140, %136
+//   %158 = add <4 x i64> %157, %152
+//   %159 = add <4 x i64> %41, <i64 42, i64 30, i64 18, i64 6>
+//   %160 = lshr <4 x i64> %153, <i64 1, i64 1, i64 1, i64 1>
+//   %161 = lshr <4 x i64> %156, <i64 3, i64 3, i64 3, i64 3>
+//   %162 = lshr <4 x i64> %154, <i64 1, i64 1, i64 1, i64 1>
+//   %163 = lshr <4 x i64> %158, <i64 3, i64 3, i64 3, i64 3>
+//   %164 = bitcast <4 x i64> %153 to <8 x i32>
+//   %165 = shufflevector <8 x i32> %164, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %166 = bitcast <8 x i32> %165 to <4 x i64>
+//   %167 = bitcast <4 x i64> %156 to <8 x i32>
+//   %168 = shufflevector <8 x i32> %167, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %169 = bitcast <8 x i32> %168 to <4 x i64>
+//   %170 = bitcast <4 x i64> %154 to <8 x i32>
+//   %171 = shufflevector <8 x i32> %170, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %172 = bitcast <8 x i32> %171 to <4 x i64>
+//   %173 = bitcast <4 x i64> %158 to <8 x i32>
+//   %174 = shufflevector <8 x i32> %173, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %175 = bitcast <8 x i32> %174 to <4 x i64>
+//   %176 = add <4 x i64> %160, %166
+//   %177 = add <4 x i64> %162, %172
+//   %178 = add <4 x i64> %161, %159
+//   %179 = add <4 x i64> %178, %169
+//   %180 = add <4 x i64> %163, %159
+//   %181 = add <4 x i64> %180, %175
+//   %182 = add <4 x i64> %41, <i64 49, i64 35, i64 21, i64 7>
+//   %183 = lshr <4 x i64> %176, <i64 1, i64 1, i64 1, i64 1>
+//   %184 = lshr <4 x i64> %179, <i64 3, i64 3, i64 3, i64 3>
+//   %185 = lshr <4 x i64> %177, <i64 1, i64 1, i64 1, i64 1>
+//   %186 = lshr <4 x i64> %181, <i64 3, i64 3, i64 3, i64 3>
+//   %187 = bitcast <4 x i64> %176 to <8 x i32>
+//   %188 = shufflevector <8 x i32> %187, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %189 = bitcast <8 x i32> %188 to <4 x i64>
+//   %190 = bitcast <4 x i64> %179 to <8 x i32>
+//   %191 = shufflevector <8 x i32> %190, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %192 = bitcast <8 x i32> %191 to <4 x i64>
+//   %193 = bitcast <4 x i64> %177 to <8 x i32>
+//   %194 = shufflevector <8 x i32> %193, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %195 = bitcast <8 x i32> %194 to <4 x i64>
+//   %196 = bitcast <4 x i64> %181 to <8 x i32>
+//   %197 = shufflevector <8 x i32> %196, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %198 = bitcast <8 x i32> %197 to <4 x i64>
+//   %199 = add <4 x i64> %183, %189
+//   %200 = add <4 x i64> %185, %195
+//   %201 = add <4 x i64> %184, %182
+//   %202 = add <4 x i64> %201, %192
+//   %203 = add <4 x i64> %186, %182
+//   %204 = add <4 x i64> %203, %198
+//   %205 = lshr <4 x i64> %199, <i64 1, i64 1, i64 1, i64 1>
+//   %206 = lshr <4 x i64> %202, <i64 3, i64 3, i64 3, i64 3>
+//   %207 = lshr <4 x i64> %200, <i64 1, i64 1, i64 1, i64 1>
+//   %208 = lshr <4 x i64> %204, <i64 3, i64 3, i64 3, i64 3>
+//   %209 = bitcast <4 x i64> %199 to <8 x i32>
+//   %210 = shufflevector <8 x i32> %209, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %211 = bitcast <8 x i32> %210 to <4 x i64>
+//   %212 = bitcast <4 x i64> %202 to <8 x i32>
+//   %213 = shufflevector <8 x i32> %212, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %214 = bitcast <8 x i32> %213 to <4 x i64>
+//   %215 = bitcast <4 x i64> %200 to <8 x i32>
+//   %216 = shufflevector <8 x i32> %215, <8 x i32> poison, <8 x i32> <i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4>
+//   %217 = bitcast <8 x i32> %216 to <4 x i64>
+//   %218 = bitcast <4 x i64> %204 to <8 x i32>
+//   %219 = shufflevector <8 x i32> %218, <8 x i32> poison, <8 x i32> <i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2>
+//   %220 = bitcast <8 x i32> %219 to <4 x i64>
+//   %221 = add <4 x i64> %205, %211
+//   %222 = add <4 x i64> %206, %214
+//   %223 = add <4 x i64> %207, %217
+//   %224 = add <4 x i64> %208, %220
+//   %225 = xor <4 x i64> %205, %214
+//   %226 = xor <4 x i64> %207, %220
+//   %227 = xor <4 x i64> %224, %221
+//   %228 = xor <4 x i64> %222, %223
+//   %229 = add <4 x i64> %41, <i64 56, i64 40, i64 24, i64 8>
+//   %230 = add nuw nsw i64 %36, 1
+//   %231 = icmp eq i64 %230, 13
+//   br i1 %231, label %28, label %35, !llvm.loop !10
+// }
+  // clang-format on
+
+  Value *insertShishuaInit(IRBuilder<> &Builder, Instruction *I) {
+    Module *M = I->getModule();
+    const std::string function_name = "_shishua_init";
+    if (Function *shishua = M->getFunction(function_name)) {
+      return Builder.CreateCall(shishua);
+    }
+
+    auto voidTy = Type::getVoidTy(M->getContext());
+    std::vector<Type *> argsTy;
+    argsTy.push_back(Type::getInt32Ty(M->getContext()));
+    FunctionType *shishuaInitType = FunctionType::get(voidTy, argsTy, false);
+
+    Function *shishuaInit =
+        getOrInsertFunction(M, function_name, shishuaInitType);
+  }
+
+  // clang-format off
   // ; Function Attrs: mustprogress nofree noinline norecurse nosync nounwind uwtable willreturn
   // define dso_local i64 @get_rand_uint64() local_unnamed_addr #4 {
   // entry:
@@ -744,7 +1013,9 @@ struct VfclibInst : public ModulePass {
     }
 
     Module *M = I->getModule();
-    if (Function *shishua = M->getFunction("_shishua_uint64")) {
+    const std::string function_name =
+        "_shishua_uint64" + std::to_string(nbBytesRequested);
+    if (Function *shishua = M->getFunction(function_name)) {
       std::vector<Value *> args = {Builder.getInt32(nbBytesRequested)};
       *rand = Builder.CreateCall(shishua, args);
       return;
@@ -761,7 +1032,7 @@ struct VfclibInst : public ModulePass {
 
     FunctionType *shishuType = FunctionType::get(int64Ty, {int32Ty}, false);
 
-    Function *shishua = getOrInsertFunction(M, "_shishua_uint64", shishuType);
+    Function *shishua = getOrInsertFunction(M, function_name, shishuType);
 
     Argument *nbBytesRequestedArg = &*shishua->arg_begin();
 
@@ -783,16 +1054,16 @@ struct VfclibInst : public ModulePass {
     auto cstICmpSgt = 0;
     switch (nbBytesRequested) {
     case 1:
-      cstICmpSgt = 127;
+      cstICmpSgt = 255;
       break;
     case 2:
-      cstICmpSgt = 126;
+      cstICmpSgt = 254;
       break;
     case 3:
-      cstICmpSgt = 124;
+      cstICmpSgt = 252;
       break;
     case 4:
-      cstICmpSgt = 120;
+      cstICmpSgt = 248;
       break;
     default:
       errs() << "Unsupported number of bytes requested: " << nbBytesRequested
@@ -1936,6 +2207,7 @@ struct VfclibInst : public ModulePass {
 
       Function::arg_iterator args = function->arg_begin();
       Value *sr_op = createUpDownOp(Builder, I, &*args, opCode, users);
+      errs() << "sr_op: " << *sr_op << "\n";
       Builder.CreateRet(sr_op);
       Builder.ClearInsertionPoint();
     }
@@ -2011,6 +2283,29 @@ struct VfclibInst : public ModulePass {
     return op;
   }
 
+  // clang-format off
+  // define dso_local <4 x float> @ud_round_b32_4x(<4 x float> noundef %0) local_unnamed_addr #10 {
+  // entry: 
+  //   %2 = fcmp une <4 x float> %0, zeroinitializer
+  //   %3 = bitcast <4 x i1> %2 to i4
+  //   %4 = icmp eq i4 %3, 0
+  //   br i1 %4, label %15, label %5
+  // noise:                                                ; preds = entry
+  //   %6 = bitcast <4 x float> %0 to <4 x i32>
+  //   %7 = tail call i32 @get_rand_uint32()
+  //   %8 = insertelement <4 x i32> poison, i32 %7, i64 0
+  //   %9 = shufflevector <4 x i32> %8, <4 x i32> poison, <4 x i32> zeroinitializer
+  //   %10 = and <4 x i32> %9, <i32 1, i32 2, i32 4, i32 8>
+  //   %11 = icmp eq <4 x i32> %10, zeroinitializer
+  //   %12 = select <4 x i1> %11, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, <4 x i32> <i32 1, i32 1, i32 1, i32 1>
+  //   %13 = add <4 x i32> %12, %6
+  //   %14 = bitcast <4 x i32> %13 to <4 x float>
+  //   br label %15
+  // ret:                                               ; preds = entry, noise
+  //   %16 = phi <4 x float> [ %14, %5 ], [ %0, %1 ]
+  //   ret <4 x float> %16
+  // }
+  // clang-format on
   Value *createUpDownOp(IRBuilder<> &Builder, Instruction *I,
                         Function::arg_iterator args, Fops opCode,
                         std::set<User *> &users) {
@@ -2036,41 +2331,59 @@ struct VfclibInst : public ModulePass {
     auto count = CREATE_VECTOR_ELEMENT_COUNT(size);
 
     Value *randomBits = nullptr, *zeroinitializerInt = nullptr,
-          *zeroinitializerFP = nullptr, *cmp = nullptr, *bitcast = nullptr,
-          *icmp = nullptr;
+          *zeroinitializerInt64 = nullptr, *zeroinitializerFP = nullptr,
+          *cmp = nullptr, *bitcast = nullptr, *icmp = nullptr;
     Type *bitCastTy = nullptr;
+
     if (isVector) {
+      // entry:
+      //   %2 = fcmp une <4 x float> %0, zeroinitializer
+      //   %3 = bitcast <4 x i1> %2 to i4
+      //   %4 = icmp eq i4 %3, 0
+      //   br i1 %4, label %15, label %5
       srcTy = VT->getElementType();
       size = VT->getNumElements();
       count = CREATE_VECTOR_ELEMENT_COUNT(size);
       auto *vecIntTy = VECTOR_TYPE::get(fpAsIntTy, size);
       zeroinitializerFP = ConstantAggregateZero::get(I->getType());
       zeroinitializerInt = ConstantAggregateZero::get(vecIntTy);
+      zeroinitializerInt64 = ConstantAggregateZero::get(
+          VECTOR_TYPE::get(Builder.getInt64Ty(), size));
+      //   %2 = fcmp une <4 x float> %0, zeroinitializer
       cmp = Builder.CreateFCmpUNE(op, zeroinitializerFP, "is_zero");
       auto *intNTy = Type::getIntNTy(I->getContext(), VT->getNumElements());
+      //   %3 = bitcast <4 x i1> %2 to i4
       bitcast = Builder.CreateBitCast(cmp, intNTy);
-      icmp = Builder.CreateICmpEQ(bitcast, zeroinitializerInt);
+      errs() << "bitcast: " << *bitcast << "\n";
+      errs() << "zeroinitializerInt: " << *zeroinitializerInt << "\n";
+      // Generate zeronitializer for bitcast
+      auto *zero = ConstantInt::get(intNTy, 0);
+      //   %4 = icmp eq i4 %3, 0
+      errs() << "zero: " << *zero << "\n";
+      icmp = Builder.CreateICmpEQ(bitcast, zero);
       Builder.CreateCondBr(icmp, retBB, noiseBB);
       bitCastTy = VECTOR_TYPE::get(fpAsIntTy, VT->getNumElements());
     } else {
       srcTy = I->getType();
       zeroinitializerFP = ConstantFP::get(srcTy, 0.0);
       zeroinitializerInt = ConstantInt::get(fpAsIntTy, 0);
+      zeroinitializerInt64 = ConstantInt::get(Builder.getInt64Ty(), 0);
       Constant *zeroFP = ConstantFP::get(I->getType(), 0.0);
       cmp = Builder.CreateFCmpOEQ(op, zeroFP, "is_zero");
       Builder.CreateCondBr(cmp, retBB, noiseBB);
       bitCastTy = fpAsIntTy;
     }
 
+    // noise block
     Builder.SetInsertPoint(noiseBB);
     Value *fpAsInt = Builder.CreateBitCast(op, bitCastTy, "fpAsInt");
     users.insert(static_cast<User *>(fpAsInt));
 
-    if (isVector and VfclibInstRNG == "xoroshiro") {
-      insertVectorizeRandUint64Call(Builder, op, &randomBits);
-    } else {
-      insertRandUint64Call(Builder, op, &randomBits);
-    }
+    // if (isVector and VfclibInstRNG == "xoroshiro") {
+    //   insertVectorizeRandUint64Call(Builder, op, &randomBits);
+    // } else {
+    // }
+    insertRandUint64Call(Builder, op, &randomBits);
 
     if (isVector) {
       // clang-format off
@@ -2078,36 +2391,39 @@ struct VfclibInst : public ModulePass {
       // % 9 = shufflevector<4 x i32> % 8, <4 x i32> poison, <4 x i32> zeroinitializer 
       // % 10 = and<4 x i32> % 9, <i32 1, i32 2, i32 4, i32 8>
       // clang-format on
-      if (srcTy->isFloatTy()) {
-        randomBits = Builder.CreateBitCast(randomBits, fpAsIntTy);
-      }
-      auto *vecTy = VECTOR_TYPE::get(Builder.getInt32Ty(), size);
+      // if (srcTy->isFloatTy()) {
+      //   randomBits = Builder.CreateBitCast(randomBits, fpAsIntTy,
+      //   "randBits_to_fp");
+      // }
+      auto *vecTy = VECTOR_TYPE::get(Builder.getInt64Ty(), size);
       auto *poison = UndefValue::get(vecTy);
       auto *zero = Builder.getInt64(0);
-      auto *insert = Builder.CreateInsertElement(poison, randomBits, zero);
+      auto *insert =
+          Builder.CreateInsertElement(poison, randomBits, zero, "insertZero");
       auto *shuffle =
           Builder.CreateShuffleVector(insert, poison, zeroinitializerInt);
-      std::vector<uint32_t> pow2;
+      std::vector<uint64_t> pow2;
       for (unsigned i = 0; i < VT->getNumElements(); i++) {
         pow2.push_back(1 << i);
       }
       Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-      auto *cstPow2 = getVectorConstant<uint32_t>(M, pow2);
+      auto *cstPow2 = getVectorConstant<uint64_t>(M, pow2);
       randomBits = Builder.CreateAnd(shuffle, cstPow2);
     } else {
       // %6 = and i32 %5, 1
       randomBits = Builder.CreateAnd(randomBits, 1);
     }
 
-    auto *icmp2 = Builder.CreateICmpEQ(randomBits, zeroinitializerInt);
+    errs() << "randomBits: " << *randomBits << "\n";
+    errs() << "zeroinitializerInt64: " << *zeroinitializerInt64 << "\n";
+    auto *zero = ConstantInt::get(randomBits->getType(), 0);
+    auto *icmp2 = Builder.CreateICmpEQ(randomBits, zero);
 
-    Constant *one = *mone = nullptr;
+    Constant *one = ConstantInt::get(fpAsIntTy, 1);
+    Constant *mone = ConstantInt::get(fpAsIntTy, -1);
     if (isVector) {
       one = ConstantVector::getSplat(count, one);
       mone = ConstantVector::getSplat(count, mone);
-    } else {
-      one = ConstantInt::get(fpAsIntTy, 1);
-      mone = ConstantInt::get(fpAsIntTy, -1);
     }
 
     auto *select = Builder.CreateSelect(icmp2, mone, one);
@@ -2216,11 +2532,67 @@ struct VfclibInst : public ModulePass {
     }
   }
 
+  void insertShishuaCall(Module &M, Instruction *I) {
+    auto *int32Ty = Type::getInt32Ty(M.getContext());
+    auto *int64Ty = Type::getInt64Ty(M.getContext());
+    auto *function_name = "_shishua_uint641";
+    FunctionType *shishuType = FunctionType::get(int64Ty, {int32Ty}, false);
+
+    Function *shishua = getOrInsertFunction(M, function_name, shishuType);
+    IRBuilder<> Builder(I->getContext());
+    Builder.SetInsertPoint(I);
+    std::vector<Value *> args = {Builder.getInt32(1)};
+    auto *call = Builder.CreateCall(shishua, args);
+    I->replaceAllUsesWith(call);
+  }
+
+  void replaceArgsWithShishuaInfo(Module &M, Instruction *I) {
+    //   call void @print_buffer_(i32 noundef %1, i8* noundef getelementptr
+    //   inbounds ([256 x i8], [256 x i8]* @buf, i64 0, i64 0))
+    IRBuilder<> Builder(I->getContext());
+    Builder.SetInsertPoint(I);
+    // get @shishua_buffer
+    GlobalVariable *rand_uint64_buffer = getGVRandUint64Buffer(M);
+    // get @shishua_buffer_size
+    GlobalVariable *rand_uint64_buffer_size = getGVRandUint64Counter(M);
+    auto *call = static_cast<CallInst *>(I);
+    // replace the first argument with @shishua_buffer_size
+    // dereference the pointer
+    auto *int32Ty = Type::getInt32Ty(M.getContext());
+    auto *load = Builder.CreateLoad(int32Ty, rand_uint64_buffer_size);
+    call->setArgOperand(0, load);
+    // replace the second argument with @shishua_buffer
+    // cast the pointer to uint8_t*
+    auto *int8PtrTy = Type::getInt8PtrTy(M.getContext());
+    // i8* noundef getelementptr inbounds ([256 x i8], [256 x i8]* @buf, i64 0,
+    // i64 0)
+    auto *zero = Builder.getInt64(0);
+    auto *zero2 = Builder.getInt64(0);
+    std::vector<Value *> gep_args = {zero, zero2};
+    Type *type = rand_uint64_buffer->getType()->getPointerElementType();
+    errs() << "type: " << *type << '\n';
+    errs() << "rand_uint64_buffer: " << *rand_uint64_buffer << '\n';
+    auto *gep = Builder.CreateGEP(type, rand_uint64_buffer, gep_args);
+    call->setArgOperand(1, gep);
+  }
+
   bool runOnBasicBlock(Module &M, BasicBlock &B) {
     bool modified = false;
     std::set<std::pair<Instruction *, Fops>> WorkList;
     for (BasicBlock::iterator ii = B.begin(), ie = B.end(); ii != ie; ++ii) {
       Instruction &I = *ii;
+
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        Function *F = CI->getCalledFunction();
+        if (F->getName() == "CALL_SHISHUA") {
+          insertShishuaCall(M, CI);
+          continue;
+        } else if (F->getName() == "print_shishua_info") {
+          replaceArgsWithShishuaInfo(M, CI);
+          continue;
+        }
+      }
+
       Fops opCode = mustReplace(I);
       if (opCode == FOP_IGNORE)
         continue;

@@ -6,3 +6,4 @@
 * fma*
 * add*
 * sub*
+* shishua_test

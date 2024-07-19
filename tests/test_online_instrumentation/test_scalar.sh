@@ -22,7 +22,7 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --header : "make --silent type={type} optimization={optimization} operator={operator} rng={rng}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div ::: rng xoroshiro shishua
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} rng={rng}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div ::: rng xoroshiro shishua
 
 run_test() {
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
@@ -58,9 +58,18 @@ run_test() {
     fi
 }
 
+# Check if RNG is exported to xoroshiro or shishua
+if [[ $RNG == "" ]]; then
+    export RNG_LIST="xoroshiro shishua"
+elif [[ $RNG == "xoroshiro" ]]; then
+    export RNG_LIST="xoroshiro"
+elif [[ $RNG == "shishua" ]]; then
+    export RNG_LIST="shishua"
+fi
+
 export -f run_test
 
-for rng in xoroshiro shishua; do
+for rng in $RNG_LIST; do
     echo "Running tests with rng: $rng"
     parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {rng}" \
         ::: type float double \
