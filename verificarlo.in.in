@@ -237,15 +237,27 @@ def apply_function_instrumentation_pass(ir, ins, args):
         verbose=args.verbose,
     )
 
+def get_vfclibinst_online_ll(rng, verbose):
+    # TODO: cache the generated file
+    vfclibinst_online_c = f"{mcalib_includes}/rand.cpp"
+    vfclibinst_online_ll = "/tmp/rand.ll"
+    rng = rng.upper()
+    shell(
+        f"{clangxx} -std=c++17 -mavx2 -O3 -c -S -emit-llvm -D{rng} {vfclibinst_online_c} -o {vfclibinst_online_ll}",
+        verbose=verbose,
+    )
+    return vfclibinst_online_ll
 
 # Apply MCA instrumentation pass
 def apply_mca_instrumentation_pass(
     ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
 ):
     if args.online_instrumentation:
+        vfclibinst_online_ll = get_vfclibinst_online_ll(args.online_instrumentation_rng, args.verbose)
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
         extra_args += f" -vfclibinst-rng {args.online_instrumentation_rng} "
+        extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
         if args.online_instrumentation_seed:
             extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
 
@@ -423,7 +435,7 @@ def parse_args():
     parser.add_argument(
         "--online-instrumentation",
         action="store",
-        choices=["up-down", "sr"],
+        choices=["up-down", "sr", "dummy"],
         type=str,
         help="Online instrumentation. (mode: up-down, sr)",
     )

@@ -12,7 +12,9 @@ typedef struct prng_state {
   __m256i counter;
 } prng_state;
 
-static inline void prng_gen(struct prng_state *s, uint8_t *buf, size_t size) {
+uint8_t prng_buf[1024] __attribute__((aligned(32)));
+
+static inline void prng_gen(struct prng_state *s, uint8_t *buf) {
   __m256i o0 = s->output[0], o1 = s->output[1], o2 = s->output[2],
           o3 = s->output[3];
   __m256i s0 = s->state[0], s1 = s->state[1], s2 = s->state[2],
@@ -24,7 +26,7 @@ static inline void prng_gen(struct prng_state *s, uint8_t *buf, size_t size) {
   const __m256i increment = _mm256_set_epi64x(1, 3, 5, 7);
 
   size_t i = 0;
-  for (; i + 128 <= size; i += 128) {
+  for (; i + 128 <= 1024; i += 128) {
     _mm256_store_si256((__m256i *)&buf[i], o0);
     _mm256_store_si256((__m256i *)&buf[i + 32], o1);
     _mm256_store_si256((__m256i *)&buf[i + 64], o2);
@@ -65,14 +67,21 @@ static inline void prng_gen(struct prng_state *s, uint8_t *buf, size_t size) {
   s->state[3] = s3;
   s->counter = counter;
 
-  if (i < size) {
+  if (i < 1024) {
     uint8_t temp[128] __attribute__((aligned(32)));
     _mm256_store_si256((__m256i *)&temp[0], o0);
     _mm256_store_si256((__m256i *)&temp[32], o1);
     _mm256_store_si256((__m256i *)&temp[64], o2);
     _mm256_store_si256((__m256i *)&temp[96], o3);
-    memcpy(buf + i, temp, size - i);
+    memcpy(buf + i, temp, 1024 - i);
   }
+}
+
+uint64_t prng_uint64(struct prng_state *s) {
+  uint64_t result;
+  prng_gen(s, prng_buf);
+  memcpy(&result, prng_buf, sizeof(result));
+  return result;
 }
 
 void prng_init(struct prng_state *s, const uint64_t seed[4]) {
@@ -96,9 +105,8 @@ void prng_init(struct prng_state *s, const uint64_t seed[4]) {
 
   s->counter = _mm256_setzero_si256();
 
-  uint8_t buf[1024] __attribute__((aligned(32)));
   for (int i = 0; i < 13; ++i) {
-    prng_gen(s, buf, sizeof(buf));
+    prng_gen(s, prng_buf);
     s->state[0] = s->output[3];
     s->state[1] = s->output[2];
     s->state[2] = s->output[1];
