@@ -237,30 +237,35 @@ def apply_function_instrumentation_pass(ir, ins, args):
         verbose=args.verbose,
     )
 
-def get_vfclibinst_online_ll(rng, verbose):
+
+def get_vfclibinst_online_ll(rng, debug, verbose):
     # TODO: cache the generated file
     vfclibinst_online_c = f"{mcalib_includes}/rand.cpp"
     vfclibinst_online_ll = "/tmp/rand.ll"
     rng = rng.upper()
+    debug = "-DDEBUG" if debug else ""
     shell(
-        f"{clangxx} -std=c++17 -mavx2 -O3 -c -S -emit-llvm -D{rng} {vfclibinst_online_c} -o {vfclibinst_online_ll}",
+        f"{clangxx} {debug} -std=c++17 -mavx2 -O3 -c -S -emit-llvm -D{rng} {vfclibinst_online_c} -o {vfclibinst_online_ll}",
         verbose=verbose,
     )
     return vfclibinst_online_ll
+
 
 # Apply MCA instrumentation pass
 def apply_mca_instrumentation_pass(
     ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
 ):
     if args.online_instrumentation:
-        vfclibinst_online_ll = get_vfclibinst_online_ll(args.online_instrumentation_rng, args.verbose)
+        debug = args.online_instrumentation_debug
+        vfclibinst_online_ll = get_vfclibinst_online_ll(
+            args.online_instrumentation_rng, debug, args.verbose
+        )
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
         extra_args += f" -vfclibinst-rng {args.online_instrumentation_rng} "
         extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
         if args.online_instrumentation_seed:
             extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
-
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
@@ -450,6 +455,11 @@ def parse_args():
         default="xoroshiro",
         action="store",
         help="Online instrumentation RNG",
+    )
+    parser.add_argument(
+        "--online-instrumentation-debug",
+        action="store_true",
+        help="Online instrumentation debug",
     )
 
     args, other = parser.parse_known_args()
