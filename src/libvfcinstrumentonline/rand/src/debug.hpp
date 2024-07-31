@@ -1,6 +1,8 @@
 #ifndef __VERIFICARLO_SRLIB_DEBUG_HPP__
 #define __VERIFICARLO_SRLIB_DEBUG_HPP__
 
+#include <cassert>
+
 extern void __debug_printf(const char *fmt, ...);
 extern void __debug_header_start(const char *func);
 extern void __debug_header_end(const char *func);

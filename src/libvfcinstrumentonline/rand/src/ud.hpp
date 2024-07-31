@@ -4,17 +4,24 @@
 #include "debug.hpp"
 #include "eft.hpp"
 #include "rand.hpp"
+#include "utils.hpp"
 
 template <typename T> T ud_round(T a) {
-  if (a == 0)
+  debug_start();
+  if (a == 0) {
+    debug_end();
     return a;
-  using IntType =
-      typename std::conditional<sizeof(T) == 4, uint32_t, uint64_t>::type;
-  IntType a_bits;
-  std::memcpy(&a_bits, &a, sizeof(T));
+  }
+  debug_print("a = %.13a\n", a);
+  using I = typename IEEE754<T>::I;
+  I a_bits = *reinterpret_cast<I *>(&a);
   uint64_t rand = _get_rand_uint64();
-  a_bits += (rand & 0x01) ? 1 : -1;
-  std::memcpy(&a, &a_bits, sizeof(T));
+  debug_print("rand = 0x%016lx\n", rand);
+  a_bits += (rand & 0x1) ? 1 : -1;
+  debug_print("ud_round(%.13a)", a);
+  a = *reinterpret_cast<T *>(&a_bits);
+  debug_print(" = %.13a\n", a);
+  debug_end();
   return a;
 }
 

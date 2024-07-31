@@ -5,38 +5,42 @@
 #include "eft.hpp"
 #include "utils.hpp"
 
-template <typename T> T sr_round(T sigma, T tau, T z) {
-  debug_print("%s", "sr_round\n");
-  T eps = std::is_same<T, float>::value ? 0x1.0p-23f : 0x1.0p-52;
+template <typename T> T sr_round(const T sigma, const T tau, const T z) {
+  debug_start();
+  constexpr T eps = IEEE754<T>::ulp;
+  const bool sign_tau = tau < 0;
+  const bool sign_sigma = sigma < 0;
+  const uint32_t eta = (sign_tau != sign_sigma)
+                           ? get_exponent(get_predecessor_abs(sigma))
+                           : get_exponent(sigma);
+  const T ulp = (sign_tau ? 1 : -1) * pow2<T>(eta) * eps;
+  const T pi = ulp * z;
+  const T round = (std::abs(tau + pi) >= std::abs(ulp)) ? ulp : 0;
   debug_print("eps = %.13a\n", eps);
-  bool sign_tau = tau < 0;
-  bool sign_sigma = sigma < 0;
-  uint32_t eta;
-  if (sign_tau != sign_sigma) {
-    // eta = get_exponent(predecessor(std::abs(sigma)));
-    eta = sigma * (1 - std::numeric_limits<T>::epsilon());
-  } else {
-    eta = get_exponent(sigma);
-  }
   debug_print("eta = %u\n", eta);
-  T ulp = (sign_tau ? 1 : -1) * pow2<T>(eta) * eps;
   debug_print("ulp = %.13a\n", ulp);
-  T pi = ulp * z;
   debug_print("pi = %.13a\n", pi);
-  T round;
-  if (std::abs(tau + pi) >= std::abs(ulp)) {
-    round = ulp;
-  } else {
-    round = 0;
-  }
   debug_print("sr_round(%.13a, %.13a, %.13a) = %.13a\n", sigma, tau, z, round);
+  debug_end();
   return round;
 }
 
+template <typename T> bool isnumber(T a, T b) {
+  // fast check for inf or nan {
+  debug_start();
+  const auto a_exp = get_unbiased_exponent(a);
+  const auto b_exp = get_unbiased_exponent(b);
+  constexpr auto exponent_mask = IEEE754<T>::exponent_mask;
+  return (a_exp ^ exponent_mask) and (b_exp ^ exponent_mask);
+}
+
 template <typename T> T sr_add(T a, T b) {
+  if (not isnumber(a, b)) {
+    return a + b;
+  }
   T z = get_rand_double01();
   T tau, sigma, round;
-  twosum(a, b, &tau, &sigma);
+  twosum(a, b, sigma, tau);
   round = sr_round(sigma, tau, z);
   return sigma + round;
 }
@@ -44,22 +48,31 @@ template <typename T> T sr_add(T a, T b) {
 template <typename T> T sr_sub(T a, T b) { return sr_add(a, -b); }
 
 template <typename T> T sr_mul(T a, T b) {
-  T z = get_rand_double01();
-  T tau, sigma, round;
-  twoprodfma(a, b, &tau, &sigma);
-  round = sr_round(sigma, tau, z);
+  if (not isnumber(a, b)) {
+    return a * b;
+  }
+  const T z = get_rand_double01();
+  T tau, sigma;
+  twoprodfma(a, b, sigma, tau);
+  const T round = sr_round(sigma, tau, z);
   return sigma + round;
 }
 
-template <typename T> T __attribute__((target("fma"))) sr_div(T a, T b) {
-  T z = get_rand_double01();
-  T sigma = a / b;
-  T tau = std::fma(-sigma, b, a) / b;
-  T round = sr_round(sigma, tau, z);
+template <typename T> T sr_div(T a, T b) {
+  if (not isnumber(a, b)) {
+    return a / b;
+  }
+  const T z = get_rand_double01();
+  const T sigma = a / b;
+  const T tau = std::fma(-sigma, b, a) / b;
+  const T round = sr_round(sigma, tau, z);
   return sigma + round;
 }
 
-template <typename T> T __attribute__((target("fma,sse2"))) sr_sqrt(T a) {
+template <typename T> T sr_sqrt(T a) {
+  if (not isnumber(a, a)) {
+    return a;
+  }
   T z = get_rand_double01();
   T sigma;
 #if defined(__SSE2__)

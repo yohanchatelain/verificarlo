@@ -50,8 +50,18 @@ uint64_t next_seed(uint64_t seed_state) {
   return z ^ (z >> 31);
 }
 
+#define USE_CXX11_RANDOM
+
+#ifdef USE_CXX11_RANDOM
+#include <random>
+#endif
+
 uint64_t _get_rand_uint64() {
-#ifdef XOROSHIRO
+#ifdef USE_CXX11_RANDOM
+  static std::random_device rd;
+  static std::mt19937_64 gen(rd());
+  return gen();
+#elif defined(XOROSHIRO)
 #ifdef USE_BOOST_TLS
   auto state = rng_state.get();
   if (!state) {

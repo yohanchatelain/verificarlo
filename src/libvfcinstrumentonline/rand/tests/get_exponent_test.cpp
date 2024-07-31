@@ -46,6 +46,13 @@ public:
   double operator()() { return dis(gen); }
 };
 
+#define test_equality(a)                                                       \
+  EXPECT_EQ(reference::get_exponent(a), get_exponent(a))                       \
+      << std::hexfloat << "Failed for\n"                                       \
+      << "input    : " << a << "\n"                                            \
+      << "reference: " << reference::get_exponent(a) << "\n"                   \
+      << "target   : " << get_exponent(a);
+
 template <typename T> void testBinade(int n, int repetitions = 100) {
   auto start = std::ldexp(1.0, n);
   auto end = std::ldexp(1.0, n + 1);
@@ -53,11 +60,8 @@ template <typename T> void testBinade(int n, int repetitions = 100) {
 
   for (int i = 0; i < repetitions; i++) {
     T a = rng();
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
-    a = -a;
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
+    test_equality(a);
+    test_equality(-a);
   }
 }
 
@@ -74,22 +78,16 @@ TEST(GetExponentTest, BasicAssertions) {
       std::numeric_limits<float>::quiet_NaN()};
 
   for (auto a : simple_case_float) {
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
-    a = -a;
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
+    test_equality(a);
+    test_equality(-a);
   }
 
   std::vector<double> simple_case_double(simple_case_float.begin(),
                                          simple_case_float.end());
 
-  for (auto a : simple_case_float) {
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
-    a = -a;
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
+  for (auto a : simple_case_double) {
+    test_equality(a);
+    test_equality(-a);
   }
 }
 
@@ -98,20 +96,14 @@ TEST(GetExponentTest, RandomAssertions) {
 
   for (int i = 0; i < 1000; i++) {
     float a = rng();
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
-    a = -a;
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
+    test_equality(a);
+    test_equality(-a);
   }
 
   for (int i = 0; i < 1000; i++) {
     double a = rng();
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
-    a = -a;
-    EXPECT_EQ(reference::get_exponent(a), get_exponent(a))
-        << a << " " << std::hexfloat << a << " failed";
+    test_equality(a);
+    test_equality(-a);
   }
 }
 

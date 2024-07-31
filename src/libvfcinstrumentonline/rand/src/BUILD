@@ -15,6 +15,7 @@ cc_library(
         "debug.hpp",
         "eft.hpp",
         "export_symbols.hpp",
+        "main.hpp",
         "rand.hpp",
         "sr.hpp",
         "ud.hpp",

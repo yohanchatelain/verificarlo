@@ -1,3 +1,6 @@
+#ifndef __VERIFICARLO_SRLIB_RAND_XOROSHIRO128P_HPP__
+#define __VERIFICARLO_SRLIB_RAND_XOROSHIRO128P_HPP__
+
 #include <immintrin.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -102,3 +105,5 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 #endif
+
+#endif // __VERIFICARLO_SRLIB_RAND_XOROSHIRO128P_HPP__

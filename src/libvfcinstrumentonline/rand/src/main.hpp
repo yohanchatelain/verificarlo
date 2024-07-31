@@ -1,3 +1,6 @@
+#ifndef __VERIFICARLO_SRLIB_MAIN_HPP_
+#define __VERIFICARLO_SRLIB_MAIN_HPP_
+
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -50,3 +53,5 @@ struct Initializer {
 };
 
 Initializer initializer;
+
+#endif // __VERIFICARLO_SRLIB_MAIN_HPP_
