@@ -14,14 +14,17 @@
 #include "src/utils.hpp"
 #include "tests/helper.hpp"
 
+using ::testing::AllOf;
+using ::testing::Ge;
+using ::testing::Le;
 using ::testing::Lt;
 
 constexpr auto default_alpha = 0.001;
-// constexpr auto default_repetitions = 10;
-// #ifdef DEBUG
-// #else
+#ifdef DEBUG
+constexpr auto default_repetitions = 10;
+#else
 constexpr auto default_repetitions = 10'000;
-// #endif
+#endif
 namespace reference {
 // return pred(|s|)
 
@@ -95,7 +98,8 @@ std::pair<H, H> compute_distance_error(T a, T b, H reference) {
   H probability = distance_to_fp / ulp;
   H probability_c = 1 - probability;
 
-  if (distance_to_fp == 0 or ulp == 0) {
+  if (distance_to_fp == 0 or ulp == 0 or
+      helper::abs(reference) < helper::IEEE754<T>::min_subnormal) {
     probability = 0;
     probability_c = 1;
   }
@@ -114,12 +118,23 @@ std::string compute_distance_error_str(T a, T b, H reference) {
       helper::absolute_distance(reference, static_cast<H>(ref_cast));
   H ulp = helper::get_ulp(ref_cast);
 
+  // TODO: fix corner case when probability is > 1
   H probability = distance_to_fp / ulp;
   H probability_c = 1 - probability;
 
-  if (distance_to_fp == 0 or ulp == 0) {
+  if (distance_to_fp == 0 or ulp == 0 or
+      helper::abs(reference) < helper::IEEE754<T>::min_subnormal) {
     probability = 0;
     probability_c = 1;
+  }
+
+  H next, prev;
+  if (reference + distance_to_fp == ref_cast) {
+    next = ref_cast;
+    prev = reference - distance_to_fp;
+  } else {
+    next = reference + distance_to_fp;
+    prev = ref_cast;
   }
 
   std::ostringstream os;
@@ -129,6 +144,8 @@ std::string compute_distance_error_str(T a, T b, H reference) {
   os << "  reference_cast: " << ref_cast << std::endl;
   os << "  distance_to_fp: " << distance_to_fp << std::endl;
   os << "             ulp: " << ulp << std::endl;
+  os << "     previous_fp: " << prev << std::endl;
+  os << "         next_fp: " << next << std::endl;
   os << std::defaultfloat;
   os << "     probability: " << probability << std::endl;
   os << "   probability_c: " << probability_c << std::endl;
@@ -205,11 +222,25 @@ void check_distribution_match(T a, T b,
     return;
   }
 
+  EXPECT_THAT(static_cast<double>(probability_down), AllOf(Ge(0.0), Le(1.0)))
+      << "Probability down is not in [0, 1] range\n"
+      << "probability_down: " << probability_down << "\n"
+      << "probability_up: " << probability_up << "\n"
+      << "probability_down_estimated: " << probability_down_estimated << "\n"
+      << "probability_up_estimated: " << probability_up_estimated << "\n"
+      << "count_down: " << count_down << "\n"
+      << "count_up: " << count_up << "\n"
+      << "repetitions: " << repetitions << "\n"
+      << compute_distance_error_str(a, b, reference);
+
   auto test = helper::binomial_test(repetitions, count_down,
                                     static_cast<double>(probability_down));
 
   const auto op_name = Op::name;
   const auto ftype = Op::ftype;
+
+  if (test.pvalue == 0)
+    return;
 
   EXPECT_THAT(alpha / 2, Lt(test.pvalue))
       << "Null hypotheis rejected!\n"

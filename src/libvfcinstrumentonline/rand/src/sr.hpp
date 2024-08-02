@@ -21,6 +21,10 @@ template <typename T> bool isnumber(T a, T b) {
 template <typename T> T sr_round(const T sigma, const T tau, const T z) {
   using namespace sr::utils;
   debug_start();
+  if (tau == 0) {
+    debug_end();
+    return sigma;
+  }
   constexpr int32_t mantissa = IEEE754<T>::mantissa;
   const bool sign_tau = tau < 0;
   const bool sign_sigma = sigma < 0;

@@ -52,7 +52,6 @@ void __debug_header_end(const char *func) {
 #define debug_start() __debug_header_start(__func__)
 #define debug_end() __debug_header_end(__func__)
 
-#undef DEBUG
 #else
 #define debug_print(fmt, ...)
 #define debug_start()

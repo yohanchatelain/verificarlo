@@ -97,6 +97,14 @@ template <typename T> T relative_distance(const T a, const T b) {
   return absolute_distance(a, b) / absolute_distance(a);
 }
 
+template <typename T> T abs(const T &a) {
+  if constexpr (std::is_same<T, Float128_boost>::value) {
+    return boost::multiprecision::abs(a);
+  } else {
+    return std::abs(a);
+  }
+}
+
 // compute ulp(a)
 template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
   int exponent;
