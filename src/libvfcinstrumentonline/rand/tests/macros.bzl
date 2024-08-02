@@ -1,5 +1,5 @@
 COPTS = [
-    "-std=c++17",
+    "-std=c++20",
     "-I.",
     "-Wfatal-errors",
 ]
@@ -15,6 +15,7 @@ DEPS = [
     "@googletest//:gtest",
     "@googletest//:gtest_main",
     "@boost//:math",
+    "@boost//:multiprecision",
 ]
 
 HEADERS = ["//tests:helper.hpp"]

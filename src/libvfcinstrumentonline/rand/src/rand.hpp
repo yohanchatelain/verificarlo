@@ -53,14 +53,15 @@ uint64_t next_seed(uint64_t seed_state) {
 #define USE_CXX11_RANDOM
 
 #ifdef USE_CXX11_RANDOM
+static std::random_device rd;
+static std::mt19937_64 gen(rd());
 #include <random>
 #endif
 
 uint64_t _get_rand_uint64() {
+  uint64_t rng = 0;
 #ifdef USE_CXX11_RANDOM
-  static std::random_device rd;
-  static std::mt19937_64 gen(rd());
-  return gen();
+  rng = gen();
 #elif defined(XOROSHIRO)
 #ifdef USE_BOOST_TLS
   auto state = rng_state.get();
@@ -70,17 +71,20 @@ uint64_t _get_rand_uint64() {
   }
 #endif
   __m256i result = xoroshiro128plus_avx2_next(&rng_state);
-  return _mm256_extract_epi32(result, 0);
+  rng = _mm256_extract_epi32(result, 0);
 #elif defined(SHISHUA)
 #ifdef USE_BOOST_TLS
-  return prng_uint64(rng_state.get());
+  rng = prng_uint64(rng_state.get());
 #else
-  return prng_uint64(&rng_state);
+  rng = prng_uint64(&rng_state);
 #endif
 #else
 #error "No PRNG defined"
 #endif
+  return rng;
 }
+
+uint8_t get_rand_uint1() { return _get_rand_uint64() & 0x1; }
 
 #ifdef XOROSHIRO
 template <typename T> T get_rand_uint() {
@@ -116,6 +120,7 @@ float get_rand_float01() {
 
 double get_rand_double01() {
   uint64_t x = get_rand_uint64_t();
+  return std::generate_canonical<double, 64>(gen);
   const union {
     uint64_t i;
     double d;

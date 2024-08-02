@@ -12,11 +12,12 @@ typedef _Float128 Float128;
 #error "Unsupported compiler. Please use GCC or Clang."
 #endif
 
+namespace sr::utils {
+
 template <typename T> struct IEEE754 {
   using I = std::conditional_t<std::is_same<T, float>::value, int32_t, int64_t>;
   using U =
       std::conditional_t<std::is_same<T, float>::value, uint32_t, uint64_t>;
-  using H = std::conditional_t<std::is_same<T, float>::value, double, Float128>;
   static constexpr I bias = std::numeric_limits<T>::max_exponent - 1;
   static constexpr I mantissa = std::numeric_limits<T>::digits - 1;
   static constexpr I precision = std::numeric_limits<T>::digits;
@@ -60,23 +61,26 @@ U get_unbiased_exponent(T a) {
   return exp;
 }
 
-template <typename T, typename U = typename IEEE754<T>::U> U get_exponent(T a) {
+template <typename T, typename I = typename IEEE754<T>::I> I get_exponent(T a) {
+  using U = typename IEEE754<T>::U;
   debug_start();
-  if (a == 0) {
-    debug_end();
-    return 0;
-  }
-  constexpr U bias = IEEE754<T>::bias;
-  constexpr U mantissa = IEEE754<T>::mantissa;
-  constexpr U exponent_mask = IEEE754<T>::exponent_mask;
+  // if (std::abs(a) < IEEE754<T>::min_normal) {
+  //   debug_end();
+  //   return 0;
+  // }
+  constexpr I bias = IEEE754<T>::bias;
+  constexpr I mantissa = IEEE754<T>::mantissa;
+  constexpr I exponent_mask = IEEE754<T>::exponent_mask;
+  debug_print("a = %+.13a\n", a);
   debug_print("bias = %d\n", bias);
   debug_print("mantissa = %d\n", mantissa);
   debug_print("exponent_mask = %d\n", exponent_mask);
-  U exp = reinterpret_cast<U &>(a);
+  I exp = reinterpret_cast<I &>(a);
   debug_print("a = 0x%016x\n", exp);
-  debug_print("raw exponent = %d\n", (exp >> mantissa) & exponent_mask);
-  exp = ((exp >> mantissa) & exponent_mask) - bias;
-  debug_print("get_exponent(%.13a) = %ld\n", a, exp);
+  const auto raw_exp = (exp >> mantissa) & exponent_mask;
+  debug_print("raw exponent = %d\n", raw_exp);
+  exp = raw_exp - bias;
+  debug_print("get_exponent(%.13a) = %d\n", a, exp);
   debug_end();
   return exp;
 }
@@ -118,5 +122,7 @@ int64_t get_exponent_double(double a);
 
 float pow2_float(int32_t n);
 double pow2_double(int64_t n);
+
+} // namespace sr::utils
 
 #endif // __VERIFICARLO_SRLIB_UTILS_HPP__

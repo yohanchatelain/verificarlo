@@ -5,43 +5,56 @@
 #include "eft.hpp"
 #include "utils.hpp"
 
-template <typename T> T sr_round(const T sigma, const T tau, const T z) {
+template <typename T> bool isnumber(T a, T b) {
+  // fast check for a or b is inf or nan
   debug_start();
-  constexpr T eps = IEEE754<T>::ulp;
+  const auto a_exp = sr::utils::get_unbiased_exponent(a);
+  const auto b_exp = sr::utils::get_unbiased_exponent(b);
+  constexpr auto exponent_mask = sr::utils::IEEE754<T>::exponent_mask;
+  const auto ret = (a != 0) and (b != 0) and (a_exp ^ exponent_mask) and
+                   (b_exp ^ exponent_mask);
+  debug_print("isnumber(%.13a, %.13a) = %d\n", a, b, ret);
+  debug_end();
+  return ret;
+}
+
+template <typename T> T sr_round(const T sigma, const T tau, const T z) {
+  using namespace sr::utils;
+  debug_start();
+  constexpr int32_t mantissa = IEEE754<T>::mantissa;
   const bool sign_tau = tau < 0;
   const bool sign_sigma = sigma < 0;
-  const uint32_t eta = (sign_tau != sign_sigma)
-                           ? get_exponent(get_predecessor_abs(sigma))
-                           : get_exponent(sigma);
-  const T ulp = (sign_tau ? 1 : -1) * pow2<T>(eta) * eps;
+  const int32_t eta = (sign_tau != sign_sigma)
+                          ? get_exponent(get_predecessor_abs(sigma))
+                          : get_exponent(sigma);
+  const T ulp = (sign_tau ? -1 : 1) * pow2<T>(eta - mantissa);
   const T pi = ulp * z;
   const T round = (std::abs(tau + pi) >= std::abs(ulp)) ? ulp : 0;
-  debug_print("eps = %.13a\n", eps);
-  debug_print("eta = %u\n", eta);
-  debug_print("ulp = %.13a\n", ulp);
-  debug_print("pi = %.13a\n", pi);
-  debug_print("sr_round(%.13a, %.13a, %.13a) = %.13a\n", sigma, tau, z, round);
+  debug_print("z     = %+.13a\n", z);
+  debug_print("sigma = %+.13a\n", sigma);
+  debug_print("tau   = %+.13a\n", tau);
+  debug_print("eta   = %d\n", eta);
+  debug_print("pi    = %+.13a\n", pi);
+  debug_print("tau+pi= %+.13a\n", tau + pi);
+  debug_print("ulp   = %+.13a\n", ulp);
+  debug_print("sr_round(%+.13a, %+.13a, %+.13a) = %+.13a\n", sigma, tau, z,
+              round);
   debug_end();
   return round;
 }
 
-template <typename T> bool isnumber(T a, T b) {
-  // fast check for inf or nan {
-  debug_start();
-  const auto a_exp = get_unbiased_exponent(a);
-  const auto b_exp = get_unbiased_exponent(b);
-  constexpr auto exponent_mask = IEEE754<T>::exponent_mask;
-  return (a_exp ^ exponent_mask) and (b_exp ^ exponent_mask);
-}
-
 template <typename T> T sr_add(T a, T b) {
+  debug_start();
   if (not isnumber(a, b)) {
+    debug_end();
     return a + b;
   }
   T z = get_rand_double01();
   T tau, sigma, round;
   twosum(a, b, sigma, tau);
   round = sr_round(sigma, tau, z);
+  debug_print("sr_add(%+.13a, %+.13a) = %+.13a + %+.13a\n", a, b, sigma, round);
+  debug_end();
   return sigma + round;
 }
 

@@ -2,7 +2,7 @@
 
 # Compiler options
 COPTS = [
-    "-std=c++17",
+    "-std=c++20",
     "-mavx2",
     "-O3",
     "-DXOROSHIRO",  # Equivalent to -D$(RNG) where RNG=XOROSHIRO

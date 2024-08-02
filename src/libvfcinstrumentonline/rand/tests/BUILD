@@ -15,12 +15,18 @@ cc_test_lib_gen(
     rng = "XOROSHIRO",
 )
 
+cc_test_lib_gen(
+    name = "srround_test",
+    rng = "XOROSHIRO",
+)
+
 test_suite(
     name = "all",
     tests = [
         ":get_exponent_test",
         ":get_pow2_test",
         ":get_predabs_test",
+        ":srround_test",
         ":twoprodfma_test",
         ":twosum_test",
         ":udround_test",

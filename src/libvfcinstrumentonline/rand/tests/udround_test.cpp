@@ -16,7 +16,9 @@
 
 using ::testing::AllOf;
 using ::testing::Ge;
+using ::testing::Gt;
 using ::testing::Le;
+using ::testing::Lt;
 
 constexpr float default_alpha = 0.05;
 
@@ -196,23 +198,20 @@ Counter<T> eval_op(T a, T b, Op op, const int repetitions = 1000) {
 }
 
 struct BinomialTest {
-  double lower_bound;
-  double upper_bound;
-  bool result;
+  double lower;
+  double upper;
+  double pvalue;
 };
 
 BinomialTest binomial_test(const int n, const int k, const float p,
                            const float alpha = 0.05) {
-  auto lower_bound =
-      boost::math::binomial_distribution<>::find_lower_bound_on_p(n, k,
-                                                                  alpha / 2);
-  auto upper_bound =
-      boost::math::binomial_distribution<>::find_upper_bound_on_p(n, k,
-                                                                  alpha / 2);
 
-  auto res = BinomialTest{lower_bound, upper_bound,
-                          lower_bound <= p and p <= upper_bound};
-  return res;
+  boost::math::binomial_distribution<> dist(n, p);
+  double lower = boost::math::cdf(dist, k);
+  double upper = boost::math::cdf(complement(dist, k - 1));
+  double pvalue = 2 * std::min(lower, upper);
+
+  return BinomialTest{lower, upper, pvalue};
 }
 
 std::string demangle(const char *name) {
@@ -228,32 +227,20 @@ void check_exact_proportion(T a, T b, Op op, const float proportion,
                             const float alpha = default_alpha) {
 
   auto counter = eval_op(a, b, op, repetitions);
-  auto down_test = binomial_test(repetitions, counter.down_count(), proportion);
-  auto up_test = binomial_test(repetitions, counter.up_count(), 1 - proportion);
+  auto test = binomial_test(repetitions, counter.down_count(), proportion);
 
-  EXPECT_THAT(proportion,
-              AllOf(Ge(down_test.lower_bound), Le(down_test.upper_bound)))
-      << "Propability of down value mismatch!\n"
+  EXPECT_THAT(alpha / 2, Lt(test.pvalue))
+      << "Null hypotheis rejected!\n"
       // << "op: " << op << "\n"
       << "alpha: " << alpha << "\n"
       << "proportion: " << proportion << "\n"
       << "count_down: " << counter.down_count() << "\n"
       << "sample size: " << repetitions << "\n"
-      << "lower_bound_down: " << down_test.lower_bound << "\n"
-      << "upper_bound_down: " << down_test.upper_bound << "\n"
-      << std::hexfloat << "down: " << counter.down() << "\n";
-
-  EXPECT_THAT(1 - proportion,
-              AllOf(Ge(up_test.lower_bound), Le(up_test.upper_bound)))
-      << "Propability of up value mismatch\n"
-      // << "op: " << op.target().name() << "\n"
-      << "alpha: " << alpha << "\n"
-      << "proportion: " << 1 - proportion << "\n"
-      << "count_up: " << counter.up_count() << "\n"
-      << "sample size: " << repetitions << "\n"
-      << "lower_bound_up: " << up_test.lower_bound << "\n"
-      << "upper_bound_up: " << up_test.upper_bound << "\n"
-      << std::hexfloat << "up: " << counter.up() << "\n";
+      << "pvalue: " << test.pvalue << "\n"
+      << "lower_bound: " << test.lower << "\n"
+      << "upper_bound: " << test.upper << "\n"
+      << std::hexfloat << "down: " << counter.down() << "\n"
+      << std::hexfloat << "up: " << counter.down() << "\n";
 }
 
 template <typename T, typename Op = typename Operator<T>::binary>

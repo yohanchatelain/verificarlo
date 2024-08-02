@@ -67,6 +67,7 @@ template <typename T> void testBinade(int n, int repetitions = 100) {
 
 TEST(GetExponentTest, BasicAssertions) {
 
+  // TODO : add test for subnormal numbers
   std::vector<float> simple_case_float = {
       0.0f,
       1.0f,

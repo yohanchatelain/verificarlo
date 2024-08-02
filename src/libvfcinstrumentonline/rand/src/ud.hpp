@@ -13,11 +13,11 @@ template <typename T> T ud_round(T a) {
     return a;
   }
   debug_print("a = %.13a\n", a);
-  using I = typename IEEE754<T>::I;
+  using I = typename sr::utils::IEEE754<T>::I;
   I a_bits = *reinterpret_cast<I *>(&a);
-  uint64_t rand = _get_rand_uint64();
-  debug_print("rand = 0x%016lx\n", rand);
-  a_bits += (rand & 0x1) ? 1 : -1;
+  uint8_t rand = get_rand_uint1();
+  debug_print("rand = 0x%02x\n", rand);
+  a_bits += 1 - (rand * 2);
   debug_print("ud_round(%.13a)", a);
   a = *reinterpret_cast<T *>(&a_bits);
   debug_print(" = %.13a\n", a);
