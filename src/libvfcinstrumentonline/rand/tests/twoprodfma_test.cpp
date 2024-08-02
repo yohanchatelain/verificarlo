@@ -10,6 +10,7 @@
 #include "helper.hpp"
 #include "src/eft.hpp"
 #include "src/utils.hpp"
+#include "tests/helper.hpp"
 
 namespace reference {
 // return pred(|s|)
@@ -17,9 +18,9 @@ namespace reference {
 // twosum reference
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
-template <typename T, typename R = typename IEEE754<T>::H>
+template <typename T, typename R = typename helper::IEEE754<T>::H>
 R twoprodfma(T a, T b) {
-  using H = typename IEEE754<T>::H;
+  using H = typename helper::IEEE754<T>::H;
   return static_cast<H>(a) * static_cast<H>(b);
 }
 
@@ -29,7 +30,7 @@ template <typename T> void is_close(T a, T b) {
   if (std::isnan(a) or std::isnan(b) or std::isinf(a) or std::isinf(b))
     return;
 
-  using H = typename IEEE754<T>::H;
+  using H = typename helper::IEEE754<T>::H;
   H ref = reference::twoprodfma(a, b);
   T ref_cast = static_cast<T>(ref);
   T x = 0, e = 0;
@@ -45,9 +46,9 @@ template <typename T> void is_close(T a, T b) {
   auto diff = helper::absolute_distance(ref, target);
   auto rel = helper::relative_distance(ref, target);
 
-  auto ulp = IEEE754<T>::ulp;
-  auto min_subnormal = IEEE754<T>::min_subnormal;
-  auto min_normal = IEEE754<T>::min_normal;
+  auto ulp = helper::IEEE754<T>::ulp;
+  auto min_subnormal = helper::IEEE754<T>::min_subnormal;
+  auto min_normal = helper::IEEE754<T>::min_normal;
 
   T error_bound = 0;
   bool correct = false;
@@ -220,8 +221,8 @@ TEST(GetTwoSumTest, RandomMidOverlapAssertions) {
 }
 
 template <typename T> void run_test_binade() {
-  constexpr auto min_exponent = IEEE754<T>::min_exponent_subnormal;
-  constexpr auto max_exponent = IEEE754<T>::max_exponent;
+  constexpr auto min_exponent = helper::IEEE754<T>::min_exponent_subnormal;
+  constexpr auto max_exponent = helper::IEEE754<T>::max_exponent;
   std::function<void(T, T)> test = is_close<T>;
   for (int i = min_exponent; i <= max_exponent; i++)
     helper::test_binade<T>(i, test);

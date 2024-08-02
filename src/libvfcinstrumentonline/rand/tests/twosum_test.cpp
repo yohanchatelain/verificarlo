@@ -9,6 +9,7 @@
 
 #include "src/eft.hpp"
 #include "src/utils.hpp"
+#include "tests/helper.hpp"
 
 namespace reference {
 // return pred(|s|)
@@ -16,29 +17,10 @@ namespace reference {
 // twosum reference
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
-template <typename T, typename R = typename IEEE754<T>::H> R twosum(T a, T b) {
-  using H = typename IEEE754<T>::H;
+template <typename T, typename R = typename helper::IEEE754<T>::H>
+R twosum(T a, T b) {
+  using H = typename helper::IEEE754<T>::H;
   return static_cast<H>(a) + static_cast<H>(b);
-}
-
-template <typename T> T absolute_distance(T a) {
-  if constexpr (std::is_same<T, Float128>::value) {
-    __uint128_t u = reinterpret_cast<__uint128_t &>(a);
-    __uint128_t mask = 1;
-    mask <<= 127;
-    u &= ~mask;
-    return reinterpret_cast<T &>(u);
-  } else {
-    return std::abs(a);
-  }
-}
-
-template <typename T> T relative_distance(T a, T b) {
-  if (a == 0 and b == 0)
-    return 0;
-  if (a == 0)
-    return b;
-  return absolute_distance(a - b) / absolute_distance(a);
 }
 
 }; // namespace reference
@@ -47,7 +29,7 @@ template <typename T> void is_close(T a, T b) {
   if (std::isnan(a) or std::isnan(b) or std::isinf(a) or std::isinf(b))
     return;
 
-  using H = typename IEEE754<T>::H;
+  using H = typename helper::IEEE754<T>::H;
   H ref = reference::twosum(a, b);
   T ref_cast = static_cast<T>(ref);
   T x = 0, e = 0;
@@ -60,8 +42,8 @@ template <typename T> void is_close(T a, T b) {
   if (std::isinf(x) and std::isinf(ref_cast))
     return;
 
-  auto diff = reference::absolute_distance(ref - target);
-  auto rel = reference::relative_distance(ref, target);
+  auto diff = helper::absolute_distance(ref - target);
+  auto rel = helper::relative_distance(ref, target);
 
   auto correct = rel <= .5 * std::numeric_limits<T>::epsilon();
 

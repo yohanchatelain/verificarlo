@@ -13,6 +13,7 @@
 #include "src/main.hpp"
 #include "src/ud.hpp"
 #include "src/utils.hpp"
+#include "tests/helper.hpp"
 
 using ::testing::AllOf;
 using ::testing::Ge;
@@ -28,23 +29,27 @@ namespace reference {
 // twosum reference
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
-template <typename T, typename R = typename IEEE754<T>::H> R ud_add(T a, T b) {
-  using H = typename IEEE754<T>::H;
+template <typename T, typename R = typename helper::IEEE754<T>::H>
+R ud_add(T a, T b) {
+  using H = typename helper::IEEE754<T>::H;
   return static_cast<H>(a) + static_cast<H>(b);
 }
 
-template <typename T, typename R = typename IEEE754<T>::H> R ud_sub(T a, T b) {
-  using H = typename IEEE754<T>::H;
+template <typename T, typename R = typename helper::IEEE754<T>::H>
+R ud_sub(T a, T b) {
+  using H = typename helper::IEEE754<T>::H;
   return static_cast<H>(a) - static_cast<H>(b);
 }
 
-template <typename T, typename R = typename IEEE754<T>::H> R ud_mul(T a, T b) {
-  using H = typename IEEE754<T>::H;
+template <typename T, typename R = typename helper::IEEE754<T>::H>
+R ud_mul(T a, T b) {
+  using H = typename helper::IEEE754<T>::H;
   return static_cast<H>(a) * static_cast<H>(b);
 }
 
-template <typename T, typename R = typename IEEE754<T>::H> R ud_div(T a, T b) {
-  using H = typename IEEE754<T>::H;
+template <typename T, typename R = typename helper::IEEE754<T>::H>
+R ud_div(T a, T b) {
+  using H = typename helper::IEEE754<T>::H;
   return static_cast<H>(a) / static_cast<H>(b);
 }
 
@@ -71,11 +76,11 @@ template <typename T> int get_exponent(T a) {
     exp = (int)(u & mask);
     exp -= 0x3FFF;
   } else {
-    using U = typename IEEE754<T>::U;
+    using U = typename helper::IEEE754<T>::U;
     U u = reinterpret_cast<U &>(a);
-    u >>= IEEE754<T>::mantissa;
-    exp = (int)(u & IEEE754<T>::exponent_mask);
-    exp -= IEEE754<T>::bias;
+    u >>= helper::IEEE754<T>::mantissa;
+    exp = (int)(u & helper::IEEE754<T>::exponent_mask);
+    exp -= helper::IEEE754<T>::bias;
   }
   return exp;
 }
@@ -156,15 +161,16 @@ template <typename T> struct Operator {
 };
 
 // compute ulp(a)
-template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
+template <typename T, typename H = typename helper::IEEE754<T>::H>
+H get_ulp(T a) {
   int exponent;
   std::frexp(a, &exponent);
   exponent--;
-  H ulp = std::ldexp(1.0, exponent - IEEE754<T>::mantissa);
+  H ulp = std::ldexp(1.0, exponent - helper::IEEE754<T>::mantissa);
   return ulp;
 }
 
-template <typename T, typename H = typename IEEE754<T>::H>
+template <typename T, typename H = typename helper::IEEE754<T>::H>
 std::pair<float, float> compute_distance_error(T a, T b, H reference) {
 
   T ref_cast = static_cast<T>(reference);
@@ -247,7 +253,7 @@ template <typename T, typename Op = typename Operator<T>::binary>
 void check_distribution_match(T a, T b, Op reference_op, Op target_op,
                               const int repetitions = 1000,
                               const float alpha = default_alpha) {
-  using H = typename IEEE754<T>::H;
+  using H = typename helper::IEEE754<T>::H;
 
   H reference = reference_op(a, b);
   auto [down, up] = compute_distance_error(a, b, reference);
@@ -304,8 +310,8 @@ template <typename T> std::vector<T> get_simple_case() {
 enum class OperatorType { ADD, SUB, MUL, DIV };
 
 template <typename T, OperatorType op_type> void do_basic_test() {
-  using I = typename IEEE754<T>::I;
-  constexpr I mantissa = IEEE754<T>::mantissa;
+  using I = typename helper::IEEE754<T>::I;
+  constexpr I mantissa = helper::IEEE754<T>::mantissa;
 
   T a = 1.25;
   T b;

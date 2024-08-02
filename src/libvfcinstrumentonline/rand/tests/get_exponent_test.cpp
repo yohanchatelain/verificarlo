@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "src/utils.hpp"
+#include "tests/helper.hpp"
 
 namespace reference {
 template <typename T> int32_t get_exponent(T a) {
@@ -47,11 +48,11 @@ public:
 };
 
 #define test_equality(a)                                                       \
-  EXPECT_EQ(reference::get_exponent(a), get_exponent(a))                       \
+  EXPECT_EQ(reference::get_exponent(a), sr::utils::get_exponent(a))            \
       << std::hexfloat << "Failed for\n"                                       \
       << "input    : " << a << "\n"                                            \
       << "reference: " << reference::get_exponent(a) << "\n"                   \
-      << "target   : " << get_exponent(a);
+      << "target   : " << sr::utils::get_exponent(a);
 
 template <typename T> void testBinade(int n, int repetitions = 100) {
   auto start = std::ldexp(1.0, n);

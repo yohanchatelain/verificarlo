@@ -62,12 +62,11 @@ U get_unbiased_exponent(T a) {
 }
 
 template <typename T, typename I = typename IEEE754<T>::I> I get_exponent(T a) {
-  using U = typename IEEE754<T>::U;
   debug_start();
-  // if (std::abs(a) < IEEE754<T>::min_normal) {
-  //   debug_end();
-  //   return 0;
-  // }
+  if (a == 0) {
+    debug_end();
+    return 0;
+  }
   constexpr I bias = IEEE754<T>::bias;
   constexpr I mantissa = IEEE754<T>::mantissa;
   constexpr I exponent_mask = IEEE754<T>::exponent_mask;

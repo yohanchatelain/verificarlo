@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include "src/utils.hpp"
+#include "tests/helper.hpp"
 
 namespace reference {
 // return pred(|s|)
@@ -17,27 +18,15 @@ namespace reference {
 // eta = get_predecessor_abs(pred(|s|))
 // ulp = sign(tau) * 2^eta * eps
 template <typename T> T get_predecessor_abs(T a) {
-  constexpr uint32_t p = IEEE754<T>::precision;
+  constexpr uint32_t p = helper::IEEE754<T>::precision;
   return a * (1 - std::ldexp(1.0, -p));
 }
 }; // namespace reference
 
-struct RNG {
-  std::random_device rd;
-
-private:
-  std::mt19937 gen;
-  std::uniform_real_distribution<> dis;
-
-public:
-  RNG(double a = 0.0, double b = 1.0) : gen(RNG::rd()), dis(a, b){};
-  double operator()() { return dis(gen); }
-};
-
 template <typename T> bool handle_nan_or_inf(T a) {
-  using U = typename IEEE754<T>::U;
+  using U = typename helper::IEEE754<T>::U;
   auto ref = reference::get_predecessor_abs(a);
-  auto target = get_predecessor_abs(a);
+  auto target = sr::utils::get_predecessor_abs(a);
   if (std::isnan(a)) {
     EXPECT_TRUE(std::isnan(ref));
     EXPECT_TRUE(std::isnan(target));
@@ -56,16 +45,17 @@ template <typename T> bool handle_nan_or_inf(T a) {
 #define test_equality(a)                                                       \
   if (handle_nan_or_inf(a))                                                    \
     return;                                                                    \
-  EXPECT_EQ(reference::get_predecessor_abs(a), get_predecessor_abs(a))         \
+  EXPECT_EQ(reference::get_predecessor_abs(a),                                 \
+            sr::utils::get_predecessor_abs(a))                                 \
       << std::hexfloat << "Failed for\n"                                       \
       << "input    : " << a << "\n"                                            \
       << "reference: " << reference::get_predecessor_abs(a) << "\n"            \
-      << "target   : " << get_predecessor_abs(a);
+      << "target   : " << sr::utils::get_predecessor_abs(a);
 
 template <typename T> void testBinade(int n, int repetitions = 100) {
   auto start = std::ldexp(1.0, n);
   auto end = std::ldexp(1.0, n + 1);
-  RNG rng(start, end);
+  helper::RNG rng(start, end);
 
   for (int i = 0; i < repetitions; i++) {
     T a = rng();
@@ -101,7 +91,7 @@ TEST(GetPredAbsTest, BasicAssertions) {
 }
 
 TEST(GetPredAbsTest, RandomAssertions) {
-  RNG rng;
+  helper::RNG rng;
 
   for (int i = 0; i < 1000; i++) {
     float a = rng();
