@@ -16,9 +16,24 @@ cc_test_lib_gen(
 )
 
 cc_test_lib_gen(
-    name = "srround_test",
+    name = "srround_boost_test",
     size = "medium",
+    src = "//tests:srround_test.cpp",
+    rng = "CXX11_RANDOM",
+)
+
+cc_test_lib_gen(
+    name = "srround_xoroshiro_test",
+    size = "medium",
+    src = "//tests:srround_test.cpp",
     rng = "XOROSHIRO",
+)
+
+cc_test_lib_gen(
+    name = "srround_shishua_test",
+    size = "medium",
+    src = "//tests:srround_test.cpp",
+    rng = "SHISHUA",
 )
 
 test_suite(
@@ -27,7 +42,9 @@ test_suite(
         ":get_exponent_test",
         ":get_pow2_test",
         ":get_predabs_test",
-        ":srround_test",
+        ":srround_boost_test",
+        ":srround_shishua_test",
+        ":srround_xoroshiro_test",
         ":twoprodfma_test",
         ":twosum_test",
         ":udround_test",

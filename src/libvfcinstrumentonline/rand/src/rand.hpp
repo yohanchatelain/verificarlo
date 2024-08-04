@@ -33,6 +33,8 @@ static __thread rng_state_t rng_state;
 #include "shishua.h"
 typedef prng_state rng_state_t;
 static __thread rng_state_t rng_state;
+#elif defined(USE_CXX11_RANDOM)
+// nothing to do
 #else
 #error "No PRNG defined"
 #endif
@@ -49,8 +51,6 @@ uint64_t next_seed(uint64_t seed_state) {
   z = (z ^ (z >> 27)) * UINT64_C(0x94D049BB133111EB);
   return z ^ (z >> 31);
 }
-
-#define USE_CXX11_RANDOM
 
 #ifdef USE_CXX11_RANDOM
 static std::random_device rd;
@@ -70,8 +70,15 @@ uint64_t _get_rand_uint64() {
     rng_state.reset(state);
   }
 #endif
-  __m256i result = xoroshiro128plus_avx2_next(&rng_state);
-  rng = _mm256_extract_epi32(result, 0);
+  static int count = 0;
+  static __m256i result;
+  if (count >= 2) {
+    result = xoroshiro128plus_avx2_next(&rng_state);
+    count = 0;
+  }
+  rng = (count == 0) ? _mm256_extract_epi32(result, 0)
+                     : _mm256_extract_epi32(result, 1);
+  count++;
 #elif defined(SHISHUA)
 #ifdef USE_BOOST_TLS
   rng = prng_uint64(rng_state.get());
@@ -93,6 +100,10 @@ template <typename T> T get_rand_uint() {
 #elif defined(SHISHUA)
 template <typename T> T get_rand_uint() {
   return static_cast<T>(prng_uint64(&rng_state));
+}
+#elif defined(USE_CXX11_RANDOM)
+template <typename T> T get_rand_uint() {
+  return static_cast<T>(_get_rand_uint64());
 }
 #endif
 
@@ -120,7 +131,6 @@ float get_rand_float01() {
 
 double get_rand_double01() {
   uint64_t x = get_rand_uint64_t();
-  return std::generate_canonical<double, 64>(gen);
   const union {
     uint64_t i;
     double d;

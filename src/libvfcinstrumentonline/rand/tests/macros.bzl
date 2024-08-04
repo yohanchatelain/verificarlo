@@ -5,9 +5,13 @@ COPTS = [
 ]
 
 XOROSHIRO_COPTS = COPTS + ["-DXOROSHIRO", "-mavx2", "-O3", "-mfma"]
+SHISHUA_COPTS = COPTS + ["-DSHISHUA", "-mavx2", "-O3", "-mfma"]
+USE_CXX11_RANDOM_COPTS = COPTS + ["-DUSE_CXX11_RANDOM", "-mavx2", "-O3", "-mfma"]
 
 RNG_COPTS = {
     "XOROSHIRO": XOROSHIRO_COPTS,
+    "SHISHUA": SHISHUA_COPTS,
+    "CXX11_RANDOM": USE_CXX11_RANDOM_COPTS,
 }
 
 DEPS = [
@@ -30,9 +34,12 @@ def cc_test_gen(name, src = None, deps = DEPS, copts = COPTS, size = "small"):
     )
 
 def cc_test_lib_gen(name, rng, src = None, deps = DEPS, copts = COPTS, size = "small"):
+    srcs = [src] if src else [name + ".cpp"]
+    srcs += HEADERS
+    print(srcs)
     native.cc_test(
         name = name,
-        srcs = (src if src else []) + [name + ".cpp"] + HEADERS,
+        srcs = srcs,
         copts = copts + RNG_COPTS[rng],
         deps = deps,
         size = size,

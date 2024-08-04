@@ -6,9 +6,17 @@
 
 #define STATE_SIZE 2
 
-typedef struct {
-  __m256i s[STATE_SIZE];
-} xoroshiro128plus_avx2_state;
+// You can play with this value on your architecture
+#define XOSHIRO256_UNROLL (8)
+
+// typedef struct {
+//   __m256i s[STATE_SIZE];
+// } xoroshiro128plus_avx2_state;
+
+// /* The current state of the generators. */
+// static uint64_t s[4][XOSHIRO256_UNROLL];
+
+typedef uint64_t xoroshiro128plus_avx2_state[4][XOSHIRO256_UNROLL];
 
 #define __INTERNAL_RNG_STATE xoroshiro128plus_avx2_state
 
@@ -19,17 +27,41 @@ static inline __m256i rotl_avx2(__m256i x, int k) {
 
 // XOROSHIRO128++ next function (vectorized)
 __m256i xoroshiro128plus_avx2_next(xoroshiro128plus_avx2_state *state) {
-  const __m256i s0 = state->s[0];
-  __m256i s1 = state->s[1];
-  const __m256i result =
-      _mm256_add_epi64(rotl_avx2(_mm256_add_epi64(s0, s1), 17), s0);
+  // const __m256i s0 = state->s[0];
+  // __m256i s1 = state->s[1];
+  // const __m256i result =
+  //     _mm256_add_epi64(rotl_avx2(_mm256_add_epi64(s0, s1), 17), s0);
 
-  s1 = _mm256_xor_si256(s1, s0);
-  state->s[0] = _mm256_xor_si256(_mm256_xor_si256(rotl_avx2(s0, 49), s1),
-                                 _mm256_slli_epi64(s1, 21));
-  state->s[1] = rotl_avx2(s1, 28);
+  // s1 = _mm256_xor_si256(s1, s0);
+  // state->s[0] = _mm256_xor_si256(_mm256_xor_si256(rotl_avx2(s0, 49), s1),
+  //                                _mm256_slli_epi64(s1, 21));
+  // state->s[1] = rotl_avx2(s1, 28);
 
-  return result;
+  // return result;
+  __m256i t[XOSHIRO256_UNROLL / 4];
+  __m256i result = _mm256_add_epi64(s[0][j], s[3][j]);
+  _mm256_storeu_si256((__m256i *)&array[j * 4], result);
+
+  // t[i] = s[1][i] << 17;
+  t[j] = _mm256_slli_epi64(s[1][j], 17);
+
+  // s[2][i] ^= s[0][i];
+  s[2][j] = _mm256_xor_si256(s[2][j], s[0][j]);
+
+  // s[3][i] ^= s[1][i];
+  s[3][j] = _mm256_xor_si256(s[3][j], s[1][j]);
+
+  // s[1][i] ^= s[2][i];
+  s[1][j] = _mm256_xor_si256(s[1][j], s[2][j]);
+
+  // s[0][i] ^= s[3][i];
+  s[0][j] = _mm256_xor_si256(s[0][j], s[3][j]);
+
+  // s[2][i] ^= t[i];
+  s[2][j] = _mm256_xor_si256(s[2][j], t[j]);
+
+  // s[3][i] = rotl(s[3][i], 45);
+  s[3][j] = rotl(s[3][j], 45);
 }
 
 // Function to initialize the state
@@ -69,6 +101,46 @@ void generate_random_numbers_avx2(uint64_t *output, size_t count) {
     memcpy(&output[i], temp, (count - i) * sizeof(uint64_t));
   }
 }
+
+static __inline uint64_t rotl(const uint64_t x, int k) {
+  return (x << k) | (x >> (64 - k));
+}
+
+uint64_t result[1000];
+
+static inline uint64_t next(uint64_t *const restrict a, int len) {
+  uint64_t t[XOSHIRO256_UNROLL];
+
+  for (int b = 0; b < len; b += XOSHIRO256_UNROLL) {
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      a[b + i] = s[0][i] + s[3][i];
+
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      t[i] = s[1][i] << 17;
+
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      s[2][i] ^= s[0][i];
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      s[3][i] ^= s[1][i];
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      s[1][i] ^= s[2][i];
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      s[0][i] ^= s[3][i];
+
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      s[2][i] ^= t[i];
+
+    for (int i = 0; i < XOSHIRO256_UNROLL; i++)
+      s[3][i] = rotl(s[3][i], 45);
+  }
+
+  // This is just to avoid dead-code elimination
+  return array[0] ^ array[len - 1];
+}
+
+#define INIT                                                                   \
+  for (int i = 0; i < XOSHIRO256_UNROLL; i++)                                  \
+    s[0][i] = 1 << i;
 
 #ifdef XOROSHIRO_TEST
 int main(int argc, char *argv[]) {

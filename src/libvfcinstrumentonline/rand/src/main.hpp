@@ -40,6 +40,8 @@ void init() {
   uint64_t seed_state[4] = {next_seed(seed), next_seed(seed), next_seed(seed),
                             next_seed(seed)};
   prng_init(&rng_state, seed_state);
+#elif defined(USE_CXX11_RANDOM)
+  gen.seed(seed);
 #else
 #error "No PRNG defined"
 #endif

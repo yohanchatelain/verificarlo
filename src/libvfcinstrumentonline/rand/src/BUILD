@@ -17,6 +17,7 @@ cc_library(
         "export_symbols.hpp",
         "main.hpp",
         "rand.hpp",
+        "shishua.h",
         "sr.hpp",
         "ud.hpp",
         "utils.hpp",
