@@ -6,13 +6,20 @@
 #include "utils.hpp"
 
 template <typename T> bool isnumber(T a, T b) {
-  // fast check for a or b is inf or nan
+  // fast check for a or b is not 0, inf or nan
   debug_start();
-  const auto a_exp = sr::utils::get_unbiased_exponent(a);
-  const auto b_exp = sr::utils::get_unbiased_exponent(b);
-  constexpr auto exponent_mask = sr::utils::IEEE754<T>::exponent_mask;
-  const auto ret = (a != 0) and (b != 0) and (a_exp ^ exponent_mask) and
-                   (b_exp ^ exponent_mask);
+  using U = typename sr::utils::IEEE754<T>::U;
+  constexpr auto naninf_mask = sr::utils::IEEE754<T>::inf_nan_mask;
+  U a_bits = reinterpret_cast<U &>(a);
+  U b_bits = reinterpret_cast<U &>(b);
+  bool ret = ((a_bits != 0) and ((a_bits & naninf_mask) != naninf_mask)) and
+             ((b_bits != 0) and ((b_bits & naninf_mask) != naninf_mask));
+  debug_print("a_bits = 0x%016x\n", a_bits);
+  debug_print("b_bits = 0x%016x\n", b_bits);
+  debug_print("0x%016x & 0x%016x = 0x%016x\n", a_bits, naninf_mask,
+              a_bits & naninf_mask);
+  debug_print("0x%016x & 0x%016x = 0x%016x\n", b_bits, naninf_mask,
+              b_bits & naninf_mask);
   debug_print("isnumber(%.13a, %.13a) = %d\n", a, b, ret);
   debug_end();
   return ret;
@@ -65,24 +72,35 @@ template <typename T> T sr_add(T a, T b) {
 template <typename T> T sr_sub(T a, T b) { return sr_add(a, -b); }
 
 template <typename T> T sr_mul(T a, T b) {
+  debug_start();
   if (not isnumber(a, b)) {
+    debug_end();
     return a * b;
   }
   const T z = get_rand_double01();
   T tau, sigma;
   twoprodfma(a, b, sigma, tau);
   const T round = sr_round(sigma, tau, z);
+  debug_end();
   return sigma + round;
 }
 
 template <typename T> T sr_div(T a, T b) {
+  debug_start();
   if (not isnumber(a, b)) {
+    debug_end();
     return a / b;
   }
   const T z = get_rand_double01();
   const T sigma = a / b;
+  debug_print("sigma = %+.13a / %+.13a = %+.13a\n", a, b, sigma);
   const T tau = std::fma(-sigma, b, a) / b;
+  debug_print("-sigma * b + a = %+.13a * %+.13a + %+.13a = %+.13a\n", -sigma, b,
+              a, std::fma(-sigma, b, a));
+  debug_print("tau = (-%+.13a * %+.13a + %+.13a) / %+.13a\n", -sigma, b, a, b);
   const T round = sr_round(sigma, tau, z);
+  debug_print("sr_div(%+.13a, %+.13a) = %+.13a + %+.13a\n", a, b, sigma, tau);
+  debug_end();
   return sigma + round;
 }
 

@@ -71,15 +71,36 @@ template <typename T> struct IEEE754 : sr::utils::IEEE754<T> {
       std::conditional_t<std::is_same<T, float>::value, double, Float128_boost>;
 };
 
+template <typename T> std::string hexfloat(const T &a) {
+  if constexpr (std::is_same<T, Float128_boost>::value) {
+    return hexfloat(a);
+  }
+  std::stringstream ss;
+  ss << std::hexfloat << std::showpos << a << std::defaultfloat;
+  return ss.str();
+}
+
+std::string hexfloat(const Float128_boost &a) {
+  using u128 = boost::multiprecision::uint128_t;
+  std::stringstream ss;
+  u128 mantissa = a.backend().bits().limbs()[0];
+  auto sign = a.backend().sign() ? "-" : "+";
+  auto exp = a.backend().exponent();
+  u128 mask = 0xf;
+  mask <<= 112;
+  mantissa &= ~mask;
+  if (a == 0)
+    ss << sign << "0.0p0";
+  else
+    ss << sign << "0x1." << std::hex << mantissa << "p" << std::dec << exp;
+
+  ss << std::defaultfloat;
+  return ss.str();
+}
+
 template <typename T> T absolute_distance(const T a, const T b = 0) {
   if constexpr (std::is_same<T, Float128_boost>::value) {
     return boost::multiprecision::abs(a - b);
-    // H diff = a - b;
-    // __uint128_t u = reinterpret_cast<__uint128_t &>(diff);
-    // __uint128_t mask = 1;
-    // mask <<= 127;
-    // u &= ~mask;
-    // return reinterpret_cast<T &>(u);
   } else {
     return std::abs(a - b);
   }
@@ -97,6 +118,26 @@ template <typename T> T relative_distance(const T a, const T b) {
   return absolute_distance(a, b) / absolute_distance(a);
 }
 
+template <typename T> bool isnan(const T &a) {
+  if constexpr (std::is_same_v<T, Float128_boost>) {
+    return boost::multiprecision::isnan(a);
+  } else {
+    return std::isnan(a);
+  }
+}
+
+template <typename T> bool isinf(const T &a) {
+  if constexpr (std::is_same_v<T, Float128_boost>) {
+    return boost::multiprecision::isinf(a);
+  } else {
+    return std::isinf(a);
+  }
+}
+
+template <typename T> bool isfinite(T a) {
+  return not isnan(a) and not isinf(a);
+}
+
 template <typename T> T abs(const T &a) {
   if constexpr (std::is_same<T, Float128_boost>::value) {
     return boost::multiprecision::abs(a);
@@ -105,8 +146,15 @@ template <typename T> T abs(const T &a) {
   }
 }
 
+template <typename T> bool is_subnormal(const T a) {
+  return not isnan(a) and not isinf(a) and a != 0 and
+         abs(a) < IEEE754<T>::min_normal;
+}
+
 // compute ulp(a)
 template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
+  if (is_subnormal(a))
+    return static_cast<H>(IEEE754<T>::min_subnormal);
   int exponent;
   std::frexp(a, &exponent);
   exponent--;

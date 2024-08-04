@@ -30,6 +30,7 @@ template <typename T> struct IEEE754 {
   static constexpr I min_exponent = std::numeric_limits<T>::min_exponent;
   static constexpr I max_exponent = std::numeric_limits<T>::max_exponent;
   static constexpr I min_exponent_subnormal = min_exponent - precision;
+  static constexpr U inf_nan_mask = exponent_mask << mantissa;
 };
 
 // Implement other functions (get_exponent, predecessor, abs, pow2, etc.) using

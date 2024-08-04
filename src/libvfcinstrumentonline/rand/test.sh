@@ -8,4 +8,5 @@ fi
 verificarlo-c++ -DREAL=$REAL --function=apply_op test.cpp -std=c++17 -Wall -o test
 
 export VFC_BACKENDS="libinterflop_mca.so --precision-binary64=53 --precision-binary32=24"
+export VFC_BACKENDS_LOGGER=False
 ./test $1 $2 $3

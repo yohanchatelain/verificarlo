@@ -17,6 +17,7 @@ cc_test_lib_gen(
 
 cc_test_lib_gen(
     name = "srround_test",
+    size = "medium",
     rng = "XOROSHIRO",
 )
 

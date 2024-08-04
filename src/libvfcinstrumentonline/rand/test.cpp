@@ -8,9 +8,10 @@
 #endif
 
 template <typename T> void compute_proba(std::map<T, int> &visited_i, int n) {
-  std::cout << std::hexfloat;
+  std::cout << "Visited: " << visited_i.size() << std::endl;
   for (auto [key, value] : visited_i) {
-    std::cout << key << " " << value / (float)n << std::endl;
+    std::cout << std::hexfloat << key << " " << std::defaultfloat
+              << value / (float)n << std::endl;
   }
 }
 

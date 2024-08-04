@@ -20,10 +20,10 @@ using ::testing::Le;
 using ::testing::Lt;
 
 constexpr auto default_alpha = 0.001;
-#ifdef DEBUG
+#ifdef SR_DEBUG
 constexpr auto default_repetitions = 10;
 #else
-constexpr auto default_repetitions = 10'000;
+constexpr auto default_repetitions = 100'000;
 #endif
 namespace reference {
 // return pred(|s|)
@@ -91,64 +91,62 @@ template <typename T, typename H = typename helper::IEEE754<T>::H>
 std::pair<H, H> compute_distance_error(T a, T b, H reference) {
   T ref_cast = static_cast<T>(reference);
 
-  H distance_to_fp =
-      helper::absolute_distance(reference, static_cast<H>(ref_cast));
+  H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
   H ulp = helper::get_ulp(ref_cast);
 
-  H probability = distance_to_fp / ulp;
-  H probability_c = 1 - probability;
+  H probability_down = 1 - (error / ulp);
+  H probability_up = 1 - probability_down;
 
-  if (distance_to_fp == 0 or ulp == 0 or
-      helper::abs(reference) < helper::IEEE754<T>::min_subnormal) {
-    probability = 0;
-    probability_c = 1;
+  if (ref_cast > reference) {
+    std::swap(probability_down, probability_up);
   }
 
-  if (ref_cast > reference)
-    return {probability, probability_c};
-  else
-    return {probability_c, probability};
+  if (error == 0 or ulp == 0 or
+      helper::abs(reference) < helper::IEEE754<T>::min_subnormal or
+      helper::abs(error) < helper::IEEE754<T>::min_subnormal) {
+    probability_down = 0;
+    probability_up = 1;
+  }
+
+  return {probability_down, probability_up};
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
 std::string compute_distance_error_str(T a, T b, H reference) {
   T ref_cast = static_cast<T>(reference);
-
-  H distance_to_fp =
-      helper::absolute_distance(reference, static_cast<H>(ref_cast));
+  H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
   H ulp = helper::get_ulp(ref_cast);
 
-  // TODO: fix corner case when probability is > 1
-  H probability = distance_to_fp / ulp;
-  H probability_c = 1 - probability;
-
-  if (distance_to_fp == 0 or ulp == 0 or
-      helper::abs(reference) < helper::IEEE754<T>::min_subnormal) {
-    probability = 0;
-    probability_c = 1;
-  }
+  auto [probability_down, probability_up] =
+      compute_distance_error(a, b, reference);
 
   H next, prev;
-  if (reference + distance_to_fp == ref_cast) {
-    next = ref_cast;
-    prev = reference - distance_to_fp;
-  } else {
-    next = reference + distance_to_fp;
+  if (ref_cast < reference) {
     prev = ref_cast;
+    next = static_cast<T>(reference + error);
+  } else {
+    prev = static_cast<T>(reference - error);
+    next = ref_cast;
   }
 
   std::ostringstream os;
   os << std::hexfloat << std::setprecision(13);
   os << "-- compute_distance_error --" << std::endl;
-  os << "       reference: " << reference << std::endl;
-  os << "  reference_cast: " << ref_cast << std::endl;
-  os << "  distance_to_fp: " << distance_to_fp << std::endl;
-  os << "             ulp: " << ulp << std::endl;
-  os << "     previous_fp: " << prev << std::endl;
-  os << "         next_fp: " << next << std::endl;
+  os << "         reference: " << helper::hexfloat(reference) << std::endl;
+  if constexpr (std::is_same_v<T, float>) {
+    os << "  (float)reference: " << helper::hexfloat(ref_cast) << std::endl;
+    os << "  |ref-(float)ref|: " << helper::hexfloat(error) << std::endl;
+  }
+  if constexpr (std::is_same_v<T, double>) {
+    os << " (double)reference: " << helper::hexfloat(ref_cast) << std::endl;
+    os << " |ref-(double)ref|: " << helper::hexfloat(error) << std::endl;
+  }
+  os << "               ulp: " << helper::hexfloat(ulp) << std::endl;
+  os << "       reference ↓: " << helper::hexfloat(prev) << std::endl;
+  os << "       reference ↑: " << helper::hexfloat(next) << std::endl;
   os << std::defaultfloat;
-  os << "     probability: " << probability << std::endl;
-  os << "   probability_c: " << probability_c << std::endl;
+  os << "                 p: " << probability_down << std::endl;
+  os << "               1-p: " << probability_up << std::endl;
   return os.str();
 }
 
@@ -158,6 +156,7 @@ helper::Counter<T> eval_op(T a, T b, const int repetitions) {
   auto op = get_target_operator<T, Op>();
   helper::Counter<T> c;
   for (int i = 0; i < repetitions; i++) {
+    debug_print("*** repetition %d ***\n", i);
     T v = op(a, b);
     c[v]++;
   }
@@ -171,29 +170,14 @@ template <typename T> std::string fmt_proba(const T &x) {
   return os.str();
 }
 
-template <typename T> bool is_special(T a) {
-  return std::isnan(a) or std::isinf(a);
-}
-
-template <typename T> bool isnan(const T &a) {
-  if constexpr (std::is_same_v<T, Float128>) {
-    return a.is_nan();
-  } else {
-    return std::isnan(a);
-  }
-}
-
-template <typename T> bool isinf(const T &a) {
-  if constexpr (std::is_same_v<T, Float128>) {
-    return a.is_inf();
-  } else {
-    return std::isinf(a);
-  }
+std::string flush() {
+  debug_flush();
+  return "";
 }
 
 template <typename T, typename Op>
 void check_distribution_match(T a, T b,
-                              const int repetitions = default_repetitions,
+                              const long repetitions = default_repetitions,
                               const float alpha = default_alpha) {
   using H = typename helper::IEEE754<T>::H;
 
@@ -208,30 +192,38 @@ void check_distribution_match(T a, T b,
   auto probability_down_estimated = count_down / (double)repetitions;
   auto probability_up_estimated = count_up / (double)repetitions;
 
-  if (is_special(counter.up()) or is_special(counter.down())) {
-    if (isnan(counter.up()) and isnan(reference))
+  if (not helper::isfinite(counter.up()) or
+      not helper::isfinite(counter.down())) {
+    if (helper::isnan(counter.up()) and helper::isnan(reference))
       return;
-    if (std::isnan(counter.down()) and isnan(reference))
+    if (helper::isnan(counter.down()) and helper::isnan(reference))
       return;
-    if (isinf(counter.up()) and isinf(reference)) {
+    if (helper::isinf(counter.up()) and helper::isinf(reference)) {
       EXPECT_EQ(counter.up(), reference);
     }
-    if (isinf(counter.down()) and isinf(reference)) {
+    if (helper::isinf(counter.down()) and helper::isinf(reference)) {
       EXPECT_EQ(counter.down(), reference);
     }
     return;
   }
 
+  /* code */
   EXPECT_THAT(static_cast<double>(probability_down), AllOf(Ge(0.0), Le(1.0)))
-      << "Probability down is not in [0, 1] range\n"
-      << "probability_down: " << probability_down << "\n"
-      << "probability_up: " << probability_up << "\n"
-      << "probability_down_estimated: " << probability_down_estimated << "\n"
-      << "probability_up_estimated: " << probability_up_estimated << "\n"
-      << "count_down: " << count_down << "\n"
-      << "count_up: " << count_up << "\n"
-      << "repetitions: " << repetitions << "\n"
-      << compute_distance_error_str(a, b, reference);
+      << "Probability ↓ is not in [0, 1] range\n"
+      << "-- theoretical -\n"
+      << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+      << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+      << "--- estimated --\n"
+      << "     sample size: " << repetitions << "\n"
+      << "              #↓: " << count_down << " ("
+      << fmt_proba(probability_down_estimated) << ")\n"
+      << "              #↑: " << count_up << " ("
+      << fmt_proba(probability_up_estimated) << ")\n"
+      << std::hexfloat << ""
+      << "              ↓: " << counter.down() << "\n"
+      << "              ↑: " << counter.up() << "\n"
+      << compute_distance_error_str(a, b, reference) << std::defaultfloat
+      << flush();
 
   auto test = helper::binomial_test(repetitions, count_down,
                                     static_cast<double>(probability_down));
@@ -248,9 +240,9 @@ void check_distribution_match(T a, T b,
       << "              op: " << op_name << "\n"
       << "           alpha: " << alpha << "\n"
       << std::hexfloat << std::setprecision(13) << ""
-      << "               a: " << a << "\n"
-      << "               b: " << b << "\n"
-      << "             a+b: " << reference << "\n"
+      << "               a: " << helper::hexfloat(a) << "\n"
+      << "               b: " << helper::hexfloat(b) << "\n"
+      << "             a+b: " << helper::hexfloat(reference) << "\n"
       << std::defaultfloat << ""
       << "-- theoretical -\n"
       << "   probability ↓: " << fmt_proba(probability_down) << "\n"
@@ -263,9 +255,11 @@ void check_distribution_match(T a, T b,
       << fmt_proba(probability_up_estimated) << ")\n"
       << "         p-value: " << test.pvalue << "\n"
       << std::hexfloat << ""
-      << "              ↓: " << counter.down() << "\n"
-      << "              ↑: " << counter.up() << "\n"
-      << compute_distance_error_str(a, b, reference) << std::defaultfloat;
+      << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
+      << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
+      << compute_distance_error_str(a, b, reference) << std::defaultfloat
+      << flush();
+  debug_reset();
 }
 
 template <typename T> std::vector<T> get_simple_case() {
@@ -310,12 +304,17 @@ template <typename T, typename Op> void do_run_test_simple_case() {
   }
 }
 
-template <typename T, typename Op> void do_run_test_random01() {
-  helper::RNG rng;
+template <typename T, typename Op>
+void do_run_test_random(const double start_range_1st = 0.0,
+                        const double end_range_1st = 1.0,
+                        const double start_range_2nd = 0.0,
+                        const double end_range_2nd = 1.0) {
+  helper::RNG rng1(start_range_1st, end_range_1st);
+  helper::RNG rng2(start_range_2nd, end_range_2nd);
 
-  for (int i = 0; i < 1000; i++) {
-    T a = rng();
-    T b = rng();
+  for (int i = 0; i < 100; i++) {
+    T a = rng1();
+    T b = rng2();
     check_distribution_match<T, Op>(a, b);
     check_distribution_match<T, Op>(a, -b);
     check_distribution_match<T, Op>(-a, b);
@@ -349,116 +348,154 @@ TEST(SRRoundTest, BasicAssertionsDiv) {
 }
 
 TEST(SRRoundTest, Random01AssertionsAdd) {
-  do_run_test_random01<float, helper::AddOp<float>>();
-  do_run_test_random01<double, helper::AddOp<double>>();
+  do_run_test_random<float, helper::AddOp<float>>();
+  do_run_test_random<double, helper::AddOp<double>>();
 }
 
-// TEST(GetTwoSumTest, Random01Assertions) {
-//   RNG rng;
+TEST(SRRoundTest, Random01AssertionsSub) {
+  do_run_test_random<float, helper::AddOp<float>>();
+  do_run_test_random<double, helper::SubOp<double>>();
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     float a = rng();
-//     float b = rng();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
+TEST(SRRoundTest, Random01AssertionsMul) {
+  do_run_test_random<float, helper::MulOp<float>>();
+  do_run_test_random<double, helper::MulOp<double>>();
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     double a = rng();
-//     double b = rng();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
-// }
+TEST(SRRoundTest, Random01AssertionsDiv) {
+  do_run_test_random<float, helper::DivOp<float>>();
+  do_run_test_random<double, helper::DivOp<double>>();
+}
 
-// TEST(GetTwoSumTest, RandomNoOverlapAssertions) {
-//   RNG rng_0v1_float(0, 1);
-//   RNG rng_24v25_float(0x1p24, 0x1p25);
+template <typename T, typename Op> void do_random_no_overlap_test() {
+  double start_range_1st = 0.0;
+  double end_range_1st = 1.0;
+  int s2;
+  if constexpr (std::is_same_v<T, float>) {
+    s2 = -25;
+  } else {
+    s2 = -54;
+  };
+  double start_range_2nd = std::ldexp(1.0, s2 + 1);
+  double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  do_run_test_random<T, Op>(start_range_1st, end_range_1st, start_range_2nd,
+                            end_range_2nd);
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     float a = rng_0v1_float();
-//     float b = rng_24v25_float();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
+//
+TEST(SRRoundTest, RandomNoOverlapAssertionsAdd) {
+  using opf = helper::AddOp<float>;
+  using opd = helper::AddOp<double>;
+  do_random_no_overlap_test<float, opf>();
+  do_random_no_overlap_test<double, opd>();
+}
 
-//   RNG rng_0v1_double(0, 1);
-//   RNG rng_53v54_double(0x1p53, 0x1p54);
+TEST(SRRoundTest, RandomNoOverlapAssertionsSub) {
+  using opf = helper::SubOp<float>;
+  using opd = helper::SubOp<double>;
+  do_random_no_overlap_test<float, opf>();
+  do_random_no_overlap_test<double, opd>();
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     double a = rng_0v1_double();
-//     double b = rng_53v54_double();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
-// }
+TEST(SRRoundTest, RandomNoOverlapAssertionsMul) {
+  using opf = helper::MulOp<float>;
+  using opd = helper::MulOp<double>;
+  do_random_no_overlap_test<float, opf>();
+  do_random_no_overlap_test<double, opd>();
+}
 
-// TEST(GetTwoSumTest, RandomLastBitOverlapAssertions) {
-//   RNG rng_1v2_float(1, 2);
-//   RNG rng_23v24_float(0x1p23, 0x1p24);
+TEST(SRRoundTest, RandomNoOverlapAssertionsDiv) {
+  using opf = helper::DivOp<float>;
+  using opd = helper::DivOp<double>;
+  do_random_no_overlap_test<float, opf>();
+  do_random_no_overlap_test<double, opd>();
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     float a = rng_1v2_float();
-//     float b = rng_23v24_float();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
+template <typename T, typename Op> void do_random_last_bit_overlap() {
+  double start_range_1st = 1.0;
+  double end_range_1st = 2.0;
+  int s2;
+  if constexpr (std::is_same_v<T, float>) {
+    s2 = -24;
+  } else {
+    s2 = -53;
+  }
+  double start_range_2nd = std::ldexp(1.0, s2 + 1);
+  double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  do_run_test_random<T, Op>(start_range_1st, end_range_1st, start_range_2nd,
+                            end_range_2nd);
+}
 
-//   RNG rng_1v2_double(1, 2);
-//   RNG rng_52v53_double(0x1p52, 0x1p53);
+TEST(SRRoundTest, RandomLastBitOverlapAddAssertions) {
+  using opf = helper::AddOp<float>;
+  using opd = helper::AddOp<double>;
+  do_random_last_bit_overlap<float, opf>();
+  do_random_last_bit_overlap<double, opd>();
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     double a = rng_1v2_double();
-//     double b = rng_52v53_double();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
-// }
+TEST(SRRoundTest, RandomLastBitOverlapSubAssertions) {
+  using opf = helper::SubOp<float>;
+  using opd = helper::SubOp<double>;
+  do_random_last_bit_overlap<float, opf>();
+  do_random_last_bit_overlap<double, opd>();
+}
 
-// TEST(GetTwoSumTest, RandomMidOverlapAssertions) {
-//   RNG rng_0v1_float(0, 1);
-//   RNG rng_12v13_float(0x1p12, 0x1p13);
+TEST(SRRoundTest, RandomLastBitOverlapMulAssertions) {
+  using opf = helper::MulOp<float>;
+  using opd = helper::MulOp<double>;
+  do_random_last_bit_overlap<float, opf>();
+  do_random_last_bit_overlap<double, opd>();
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     float a = rng_0v1_float();
-//     float b = rng_12v13_float();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
+TEST(SRRoundTest, RandomLastBitOverlapDivAssertions) {
+  using opf = helper::DivOp<float>;
+  using opd = helper::DivOp<double>;
+  do_random_last_bit_overlap<float, opf>();
+  do_random_last_bit_overlap<double, opd>();
+}
 
-//   RNG rng_0v1_double(0, 1);
-//   RNG rng_26v27_double(0x1p26, 0x1p27);
+template <typename T, typename Op> void do_random_mid_overlap_test() {
+  double start_range_1st = 1.0;
+  double end_range_1st = 2.0;
+  int s2;
+  if constexpr (std::is_same_v<T, float>) {
+    s2 = -13;
+  } else {
+    s2 = -27;
+  };
+  double start_range_2nd = std::ldexp(1.0, s2 + 1);
+  double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  do_run_test_random<T, Op>(start_range_1st, end_range_1st, start_range_2nd,
+                            end_range_2nd);
+}
 
-//   for (int i = 0; i < 1000; i++) {
-//     double a = rng_0v1_double();
-//     double b = rng_26v27_double();
-//     test_equality(a, b);
-//     test_equality(a, -b);
-//     test_equality(-a, b);
-//     test_equality(-a, -b);
-//   }
-// }
+TEST(SRRoundTest, RandomMidOverlapAddAssertions) {
+  using opf = helper::AddOp<float>;
+  using opd = helper::AddOp<double>;
+  do_random_mid_overlap_test<float, opf>();
+  do_random_mid_overlap_test<double, opd>();
+}
 
-// TEST(GetTwoSumTest, BinadeAssertions) {
-//   for (int i = -126; i < 127; i++) {
-//     testBinade<float>(i);
-//     testBinade<double>(i);
-//   }
-// }
+TEST(SRRoundTest, RandomMidOverlapSubAssertions) {
+  using opf = helper::SubOp<float>;
+  using opd = helper::SubOp<double>;
+  do_random_mid_overlap_test<float, opf>();
+  do_random_mid_overlap_test<double, opd>();
+}
+
+TEST(SRRoundTest, RandomMidOverlapMulAssertions) {
+  using opf = helper::MulOp<float>;
+  using opd = helper::MulOp<double>;
+  do_random_mid_overlap_test<float, opf>();
+  do_random_mid_overlap_test<double, opd>();
+}
+
+TEST(SRRoundTest, RandomMidOverlapDivAssertions) {
+  using opf = helper::DivOp<float>;
+  using opd = helper::DivOp<double>;
+  do_random_mid_overlap_test<float, opf>();
+  do_random_mid_overlap_test<double, opd>();
+}
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
