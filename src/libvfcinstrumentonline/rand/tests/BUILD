@@ -30,6 +30,13 @@ cc_test_lib_gen(
 )
 
 cc_test_lib_gen(
+    name = "srround_xoroshiro_test_x2",
+    size = "medium",
+    src = "//tests:srround_test_x2.cpp",
+    rng = "XOROSHIRO",
+)
+
+cc_test_lib_gen(
     name = "srround_shishua_test",
     size = "medium",
     src = "//tests:srround_test.cpp",

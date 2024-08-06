@@ -2,6 +2,9 @@
 #define __VERIFICARLO_SRLIB_UTILS_HPP__
 
 #include <cstdint>
+#include <immintrin.h>
+
+#include "vector_types.hpp"
 
 #include "debug.hpp"
 #ifdef __clang__
@@ -14,23 +17,87 @@ typedef _Float128 Float128;
 
 namespace sr::utils {
 
-template <typename T> struct IEEE754 {
-  using I = std::conditional_t<std::is_same<T, float>::value, int32_t, int64_t>;
-  using U =
-      std::conditional_t<std::is_same<T, float>::value, uint32_t, uint64_t>;
-  static constexpr I bias = std::numeric_limits<T>::max_exponent - 1;
-  static constexpr I mantissa = std::numeric_limits<T>::digits - 1;
-  static constexpr I precision = std::numeric_limits<T>::digits;
-  static constexpr T ulp = std::numeric_limits<T>::epsilon();
-  static constexpr U exponent_mask =
-      (std::numeric_limits<T>::max_exponent << 1) - 1;
-  static constexpr T max_normal = std::numeric_limits<T>::max();
-  static constexpr T min_normal = std::numeric_limits<T>::min();
-  static constexpr T min_subnormal = std::numeric_limits<T>::denorm_min();
-  static constexpr I min_exponent = std::numeric_limits<T>::min_exponent;
-  static constexpr I max_exponent = std::numeric_limits<T>::max_exponent;
-  static constexpr I min_exponent_subnormal = min_exponent - precision;
-  static constexpr U inf_nan_mask = exponent_mask << mantissa;
+template <typename T> struct IEEE754 {};
+
+// specialize IEEE754 for float and double
+
+template <> struct IEEE754<float> {
+  using I = int32_t;
+  using U = uint32_t;
+  static constexpr I sign = 1;
+  static constexpr I exponent = 8;
+  static constexpr I mantissa = 23;
+  static constexpr I precision = 24;
+  static constexpr float ulp = 0x1.0p-24f;
+  static constexpr I bias = 127;
+  static constexpr U exponent_mask = 0xFF;
+  static constexpr float max_normal = 0x1.fffffep127f;
+  static constexpr float min_normal = 0x1.0p-126f;
+  static constexpr float min_subnormal = 0x1.0p-149f;
+  static constexpr I min_exponent = -126;
+  static constexpr I max_exponent = 127;
+  static constexpr I min_exponent_subnormal = -149;
+  static constexpr U inf_nan_mask = 0x7F800000;
+};
+
+template <> struct IEEE754<scalar::floatx2_t> {
+  using F = scalar::floatx2_t;
+  using I = scalar::int32x2_t;
+  using U = scalar::uint32x2_t;
+  static constexpr I sign = {.i32 = {1, 1}};
+  static constexpr I exponent = {.i32 = {8, 8}};
+  static constexpr I mantissa = {.i32 = {23, 23}};
+  static constexpr I precision = {.i32 = {24, 24}};
+  static constexpr F ulp = {.f = {0x1.0p-24f, 0x1.0p-24f}};
+  static constexpr I bias = {.i32 = {127, 127}};
+  static constexpr U exponent_mask = {.u32 = {0xFF, 0xFF}};
+  static constexpr F max_normal = {.f = {0x1.fffffep127f, 0x1.fffffep127f}};
+  static constexpr F min_normal = {.f = {0x1.0p-126f, 0x1.0p-126f}};
+  static constexpr F min_subnormal = {.f = {0x1.0p-149f, 0x1.0p-149f}};
+  static constexpr I min_exponent = {.i32 = {-126, -126}};
+  static constexpr I max_exponent = {.i32 = {127, 127}};
+  static constexpr I min_exponent_subnormal = {.i32 = {-149, -149}};
+  static constexpr U inf_nan_mask = {.u32 = {0x7F800000, 0x7F800000}};
+};
+
+template <> struct IEEE754<double> {
+  using I = int64_t;
+  using U = uint64_t;
+  static constexpr I sign = 1;
+  static constexpr I exponent = 11;
+  static constexpr I mantissa = 52;
+  static constexpr I precision = 53;
+  static constexpr double ulp = 0x1.0p-53;
+  static constexpr I bias = 1023;
+  static constexpr U exponent_mask = 0x7FF;
+  static constexpr double max_normal = 0x1.fffffffffffffp1023;
+  static constexpr double min_normal = 0x1.0p-1022;
+  static constexpr double min_subnormal = 0x1.0p-1074;
+  static constexpr I min_exponent = -1022;
+  static constexpr I max_exponent = 1023;
+  static constexpr I min_exponent_subnormal = -1074;
+  static constexpr U inf_nan_mask = 0x7FF0000000000000;
+};
+
+template <> struct IEEE754<sse4_2::doublex2_t> {
+  using F = sse4_2::doublex2_t;
+  using I = sse4_2::int64x2_t;
+  using U = sse4_2::uint64x2_t;
+  static constexpr I sign = I{1, 1};
+  static constexpr I exponent = I{11, 11};
+  static constexpr I mantissa = I{52, 52};
+  static constexpr I precision = I{53, 53};
+  static constexpr F ulp = F{0x1.0p-53, 0x1.0p-53};
+  static constexpr I bias = I{1023, 1023};
+  static constexpr U exponent_mask = U{0x7FF, 0x7FF};
+  static constexpr F max_normal =
+      F{0x1.fffffffffffffp1023, 0x1.fffffffffffffp1023};
+  static constexpr F min_normal = F{0x1.0p-1022, 0x1.0p-1022};
+  static constexpr F min_subnormal = F{0x1.0p-1074, 0x1.0p-1074};
+  static constexpr I min_exponent = I{-1022, -1022};
+  static constexpr I max_exponent = I{1023, 1023};
+  static constexpr I min_exponent_subnormal = I{-1074, -1074};
+  static constexpr U inf_nan_mask = U{0x7FF0000000000000, 0x7FF0000000000000};
 };
 
 // Implement other functions (get_exponent, predecessor, abs, pow2, etc.) using
@@ -47,6 +114,12 @@ template <typename T> struct IEEE754 {
 template <typename T> T get_predecessor_abs(T a) {
   T phi = std::is_same<T, float>::value ? 1.0f - 0x1.0p-24f : 1.0 - 0x1.0p-53;
   T z = a * phi;
+  return z;
+}
+
+template <> scalar::floatx2_t get_predecessor_abs(scalar::floatx2_t a) {
+  scalar::floatx2_t phi = {.f = {1.0f - 0x1.0p-24f, 1.0f - 0x1.0p-24f}};
+  scalar::floatx2_t z = scalar::mul(a, phi);
   return z;
 }
 
@@ -83,6 +156,22 @@ template <typename T, typename I = typename IEEE754<T>::I> I get_exponent(T a) {
   debug_print("get_exponent(%.13a) = %d\n", a, exp);
   debug_end();
   return exp;
+}
+
+template <>
+__attribute__((target("sse4.2,avx,avx2,avx512f"))) scalar::int32x2_t
+get_exponent(scalar::floatx2_t a) {
+  scalar::int32x2_t zero = {.u64 = 0};
+  if (a.d == 0) {
+    return zero;
+  }
+  int32_t mantissa = IEEE754<float>::mantissa;
+  uint32_t exponent_mask = IEEE754<float>::exponent_mask;
+  int32_t bias = IEEE754<float>::bias;
+  a.u64 >>= mantissa;
+  a.u32[0] &= exponent_mask - bias;
+  a.u32[1] &= exponent_mask - bias;
+  return a;
 }
 
 template <typename T> T pow2(int n) {
