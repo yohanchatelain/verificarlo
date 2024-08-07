@@ -43,6 +43,17 @@ cc_test_lib_gen(
     rng = "SHISHUA",
 )
 
+cc_test_lib_gen(
+    name = "srround_xoroshiro_test_hw",
+    size = "medium",
+    src = "//tests:srround_test_hw.cpp",
+    rng = "XOROSHIRO",
+    deps = [
+        "@hwy",
+        "@hwy//:math",
+    ],
+)
+
 test_suite(
     name = "all",
     tests = [

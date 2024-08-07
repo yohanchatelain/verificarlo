@@ -6,10 +6,27 @@
 ###############################################################################
 
 # MODULE.bazel
+module(
+    name = "sr",
+    version = "0.0.1",
+)
 
 # Choose the most recent version available at
 # https://registry.bazel.build/modules/googletest
+bazel_dep(name = "rules_license", version = "0.0.7")
 bazel_dep(name = "googletest", version = "1.15.0")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "rules_cc", version = "0.0.9")
+bazel_dep(name = "platforms", version = "0.0.10")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "hwy",
+    urls = ["https://github.com/google/highway/archive/refs/tags/1.2.0.zip"],
+    integrity = "sha256-fbtKAGj5hhhBr5Bggtsrj4aIodC2OHb1njB8LGfom8A=",
+    strip_prefix = "highway-1.2.0",
+)
 
 # Boost
 # Famous C++ library that has given rise to many new additions to the C++ Standard Library

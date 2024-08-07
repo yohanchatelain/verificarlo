@@ -118,11 +118,6 @@ template <typename T> T get_predecessor_abs(T a) {
   return z;
 }
 
-template <> scalar::floatx2_t get_predecessor_abs(scalar::floatx2_t a) {
-  scalar::floatx2_t phi = {.f = {1.0f - 0x1.0p-24f, 1.0f - 0x1.0p-24f}};
-  scalar::floatx2_t z = scalar::mul(a, phi);
-  return z;
-}
 
 template <typename T, typename U = typename IEEE754<T>::U>
 U get_unbiased_exponent(T a) {
@@ -159,21 +154,6 @@ template <typename T, typename I = typename IEEE754<T>::I> I get_exponent(T a) {
   return exp;
 }
 
-template <>
-__attribute__((target("sse4.2,avx,avx2,avx512f"))) scalar::int32x2_t
-get_exponent(scalar::floatx2_t a) {
-  scalar::int32x2_t zero = {.u64 = 0};
-  if (a.d == 0) {
-    return zero;
-  }
-  int32_t mantissa = IEEE754<float>::mantissa;
-  uint32_t exponent_mask = IEEE754<float>::exponent_mask;
-  int32_t bias = IEEE754<float>::bias;
-  a.u64 >>= mantissa;
-  a.u32[0] &= exponent_mask - bias;
-  a.u32[1] &= exponent_mask - bias;
-  return a;
-}
 
 template <typename T> T pow2(int n) {
   // if n <= min_exponent, take into account precision loss due to subnormal

@@ -19,6 +19,7 @@ cc_library(
         "rand.hpp",
         "shishua.h",
         "sr.hpp",
+        "sr_hw.hpp",
         "ud.hpp",
         "utils.hpp",
         "vector_types.hpp",
@@ -43,4 +44,44 @@ cc_library(
     ],
     copts = COPTS,
     visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "rand_hw",
+    srcs = [
+        "debug.hpp",
+        "eft.hpp",
+        "main.cpp",
+        "rand.hpp",
+        "shishua.h",
+        "sr.hpp",
+        "ud.hpp",
+        "utils.hpp",
+        "vector_types.hpp",
+        "xoroshiro256+.hpp",
+    ],
+    copts = COPTS,
+    deps = [
+        "@hwy",
+        "@hwy//:math",
+    ],
+)
+
+cc_binary(
+    name = "rand_hwy",
+    srcs = [
+        "test_sr_hw.cpp",
+        "//src:debug.hpp",
+        "//src:sr_hw.hpp",
+        "//src:utils.hpp",
+        "//src:vector_types.hpp",
+    ],
+    copts = COPTS + [
+        "-DXOROSHIRO",
+        "-mavx2",
+        "-O2",
+    ],
+    deps = [
+        "@hwy",
+    ],
 )

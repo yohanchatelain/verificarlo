@@ -33,7 +33,7 @@ def cc_test_gen(name, src = None, deps = DEPS, copts = COPTS, size = "small"):
         size = size,
     )
 
-def cc_test_lib_gen(name, rng, src = None, deps = DEPS, copts = COPTS, size = "small"):
+def cc_test_lib_gen(name, rng, src = None, deps = None, copts = COPTS, size = "small"):
     srcs = [src] if src else [name + ".cpp"]
     srcs += HEADERS
     print(srcs)
@@ -41,7 +41,7 @@ def cc_test_lib_gen(name, rng, src = None, deps = DEPS, copts = COPTS, size = "s
         name = name,
         srcs = srcs,
         copts = copts + RNG_COPTS[rng],
-        deps = deps,
+        deps = DEPS + (deps if deps else []),
         size = size,
         visibility = ["//visibility:public"],
     )

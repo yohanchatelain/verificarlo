@@ -75,7 +75,7 @@ static inline double2 isnumber(double2 a, double2 b) {
       ~_mm_cmpeq_epi64(_mm_and_si128(b, naninf_mask), naninf_mask);
 
   return _mm_and_si128(_mm_and_si128(a_not_zero, a_not_naninf),
-                       _mm_and_si128(b_not_zero, b_not_naninf))
+                       _mm_and_si128(b_not_zero, b_not_naninf));
 }
 
 static inline long2 cmpgt(long2 a, long2 b) { return _mm_cmpgt_epi64(a, b); }
@@ -160,6 +160,135 @@ static inline double2 sr_add(double2 a, double2 b) {
 }
 
 } // namespace x2double
+
+namespace x4double {
+
+static const double4 zero = _mm256_setzero_pd();
+static const double4 one = _mm256_set1_pd(1.0);
+static const long4 naninf_mask = _mm256_set1_epi64x(0x7ff0000000000000);
+static const int _mantissa = sr::utils::IEEE754<double>::mantissa;
+static const int _min_exponent = sr::utils::IEEE754<double>::min_exponent;
+
+static inline double4 get_rand_double01() {
+  return xoroshiro256plus::avx::get_rand_double01(rng_state);
+}
+
+static inline double4 get_predecessor_abs(double4 a) {
+  const double4 phi = _mm256_set1_epi64x(1.0 - 0x1.0p-53);
+  return _mm256_mul_pd(a, phi);
+}
+
+static inline long4 get_exponent(double4 a) {
+  const long4 exp_mask = _mm256_set1_epi64x(0x7ff0000000000000ULL);
+  const long4 bias = _mm256_set1_pd(1023);
+
+  double4 is_zero = _mm256_cmp_pd(a, zero, _CMP_EQ_OQ);
+
+  // Extract exponent using floating-point operations
+  long4 a_bits = _mm256_castpd_si256(a);
+  long4 exp_bits = _mm256_and_pd(a_bits, exp_mask);
+  exp_bits = _mm256_srli_epi64(exp_bits, 52);
+
+  // Subtract bias
+  exp_bits = _mm256_sub_epi64(exp_bits, bias);
+
+  // Blend result with zero for zero inputs
+  return _mm256_blendv_pd(exp_bits, zero, is_zero);
+}
+
+static inline double4 isnumber(double4 a, double4 b) {
+
+  long4 a_int = _mm256_castpd_si256(a);
+  long4 b_int = _mm256_castpd_si256(b);
+  long4 a_not_zero = ~_mm256_cmpeq_epi64(a_int, zero);
+  long4 b_not_zero = ~_mm256_cmpeq_epi64(b_int, zero);
+  long4 a_not_naninf =
+      ~_mm256_cmpeq_epi64(_mm256_and_si256(a, naninf_mask), naninf_mask);
+  long4 b_not_naninf =
+      ~_mm256_cmpeq_epi64(_mm256_and_si256(b, naninf_mask), naninf_mask);
+
+  return _mm256_and_si256(_mm256_and_si256(a_not_zero, a_not_naninf),
+                          _mm256_and_si256(b_not_zero, b_not_naninf));
+}
+
+static inline long4 cmpgt(long4 a, long4 b) { return _mm256_cmpgt_epi64(a, b); }
+
+static inline double4 pow2(long4 n) {
+
+  long4 min_exp_vec = _mm256_set1_epi64x(_min_exponent);
+  long4 one = _mm256_set1_epi64x(1);
+  long4 mantissa_vec = _mm256_set1_epi64x(_mantissa);
+
+  long4 is_subnormal = cmpgt(min_exp_vec, n);
+  long4 precision_loss = _mm256_sub_epi64(min_exp_vec, n - 1);
+  precision_loss = _mm256_and_si256(precision_loss, is_subnormal);
+
+  long4 n_adjusted = _mm256_blendv_epi8(n, one, is_subnormal);
+  double4 res = _mm256_blendv_pd(one, zero, _mm256_castsi256_pd(is_subnormal));
+
+  long4 i = _mm256_castpd_si128(res);
+  long4 shift = _mm_sub_epi64(mantissa_vec, precision_loss);
+  long4 to_add = _mm_sllv_epi64(n_adjusted, shift);
+  i = _mm_add_epi64(i, to_add);
+  return _mm_castsi128_pd(i);
+}
+
+static inline double2 abs(double2 a) {
+  const double2 sign_mask = _mm_set1_pd(-0.0);
+  return _mm_andnot_pd(sign_mask, a);
+}
+
+static inline double2 sr_round(double2 sigma, double2 tau, double2 z) {
+  const int _mantissa = sr::utils::IEEE754<double>::mantissa;
+  const int _min_exponent = sr::utils::IEEE754<double>::min_exponent;
+
+  const double2 zero = _mm_setzero_pd();
+  const long2 mantissa = _mm_set1_epi64x(_mantissa);
+
+  double2 tau_is_zero = _mm_cmp_pd(tau, zero, _CMP_EQ_OQ);
+  double2 sign_tau = _mm_cmp_pd(tau, zero, _CMP_LT_OQ);
+  double2 sign_sigma = _mm_cmp_pd(sigma, zero, _CMP_LT_OQ);
+  double2 sign_diff = _mm_xor_pd(sign_tau, sign_sigma);
+
+  double2 pred_sigma = get_predecessor_abs(sigma);
+  long2 eta = get_exponent(sigma);
+  long2 pred_eta = get_exponent(pred_sigma);
+  eta = _mm_blendv_pd(eta, pred_eta, sign_diff);
+
+  double2 ulp = pow2(_mm_sub_epi64(eta, mantissa));
+  ulp = _mm_blendv_pd(ulp, _mm_sub_pd(zero, ulp), sign_tau);
+
+  double2 pi = _mm_mul_pd(ulp, z);
+  double2 abs_tau_plus_pi = abs(_mm_add_pd(tau, pi));
+  double2 abs_ulp = abs(ulp);
+  double2 round = _mm_blendv_pd(
+      zero, ulp, _mm_cmp_pd(abs_tau_plus_pi, abs_ulp, _CMP_GE_OQ));
+
+  return _mm_blendv_pd(round, sigma, tau_is_zero);
+}
+
+static inline double2 sr_add(double2 a, double2 b) {
+  double2 is_number = isnumber(a, b);
+  double2 normal_sum = _mm_add_pd(a, b);
+
+  double2 z = get_rand_double01();
+  double2 sigma, tau;
+
+  double2 tmp = a;
+  a = _mm_min_pd(a, b);
+  b = _mm_max_pd(tmp, b);
+
+  sigma = normal_sum;
+  double2 v = _mm_sub_pd(sigma, a);
+  tau = _mm_sub_pd(b, v);
+
+  double2 round = sr_round(sigma, tau, z);
+  double2 stochastic_sum = _mm_add_pd(sigma, round);
+
+  return _mm_blendv_pd(normal_sum, stochastic_sum, is_number);
+}
+
+} // namespace x4double
 
 // Helper function to get random doubles between 0 and 1
 __m256d get_rand_double01_avx() {

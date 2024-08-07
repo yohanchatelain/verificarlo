@@ -111,29 +111,6 @@ template <typename T> T sr_roundx2(const T sigma, const T tau, const T z) {
   return round;
 }
 
-// template <>
-// scalar::floatx2_t sr_roundx2(const scalar::floatx2_t &sigma,
-//                              const scalar::floatx2_t &tau,
-//                              const scalar::floatx2_t &z) {
-//   using T = scalar::floatx2_t;
-//   if (sse4_2::not0(isnumberx2<sse4_2::boolx2_t, T>(sigma, tau))) {
-//     return {sr_round(sigma.f[0], tau.f[0], z.f[0]),
-//             sr_round(sigma.f[1], tau.f[1], z.f[1])};
-//   }
-//   constexpr int32_t mantissa = sr::utils::IEEE754<float>::mantissa;
-//   const auto sign_tau = sse4_2::cmplt(tau, sse4_2::setzero());
-//   const auto sign_sigma = sse4_2::cmplt(sigma, sse4_2::setzero());
-//   const scalar::int32x2_t eta;
-//   const auto sign_cmp = scalar::bitwise_xor(sign_tau, sign_sigma);
-//   scalar::int32x2_t eta;
-//   eta.u32[0] = sse4_2::blendv(
-//       sse4_2::get_exponent(sse4_2::get_predecessor_abs(sigma.f[0])),
-//       sse4_2::get_exponent(sigma.f[0]), sign_cmp.u32[0]);
-//   eta.u32[1] = sse4_2::blendv(
-//       sse4_2::get_exponent(sse4_2::get_predecessor_abs(sigma.f[1])),
-//       sse4_2::get_exponent(sigma.f[1]), sign_cmp.u32[1]);
-// }
-
 template <typename T> T sr_add(T a, T b) {
   debug_start();
   if (not isnumber(a, b)) {
@@ -149,35 +126,6 @@ template <typename T> T sr_add(T a, T b) {
   return sigma + round;
 }
 
-// template <typename T> T sr_addx2(T a, T b) {
-//   if (sse4_2::not0(isnumberx2<sse4_2::boolx2_t, T>(a, b))) {
-//     if constexpr (std::is_same<T, scalar::floatx2_t>::value) {
-//       return {.f = {sr_add(a.f[0], b.f[0]), sr_add(a.f[1], b.f[1])}};
-//     }
-//     if constexpr (std::is_same<T, scalar::double_t>::value) {
-//       return {.f = {sr_add(a.f[0], b.f[0]), sr_add(a.f[1], b.f[1])}};
-//     }
-//     return sse4_2::add(a, b);
-//   }
-//   T z = get_rand_double01_x2();
-//   T tau, sigma, round;
-//   twosumx2(a, b, sigma, tau);
-//   round = sr_roundx2(sigma, tau, z);
-//   return sigma + round;
-// }
-
-// template <>
-// scalar::floatx2_t sr_addx2(scalar::floatx2_t a, scalar::floatx2_t b) {
-//   using T = scalar::floatx2_t;
-//   if (sse4_2::not0(isnumberx2<sse4_2::boolx2_t, T>(a, b))) {
-//     return {.f = {sr_add(a.f[0], b.f[0]), sr_add(a.f[1], b.f[1])}};
-//   }
-//   T z = get_rand_float01_x2();
-//   T tau, sigma, round;
-//   twosumx2(a, b, sigma, tau);
-//   round = sr_roundx2(sigma, tau, z);
-//   return scalar::add(sigma, round);
-// }
 
 template <typename T> T sr_sub(T a, T b) { return sr_add(a, -b); }
 
