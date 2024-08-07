@@ -6,6 +6,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <sys/syscall.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <type_traits>
 #include <unistd.h>
 #include <vector>
@@ -37,12 +40,15 @@ using rng_t = xoroshiro256plus::scalar::rn_uint64;
 typedef xoroshiro256plus::scalar::state rng_state_t;
 static __thread rng_state_t rng_state;
 using rn_int64_x2 = sse4_2::int64x2_t;
+using rn_int64_x4 = avx::int64x4_t;
 using rn_int32_x4 = sse4_2::int32x4_t;
 using float2 = scalar::floatx2_t;
 using float4 = sse4_2::floatx4_t;
 using double2 = sse4_2::doublex2_t;
 typedef xoroshiro256plus::sse4_2::state rng_state_x2_t;
 static __thread rng_state_x2_t rng_state_x2;
+typedef xoroshiro256plus::avx2::state rng_state_x4_t;
+static __thread rng_state_x4_t rng_state_x4;
 #elif defined(SHISHUA)
 #include "shishua.h"
 typedef prng_state rng_state_t;
@@ -101,6 +107,16 @@ rn_int64_x2 get_rand_uint64_x2() {
   rn_int64_x2 rng;
 #ifdef XOROSHIRO
   rng = xoroshiro256plus::sse4_2::next(rng_state_x2);
+#else
+#error "No PRNG defined"
+#endif
+  return rng;
+}
+
+rn_int64_x4 get_rand_uint64_x4() {
+  rn_int64_x4 rng;
+#ifdef XOROSHIRO
+  rng = xoroshiro256plus::avx2::next(rng_state_x4);
 #else
 #error "No PRNG defined"
 #endif

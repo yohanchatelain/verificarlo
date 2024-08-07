@@ -13,6 +13,7 @@ typedef union {
   uint32_t u32[2];
   int32_t i32[2];
 } double_t;
+
 typedef double_t floatx2_t;
 typedef double_t uint64_t;
 typedef double_t int64_t;
@@ -20,8 +21,9 @@ typedef double_t uint32x2_t;
 typedef double_t int32x2_t;
 typedef double_t boolx2_t;
 
-floatx2_t add(floatx2_t a,
-              floatx2_t b){return {.f = {a.f[0] + b.f[0], a.f[1] + b.f[1]}}};
+floatx2_t add(floatx2_t a, floatx2_t b) {
+  return {.f = {a.f[0] + b.f[0], a.f[1] + b.f[1]}};
+}
 boolx2_t cmplt(floatx2_t a, floatx2_t b) {
   return {.u32 = {a.f[0] < b.f[0], a.f[1] < b.f[1]}};
 }
@@ -34,6 +36,7 @@ boolx2_t bitwise_xor(boolx2_t a, boolx2_t b) {
 
 floatx2_t mul(floatx2_t a, floatx2_t b) {
   return {.f = {a.f[0] * b.f[0], a.f[1] * b.f[1]}};
+}
 
 } // namespace scalar
 
@@ -80,19 +83,23 @@ doublex2_t add(doublex2_t a, doublex2_t b) { return _mm_add_pd(a, b); };
 } // namespace sse4_2
 
 namespace avx {
-typedef __m128i uint64x2_t;
-typedef __m128i uint32x4_t;
-typedef __m128 floatx4_t;
-typedef __m128d doublex2_t;
+typedef __m256i int64x4_t;
+typedef __m256i int32x8_t;
+typedef __m256i uint64x4_t;
+typedef __m256i uint32x8_t;
+typedef __m256 floatx8_t;
+typedef __m256d doublex4_t;
 
 /* The current state of the generators. */
 typedef struct {
-  __m128i s[4];
+  __m256i s[4];
 } state;
 
 } // namespace avx
 
 namespace avx2 {
+typedef __m256i int64x4_t;
+typedef __m256i int32x8_t;
 typedef __m256i uint64x4_t;
 typedef __m256i uint32x8_t;
 typedef __m256 floatx8_t;

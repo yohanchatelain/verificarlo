@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <immintrin.h>
+#include <type_traits>
 
 #include "vector_types.hpp"
 
@@ -194,7 +195,7 @@ template <typename T> T pow2(int n) {
   return res;
 }
 
-// TODO: finish implementing this function
+// TODO: finish to implement this function
 template <typename T> T add_round_odd(T a, T b) {
   // return addition with rounding to odd
   // https://www.lri.fr/~melquion/doc/08-tc.pdf

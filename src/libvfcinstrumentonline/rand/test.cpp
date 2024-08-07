@@ -21,7 +21,7 @@ template <typename T> T apply_op(const char op, T a, T b) {
     return a + b;
   case '-':
     return a - b;
-  case '*':
+  case 'x':
     return a * b;
   case '/':
     return a / b;

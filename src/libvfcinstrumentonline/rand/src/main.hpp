@@ -32,6 +32,9 @@ void init() {
   auto seeds = get_seeds<1>();
   xoroshiro256plus::scalar::init(rng_state, seeds);
   debug_print("initialized xoroshiro256+ with seed %lu\n", seeds[0]);
+  auto seeds_avx2 = get_seeds<4>();
+  xoroshiro256plus::avx2::init(rng_state_x4, seeds_avx2);
+  debug_print("initialized xoroshiro256+ with seed %lu\n", seeds_avx2[0]);
 #elif defined(SHISHUA)
   auto seeds = get_seeds<4>();
   uint64_t seed_state[4] = {seeds[0], seeds[1], seeds[2], seeds[3]};
