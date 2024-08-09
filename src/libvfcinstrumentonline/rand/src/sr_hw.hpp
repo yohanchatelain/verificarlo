@@ -42,12 +42,10 @@ void debug_mask(const std::string &msg, const hn::Mask<hn::ScalableTag<T>> &a) {
   debug_vec<T>(msg, hn::VecFromMask(a));
 }
 
-template <typename T>
-void twosum(hn::Vec<hn::ScalableTag<T>> a, hn::Vec<hn::ScalableTag<T>> b,
-            hn::Vec<hn::ScalableTag<T>> &sigma,
-            hn::Vec<hn::ScalableTag<T>> &tau) {
-  using D = hn::ScalableTag<T>;
-  const D d;
+template <class D, class V> void twosum(V a, V b, V &sigma, V &tau) {
+  debug_msg("[twosum] START");
+  // using D = hn::ScalableTag<T>;
+  const D d{};
 
   auto abs_a = hn::Abs(a);
   auto abs_b = hn::Abs(b);
@@ -60,29 +58,25 @@ void twosum(hn::Vec<hn::ScalableTag<T>> a, hn::Vec<hn::ScalableTag<T>> b,
   sigma = hn::Add(a_new, b_new);
   auto z = hn::Sub(sigma, a_new);
   tau = hn::Add(hn::Sub(a_new, hn::Sub(sigma, z)), hn::Sub(b_new, z));
+  debug_msg("[twosum] END");
 }
 
-template <typename T>
-void twoprodfma(hn::Vec<hn::ScalableTag<T>> a, hn::Vec<hn::ScalableTag<T>> b,
-                hn::Vec<hn::ScalableTag<T>> &sigma,
-                hn::Vec<hn::ScalableTag<T>> &tau) {
-  using D = hn::ScalableTag<T>;
-  const D d;
+template <class D, class V> void twoprodfma(V a, V b, V &sigma, V &tau) {
+  // using D = hn::ScalableTag<T>;
+  const D d{};
 
   sigma = hn::Mul(a, b);
   tau = hn::MulSub(a, b, sigma); // Highway's MulSub is equivalent to FMA
 }
 
-template <typename T>
-hn::Vec<hn::ScalableTag<T>> get_predecessor_abs(hn::Vec<hn::ScalableTag<T>> a) {
-  using D = hn::ScalableTag<T>;
-  const D d;
+template <class D, class V> V get_predecessor_abs(V a) {
+  const D d{};
 
   T phi = std::is_same<T, float>::value ? 1.0f - 0x1.0p-24f : 1.0 - 0x1.0p-53;
   return hn::Mul(a, hn::Set(d, phi));
 }
 
-template <typename T, typename I = typename sr::utils::IEEE754<T>::I>
+template <class D, class V>
 hn::Vec<hn::ScalableTag<I>> get_exponent(hn::Vec<hn::ScalableTag<T>> a) {
   debug_msg("[get_exponent] START");
 
@@ -103,7 +97,7 @@ hn::Vec<hn::ScalableTag<I>> get_exponent(hn::Vec<hn::ScalableTag<T>> a) {
   auto bits = hn::BitCast(di, a);
   auto is_zero = hn::Eq(bits, hn::Zero(di));
   auto raw_exp = bits >> hn::Set(di, mantissa);
-  auto exp = raw_exp & hn::Set(di, exponent_mask);
+  auto exp = hn::And(raw_exp, hn::Set(di, exponent_mask));
 
   debug_mask<I>("[get_exponent] is_zero", is_zero);
   debug_vec<I>("[get_exponent] bits", bits);

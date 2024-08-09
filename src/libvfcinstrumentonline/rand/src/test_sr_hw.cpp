@@ -54,7 +54,7 @@ void run_double() {
 HWY_AFTER_NAMESPACE();
 
 int main() {
-  run_float();
-  run_double();
+  N_SSSE3::run_float();
+  N_SSSE3::run_double();
   return 0;
 }
