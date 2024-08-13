@@ -17,7 +17,7 @@ void run_float() {
   floatx tag;
 
   float va[] = {0.1f, 0.1f, 0.1f, 0.1f};
-  float vb[] = {0.01f, 0.01f, 0.01f, 0.01f};
+  float vb[] = {0.001f, 0.001f, 0.001f, 0.001f};
   auto a = hn::Load(tag, va);
   auto b = hn::Load(tag, vb);
 
@@ -25,7 +25,7 @@ void run_float() {
   hn::Print(tag, "a", a, 0, 7, "%+.6a");
   hn::Print(tag, "b", b, 0, 7, "%+.6a");
 
-  auto c = sr_add<float>(a, b);
+  auto c = sr_add<floatx>(a, b);
 
   hn::Print(tag, "c", c, 0, 7, "%+.6a");
 }
@@ -44,7 +44,7 @@ void run_double() {
   hn::Print(tag, "a", a, 0, 7, "%+.13a");
   hn::Print(tag, "b", b, 0, 7, "%+.13a");
 
-  auto c = sr_add<double>(a, b);
+  auto c = sr_add<doublex>(a, b);
 
   hn::Print(tag, "c", c, 0, 7, "%+.13a");
 }
@@ -55,6 +55,6 @@ HWY_AFTER_NAMESPACE();
 
 int main() {
   N_SSSE3::run_float();
-  N_SSSE3::run_double();
+  // N_SSSE3::run_double();
   return 0;
 }
