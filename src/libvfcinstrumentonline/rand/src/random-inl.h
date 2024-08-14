@@ -255,6 +255,7 @@ public:
     const auto bits = ShiftRight<9>(Next());
     const auto bitscast = BitCast(u32_tag, bits);
     const auto real = ConvertTo(real_tag, bitscast);
+    
     return Mul(real, MUL_VALUE);
   }
 

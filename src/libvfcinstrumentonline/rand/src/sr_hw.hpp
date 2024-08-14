@@ -2,6 +2,7 @@
 
 #include "hwy/highway.h"
 #include "hwy/print-inl.h"
+#include "src/debug_utils.h"
 #include "src/utils.hpp"
 #include "src/xoroshiro256+_hw.hpp"
 
@@ -226,7 +227,7 @@ V sr_round(V sigma, V tau) {
   auto sign_tau = hn::Lt(tau, zero);
   auto sign_sigma = hn::Lt(sigma, zero);
 
-  auto z = xoroshiro256plus::rng.Uniform<hn::Vec<D>>();
+  auto z = xoroshiro256plus::rng.Uniform<V>();
 
   auto pred_sigma = get_predecessor_abs<D>(sigma);
   auto sign_diff =
