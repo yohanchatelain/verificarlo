@@ -5,8 +5,6 @@
 #include <immintrin.h>
 #include <type_traits>
 
-#include "vector_types.hpp"
-
 #include "debug.hpp"
 #ifdef __clang__
 typedef __float128 Float128;
@@ -42,26 +40,6 @@ template <> struct IEEE754<float> {
   static constexpr U inf_nan_mask = 0x7F800000;
 };
 
-// template <> struct IEEE754<scalar::floatx2_t> {
-//   using F = scalar::floatx2_t;
-//   using I = scalar::int32x2_t;
-//   using U = scalar::uint32x2_t;
-//   static constexpr I sign = {.i32 = {1, 1}};
-//   static constexpr I exponent = {.i32 = {8, 8}};
-//   static constexpr I mantissa = {.i32 = {23, 23}};
-//   static constexpr I precision = {.i32 = {24, 24}};
-//   static constexpr F ulp = {.f = {0x1.0p-24f, 0x1.0p-24f}};
-//   static constexpr I bias = {.i32 = {127, 127}};
-//   static constexpr U exponent_mask = {.u32 = {0xFF, 0xFF}};
-//   static constexpr F max_normal = {.f = {0x1.fffffep127f, 0x1.fffffep127f}};
-//   static constexpr F min_normal = {.f = {0x1.0p-126f, 0x1.0p-126f}};
-//   static constexpr F min_subnormal = {.f = {0x1.0p-149f, 0x1.0p-149f}};
-//   static constexpr I min_exponent = {.i32 = {-126, -126}};
-//   static constexpr I max_exponent = {.i32 = {127, 127}};
-//   static constexpr I min_exponent_subnormal = {.i32 = {-149, -149}};
-//   static constexpr U inf_nan_mask = {.u32 = {0x7F800000, 0x7F800000}};
-// };
-
 template <> struct IEEE754<double> {
   using I = int64_t;
   using U = uint64_t;
@@ -81,28 +59,6 @@ template <> struct IEEE754<double> {
   static constexpr I min_exponent_subnormal = -1074;
   static constexpr U inf_nan_mask = 0x7FF0000000000000;
 };
-
-// template <> struct IEEE754<sse4_2::doublex2_t> {
-//   using F = sse4_2::doublex2_t;
-//   using I = sse4_2::int64x2_t;
-//   using U = sse4_2::uint64x2_t;
-//   static constexpr I sign = I{1, 1};
-//   static constexpr I exponent = I{11, 11};
-//   static constexpr I mantissa = I{52, 52};
-//   static constexpr I precision = I{53, 53};
-//   static constexpr F ulp = F{0x1.0p-53, 0x1.0p-53};
-//   static constexpr I bias = I{1023, 1023};
-//   static constexpr U exponent_mask = U{0x7FF, 0x7FF};
-//   static constexpr F max_normal =
-//       F{0x1.fffffffffffffp1023, 0x1.fffffffffffffp1023};
-//   static constexpr F min_normal = F{0x1.0p-1022, 0x1.0p-1022};
-//   static constexpr F min_subnormal = F{0x1.0p-1074, 0x1.0p-1074};
-//   static constexpr I min_exponent = I{-1022, -1022};
-//   static constexpr I max_exponent = I{1023, 1023};
-//   static constexpr I min_exponent_subnormal = I{-1074, -1074};
-//   static constexpr U inf_nan_mask = U{0x7FF0000000000000,
-//   0x7FF0000000000000};
-// };
 
 // Implement other functions (get_exponent, predecessor, abs, pow2, etc.) using
 // templates

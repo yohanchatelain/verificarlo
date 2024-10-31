@@ -5,6 +5,7 @@
 
 #ifndef REAL
 #define REAL double
+#warning "REAL not defined, using double"
 #endif
 
 template <typename T> void compute_proba(std::map<T, int> &visited_i, int n) {
@@ -36,6 +37,12 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Usage: %s <op> <a> <b>\n", argv[0]);
     return 1;
   }
+
+#if defined(REAL) && REAL == float
+  std::cout << "Using float\n";
+#elif defined(REAL) && REAL == double
+  std::cout << "Using double\n";
+#endif
 
   REAL a = strtod(argv[2], NULL);
   REAL b = strtod(argv[3], NULL);

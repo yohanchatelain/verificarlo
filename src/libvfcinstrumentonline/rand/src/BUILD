@@ -72,10 +72,10 @@ cc_binary(
     srcs = [
         "test_sr_hw.cpp",
         "//src:debug.hpp",
+        "//src:debug_hwy-inl.h",
         "//src:random-inl.h",
-        "//src:sr_hw.hpp",
+        "//src:sr_hw-inl.h",
         "//src:utils.hpp",
-        "//src:vector_types.hpp",
         "//src:xoroshiro256+_hw.hpp",
     ],
     copts = COPTS + [

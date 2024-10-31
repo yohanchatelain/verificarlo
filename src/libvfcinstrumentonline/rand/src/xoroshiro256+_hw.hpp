@@ -1,5 +1,10 @@
-#ifndef __VERIFICARLO_SRLIB_RAND_XOROSHIRO256P_HPP__
-#define __VERIFICARLO_SRLIB_RAND_XOROSHIRO256P_HPP__
+#if defined(HIGHWAY_HWY_SRLIB_RAND_XOROSHIRO256P_H_) ==                        \
+    defined(HWY_TARGET_TOGGLE) // NOLINT
+#ifdef HIGHWAY_HWY_SRLIB_RAND_XOROSHIRO256P_H_
+#undef HIGHWAY_HWY_SRLIB_RAND_XOROSHIRO256P_H_
+#else
+#define HIGHWAY_HWY_SRLIB_RAND_XOROSHIRO256P_H_
+#endif
 
 #include <stdio.h>
 
@@ -40,6 +45,7 @@ uint64_t get_user_seed() throw() {
   return 0;
 }
 
+// TODO: add threadNumber to the constructor
 static auto rng = hn::VectorXoshiro(get_user_seed());
 
 } // namespace xoroshiro256plus
@@ -48,4 +54,4 @@ static auto rng = hn::VectorXoshiro(get_user_seed());
 } // namespace HWY_NAMESPACE
 HWY_AFTER_NAMESPACE();
 
-#endif // __VERIFICARLO_SRLIB_RAND_XOROSHIRO256P_HPP__
+#endif // HIGHWAY_HWY_SRLIB_RAND_XOROSHIRO256P_H_

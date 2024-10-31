@@ -25,8 +25,11 @@
 #include <cstdint>
 #include <limits>
 
-#include "hwy/aligned_allocator.h"
 #include "hwy/highway.h"
+
+#include "hwy/aligned_allocator.h"
+
+#include "src/debug_hwy-inl.h"
 
 HWY_BEFORE_NAMESPACE(); // required if not using HWY_ATTR
 
@@ -40,9 +43,11 @@ namespace {
 // C++ < 17 does not support hexfloat
 #if __cpp_hex_float > 201603L
 constexpr double kMulConst = 0x1.0p-53;
+constexpr float kMulConstF = 0x1.0p-24f;
 #else
 constexpr double kMulConst =
     0.00000000000000011102230246251565404236316680908203125;
+constexpr float kMulConstF = 0.000000059604644775390625f;
 #endif // __cpp_hex_float
 
 #endif // HWY_HAVE_FLOAT64
@@ -249,22 +254,26 @@ public:
   template <typename T> AlignedVector<T> Uniform(const std::size_t n);
 
   template <> HWY_INLINE VF32 Uniform() noexcept {
+    debug_msg("\n[Uniform] VF32 START");
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<float> real_tag{};
-    const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
-    const auto bits = ShiftRight<9>(Next());
+    const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
+    const auto bits = Next();
     const auto bitscast = BitCast(u32_tag, bits);
-    const auto real = ConvertTo(real_tag, bitscast);
-    
+    const auto bitsshift = ShiftRight<8>(bitscast);
+    const auto real = ConvertTo(real_tag, bitsshift);
+    // debug_vec<VF32>("[Uniform] real", real);
+    debug_msg("[Uniform] VF32 END\n");
     return Mul(real, MUL_VALUE);
   }
 
   template <> AlignedVector<float> Uniform(const std::size_t n) {
+    debug_msg("\n[Uniform] AlignedVector<float> START");
     AlignedVector<float> result(n);
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<float> real_tag{};
-    const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
+    const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
 
     auto s0 = Load(tag, state_[{0}].data());
     auto s1 = Load(tag, state_[{1}].data());
@@ -284,20 +293,24 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
+    debug_msg("\n[Uniform] AlignedVector<float> END");
     return result;
   }
 
 #if HWY_HAVE_FLOAT64
 
   template <> HWY_INLINE VF64 Uniform() noexcept {
+    debug_msg("\n[Uniform] VF64 START");
     const ScalableTag<double> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
     const auto bits = ShiftRight<11>(Next());
     const auto real = ConvertTo(real_tag, bits);
+    debug_msg("\n[Uniform] VF64 END");
     return Mul(real, MUL_VALUE);
   }
 
   template <> AlignedVector<double> Uniform(const std::size_t n) {
+    debug_msg("\n[Uniform] AlignedVector<double> END");
     AlignedVector<double> result(n);
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<double> real_tag{};
@@ -320,6 +333,7 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
+    debug_msg("\n[Uniform] AlignedVector<double> END");
     return result;
   }
 

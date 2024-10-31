@@ -3,7 +3,7 @@
 #include "hwy/highway.h"
 #include "hwy/print-inl.h"
 
-#include "src/sr_hw.hpp"
+#include "src/sr_hw-inl.h"
 #include "src/xoroshiro256+_hw.hpp"
 
 HWY_BEFORE_NAMESPACE(); // at file scope
@@ -16,8 +16,8 @@ void run_float() {
   using floatx = hn::ScalableTag<float>;
   floatx tag;
 
-  float va[] = {0.1f, 0.1f, 0.1f, 0.1f};
-  float vb[] = {0.001f, 0.001f, 0.001f, 0.001f};
+  float va[] = {1.0f, 1.0f, 1.0f, 1.0f};
+  float vb[] = {0x1.0p-24f, 0x1.0p-24f, 0x1.0p-24f, 0x1.0p-24f};
   auto a = hn::Load(tag, va);
   auto b = hn::Load(tag, vb);
 
@@ -35,8 +35,8 @@ void run_double() {
   using doublex = hn::ScalableTag<double>;
   doublex tag;
 
-  double va[] = {0.1, 0.1, 0.1, 0.1};
-  double vb[] = {0.01, 0.01, 0.01, 0.01};
+  double va[] = {1, 1, 1, 1};
+  double vb[] = {0x1.0p-53, 0x1.0p-53, 0x1.0p-53, 0x1.0p-53};
   auto a = hn::Load(tag, va);
   auto b = hn::Load(tag, vb);
 
@@ -55,6 +55,6 @@ HWY_AFTER_NAMESPACE();
 
 int main() {
   N_SSSE3::run_float();
-  // N_SSSE3::run_double();
+  N_SSSE3::run_double();
   return 0;
 }

@@ -1,16 +1,14 @@
-
-#ifndef __VERIFICARLO_SRLIB_DEBUG_HWY_HPP__
-#define __VERIFICARLO_SRLIB_DEBUG_HWY_HPP__
-
 #include <iostream>
 
 #include "hwy/highway.h"
 
-HWY_BEFORE_NAMESPACE(); // at file scope
-namespace HWY_NAMESPACE {
-
-namespace hn = hwy::HWY_NAMESPACE;
-// using hn::HWY_NAMESPACE::hn::ScalableTag;
+#if defined(HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_) ==                        \
+    defined(HWY_TARGET_TOGGLE)
+#ifdef HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_
+#undef HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_
+#else
+#define HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_
+#endif
 
 bool _print_debug() {
   const char *env_debug = getenv("VFC_DEBUG");
@@ -23,9 +21,16 @@ void debug_msg(const std::string &msg) {
   std::cout << msg << std::endl;
 }
 
+HWY_BEFORE_NAMESPACE(); // at file scope
+namespace HWY_NAMESPACE {
+
+namespace hn = hwy::HWY_NAMESPACE;
+// using hn::HWY_NAMESPACE::hn::ScalableTag;
+
 template <typename T>
-void debug_vec(const std::string &msg, const hn::Vec<hn::ScalableTag<T>> &a,
-               const bool hex = true) {
+HWY_API void debug_vec(const std::string &msg,
+                       const hn::Vec<hn::ScalableTag<T>> &a,
+                       const bool hex = true) {
   if (not _print_debug())
     return;
   if (std::is_same<T, float>::value) {
@@ -68,4 +73,4 @@ void debug_mask(const std::string &msg, const hn::Mask<hn::ScalableTag<T>> &a) {
 } // namespace HWY_NAMESPACE
 HWY_AFTER_NAMESPACE();
 
-#endif // __VERIFICARLO_SRLIB_DEBUG_HWY_HPP__
+#endif // HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_
