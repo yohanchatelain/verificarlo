@@ -18,41 +18,80 @@ cc_test_lib_gen(
 cc_test_lib_gen(
     name = "srround_boost_test",
     size = "medium",
-    src = "//tests:srround_test.cpp",
+    src = ["//tests:srround_test.cpp"],
     rng = "CXX11_RANDOM",
 )
 
 cc_test_lib_gen(
     name = "srround_xoroshiro_test",
     size = "medium",
-    src = "//tests:srround_test.cpp",
+    src = ["//tests:srround_test.cpp"],
     rng = "XOROSHIRO",
 )
 
 cc_test_lib_gen(
     name = "srround_xoroshiro_test_x2",
     size = "medium",
-    src = "//tests:srround_test_x2.cpp",
+    src = ["//tests:srround_test_x2.cpp"],
     rng = "XOROSHIRO",
 )
 
 cc_test_lib_gen(
     name = "srround_shishua_test",
     size = "medium",
-    src = "//tests:srround_test.cpp",
+    src = ["//tests:srround_test.cpp"],
     rng = "SHISHUA",
 )
 
 cc_test_lib_gen(
     name = "srround_xoroshiro_test_hw",
     size = "medium",
-    src = "//tests:srround_test_hw.cpp",
+    src = ["//tests:srround_test_hw.cpp"],
     rng = "XOROSHIRO",
     deps = [
         "@hwy",
         "@hwy//:math",
     ],
 )
+
+cc_test_lib_gen(
+    name = "xoroshiro",
+    size = "medium",
+    src = ["//tests:xoroshiro.cpp"],
+    rng = "XOROSHIRO",
+    copts = [
+        "-O2",
+        "-Wfatal-errors",
+        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+        "-DSR_DEBUG"
+    ],
+    deps = [
+        "@hwy",
+        "@hwy//:math",
+        "@hwy//:hwy_test_util",
+    ],
+)
+
+
+
+cc_test_lib_gen(
+    name = "srround_xoroshiro_test_hw-inl",
+    size = "medium",
+    src = ["//tests:srround_test_hw-inl.cpp"],
+    rng = "XOROSHIRO",
+    copts = [
+        "-O2",
+        "-Wfatal-errors",
+        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+        "-DSR_DEBUG"
+    ],
+    deps = [
+        "@hwy",
+        "@hwy//:math",
+        "@hwy//:hwy_test_util",
+    ],
+)
+
 
 test_suite(
     name = "all",

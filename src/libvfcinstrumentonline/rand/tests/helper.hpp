@@ -17,8 +17,12 @@ template <typename T> struct FTypeName {
   static constexpr auto name = "unknown";
 };
 
-template <> struct FTypeName<float> { static constexpr auto name = "float"; };
-template <> struct FTypeName<double> { static constexpr auto name = "double"; };
+template <> struct FTypeName<float> {
+  static constexpr auto name = "float";
+};
+template <> struct FTypeName<double> {
+  static constexpr auto name = "double";
+};
 
 template <typename T> struct Operator {
 public:
@@ -73,18 +77,6 @@ template <typename T> struct IEEE754 : sr::utils::IEEE754<T> {
       std::conditional_t<std::is_same<T, float>::value, double, Float128_boost>;
 };
 
-template <> struct IEEE754<scalar::floatx2_t> {
-  using F = scalar::floatx2_t;
-  using H = std::array<double, 2>;
-  constexpr static F max_normal = {.f = {0x1.fffffep127f, 0x1.fffffep127f}};
-  constexpr static F min_normal = {.f = {0x1.0p-126f, 0x1.0p-126f}};
-  constexpr static F min_subnormal = {.f = {0x1.0p-149f, 0x1.0p-149f}};
-};
-
-template <> struct IEEE754<sse4_2::doublex2_t> {
-  using H = std::array<Float128_boost, 2>;
-};
-
 using namespace boost::multiprecision::literals;
 template <> struct IEEE754<Float128_boost> {
   using I = boost::multiprecision::int128_t;
@@ -135,33 +127,6 @@ template <typename T> T absolute_distance(const T a, const T b = 0) {
   } else {
     return std::abs(a - b);
   }
-}
-
-template <>
-IEEE754<sse4_2::doublex2_t>::H
-absolute_distance(const IEEE754<sse4_2::doublex2_t>::H a,
-                  const IEEE754<sse4_2::doublex2_t>::H b) {
-  return {boost::multiprecision::abs(a[0] - b[0]),
-          boost::multiprecision::abs(a[1] - b[1])};
-}
-
-template <>
-scalar::floatx2_t absolute_distance(const scalar::floatx2_t a,
-                                    const scalar::floatx2_t b) {
-  return {.f = {std::abs(a.f[0] - b.f[0]), std::abs(a.f[1] - b.f[1])}};
-}
-
-template <>
-sse4_2::doublex2_t absolute_distance(const sse4_2::doublex2_t a,
-                                     const sse4_2::doublex2_t b) {
-  return sse4_2::abs(a - b);
-}
-
-template <>
-IEEE754<scalar::floatx2_t>::H
-absolute_distance(const IEEE754<scalar::floatx2_t>::H a,
-                  const IEEE754<scalar::floatx2_t>::H b) {
-  return {std::abs(a[0] - b[0]), std::abs(a[1] - b[1])};
 }
 
 template <typename T> T relative_distance(const T a, const T b) {
@@ -217,13 +182,6 @@ template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
   std::frexp(a, &exponent);
   exponent--;
   H ulp = std::ldexp(1.0, exponent - IEEE754<T>::mantissa);
-  return ulp;
-}
-
-template <> IEEE754<scalar::floatx2_t>::H get_ulp(scalar::floatx2_t a) {
-  IEEE754<scalar::floatx2_t>::H ulp;
-  ulp[0] = get_ulp(a.f[0]);
-  ulp[1] = get_ulp(a.f[1]);
   return ulp;
 }
 

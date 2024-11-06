@@ -36,6 +36,10 @@ HWY_BEFORE_NAMESPACE(); // required if not using HWY_ATTR
 namespace hwy {
 
 namespace HWY_NAMESPACE { // required: unique per target
+
+namespace hn = hwy::HWY_NAMESPACE;
+namespace sn = sr::HWY_NAMESPACE;
+
 namespace internal {
 
 namespace {
@@ -98,7 +102,9 @@ public:
 #if HWY_HAVE_FLOAT64
   template <typename T> HWY_CXX14_CONSTEXPR T Uniform() noexcept {
     constexpr auto shift = std::is_same<T, float>::value ? 9 : 11;
-    return static_cast<T>(Next() >> shift) * kMulConst;
+    constexpr auto kMul =
+        std::is_same<T, float>::value ? kMulConstF : kMulConst;
+    return static_cast<T>(Next() >> shift) * kMul;
   }
 #endif
 
@@ -179,6 +185,7 @@ private:
 class VectorXoshiro {
 private:
   using VU64 = Vec<ScalableTag<std::uint64_t>>;
+  using VU32 = Vec<ScalableTag<std::uint64_t>>;
   using StateType = AlignedNDArray<std::uint64_t, 2>;
   using VF32 = Vec<ScalableTag<float>>;
 #if HWY_HAVE_FLOAT64
@@ -250,25 +257,25 @@ public:
 
   const StateType &GetState() const { return state_; }
 
-  template <typename T> HWY_INLINE T Uniform() noexcept;
+  template <typename T, class D = ScalableTag<T>, class V = Vec<D>>
+  HWY_INLINE V Uniform(T) noexcept;
   template <typename T> AlignedVector<T> Uniform(const std::size_t n);
 
-  template <> HWY_INLINE VF32 Uniform() noexcept {
-    debug_msg("\n[Uniform] VF32 START");
+  template <> HWY_INLINE VF32 Uniform(float) noexcept {
+    sn::debug_msg("\n[Uniform] VF32 START");
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<float> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
     const auto bits = Next();
-    const auto bitscast = BitCast(u32_tag, bits);
+    const auto bitscast = ResizeBitCast(u32_tag, bits);
     const auto bitsshift = ShiftRight<8>(bitscast);
     const auto real = ConvertTo(real_tag, bitsshift);
-    // debug_vec<VF32>("[Uniform] real", real);
-    debug_msg("[Uniform] VF32 END\n");
+    sn::debug_msg("[Uniform] VF32 END\n");
     return Mul(real, MUL_VALUE);
   }
 
   template <> AlignedVector<float> Uniform(const std::size_t n) {
-    debug_msg("\n[Uniform] AlignedVector<float> START");
+    sn::debug_msg("\n[Uniform] AlignedVector<float> START");
     AlignedVector<float> result(n);
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
@@ -282,7 +289,7 @@ public:
 
     for (std::uint64_t i = 0; i < n; i += Lanes(real_tag)) {
       const auto next = Update(s0, s1, s2, s3);
-      const auto bits = ShiftRight<9>(next);
+      const auto bits = ShiftRight<8>(next);
       const auto bitscast = BitCast(u32_tag, bits);
       const auto real = ConvertTo(real_tag, bitscast);
       const auto uniform = Mul(real, MUL_VALUE);
@@ -293,24 +300,24 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
-    debug_msg("\n[Uniform] AlignedVector<float> END");
+    sn::debug_msg("\n[Uniform] AlignedVector<float> END");
     return result;
   }
 
 #if HWY_HAVE_FLOAT64
 
-  template <> HWY_INLINE VF64 Uniform() noexcept {
-    debug_msg("\n[Uniform] VF64 START");
+  template <> HWY_INLINE VF64 Uniform(double) noexcept {
+    sn::debug_msg("\n[Uniform] VF64 START");
     const ScalableTag<double> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
     const auto bits = ShiftRight<11>(Next());
     const auto real = ConvertTo(real_tag, bits);
-    debug_msg("\n[Uniform] VF64 END");
+    sn::debug_msg("\n[Uniform] VF64 END");
     return Mul(real, MUL_VALUE);
   }
 
   template <> AlignedVector<double> Uniform(const std::size_t n) {
-    debug_msg("\n[Uniform] AlignedVector<double> END");
+    sn::debug_msg("\n[Uniform] AlignedVector<double> START");
     AlignedVector<double> result(n);
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<double> real_tag{};
@@ -333,7 +340,7 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
-    debug_msg("\n[Uniform] AlignedVector<double> END");
+    sn::debug_msg("\n[Uniform] AlignedVector<double> END");
     return result;
   }
 

@@ -9,6 +9,7 @@ extern void __debug_header_end(const char *func);
 
 #ifdef SR_DEBUG
 #ifndef SR_DEBUG_FUNCTIONS_DECLARED
+#include <cstdarg>
 #include <cstdio>
 #define __buffer_size 1024
 static char __end = '\0';

@@ -34,9 +34,8 @@ def cc_test_gen(name, src = None, deps = DEPS, copts = COPTS, size = "small"):
     )
 
 def cc_test_lib_gen(name, rng, src = None, deps = None, copts = COPTS, size = "small"):
-    srcs = [src] if src else [name + ".cpp"]
+    srcs = src if src else [name + ".cpp"]
     srcs += HEADERS
-    print(srcs)
     native.cc_test(
         name = name,
         srcs = srcs,

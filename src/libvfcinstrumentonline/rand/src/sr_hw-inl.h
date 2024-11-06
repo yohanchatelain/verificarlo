@@ -1,11 +1,11 @@
+#include <iostream>
+
 #if defined(HIGHWAY_HWY_VERIFICARLO_SR_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef HIGHWAY_HWY_VERIFICARLO_SR_INL_H_
 #undef HIGHWAY_HWY_VERIFICARLO_SR_INL_H_
 #else
 #define HIGHWAY_HWY_VERIFICARLO_SR_INL_H_
 #endif
-
-#include <iostream>
 
 #include "hwy/highway.h"
 #include "hwy/print-inl.h"
@@ -14,12 +14,14 @@
 #include "src/xoroshiro256+_hw.hpp"
 
 HWY_BEFORE_NAMESPACE(); // at file scope
+namespace sr {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
 // using hn::HWY_NAMESPACE::hn::ScalableTag;
 
-template <class D, class V> void twosum(V a, V b, V &sigma, V &tau) {
+template <class D, class V, typename T = hn::TFromD<D>>
+void twosum(V a, V b, V &sigma, V &tau) {
   debug_msg("\n[twosum] START");
   debug_vec<D>("[twosum] a", a);
   debug_vec<D>("[twosum] b", b);
@@ -44,7 +46,8 @@ template <class D, class V> void twosum(V a, V b, V &sigma, V &tau) {
   debug_msg("[twosum] END\n");
 }
 
-template <class D, class V> void twoprodfma(V a, V b, V &sigma, V &tau) {
+template <class D, class V, typename T = hn::TFromD<D>>
+void twoprodfma(V a, V b, V &sigma, V &tau) {
   debug_msg("\n[twoprodfma] START");
   debug_vec<D>("[twoprodfma] a", a);
   debug_vec<D>("[twoprodfma] b", b);
@@ -61,23 +64,22 @@ template <class D, class V> void twoprodfma(V a, V b, V &sigma, V &tau) {
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
-V get_predecessor_abs(V a) {
-  const D d{};
-
+V get_predecessor_abs(D d, V a) {
   T phi = std::is_same<T, float>::value ? 1.0f - 0x1.0p-24f : 1.0 - 0x1.0p-53;
   return hn::Mul(a, hn::Set(d, phi));
 }
 
 template <class D, class V, typename T = hn::TFromD<D>,
-          typename I = typename sr::utils::IEEE754<T>::I>
-hn::Vec<hn::ScalableTag<I>> get_exponent(V a) {
+          typename I = typename sr::utils::IEEE754<T>::I,
+          typename VI = hn::Vec<hn::RebindToSigned<D>>>
+VI get_exponent(D d, V a) {
   debug_msg("\n[get_exponent] START");
 
   using U = typename sr::utils::IEEE754<T>::U;
-  using DI = hn::ScalableTag<I>;
+  using DI = hn::RebindToSigned<D>;
   const DI di{};
 
-  debug_vec<T>("[get_exponent] a", a);
+  debug_vec<D>("[get_exponent] a", a);
 
   constexpr I mantissa = sr::utils::IEEE754<T>::mantissa;
   constexpr U exponent_mask = sr::utils::IEEE754<T>::exponent_mask_scaled;
@@ -89,28 +91,28 @@ hn::Vec<hn::ScalableTag<I>> get_exponent(V a) {
   auto exp = raw_exp >> hn::Set(di, mantissa);
   exp = hn::Sub(exp, hn::Set(di, bias));
 
-  debug_mask<I>("[get_exponent] is_zero", is_zero);
-  debug_vec<I>("[get_exponent] bits", bits);
-  debug_vec<I>("[get_exponent] raw_exp", raw_exp);
-  debug_vec<I>("[get_exponent] exp", exp, false);
+  debug_mask<DI>("[get_exponent] is_zero", is_zero);
+  debug_vec<DI>("[get_exponent] bits", bits);
+  debug_vec<DI>("[get_exponent] raw_exp", raw_exp);
+  debug_vec<DI>("[get_exponent] exp", exp, false);
 
-  auto res = hn::IfThenZeroElse(is_zero, hn::BitCast(DI(), exp));
+  auto res = hn::IfThenZeroElse(is_zero, exp);
 
-  debug_vec<I>("[get_exponent] res", res, false);
+  debug_vec<DI>("[get_exponent] res", res, false);
   debug_msg("[get_exponent] END\n");
 
   return res;
 }
 
-template <class D, class V, typename T = hn::TFromD<D>,
-          typename I = typename sr::utils::IEEE754<T>::I>
-V pow2(hn::Vec<hn::ScalableTag<I>> n) {
+template <class D, class V, typename T = hn::TFromD<D>>
+hn::Vec<D> pow2(D d, V n) {
   debug_msg("\n[pow2] START");
-  debug_vec<I>("[pow2] n", n, false);
 
-  const D d{};
   using DI = hn::RebindToSigned<D>;
+  using I = typename sr::utils::IEEE754<T>::I;
   const DI di;
+
+  debug_vec<DI>("[pow2] n", n, false);
 
   constexpr I mantissa = sr::utils::IEEE754<T>::mantissa;
   constexpr I min_exponent = sr::utils::IEEE754<T>::min_exponent;
@@ -126,28 +128,25 @@ V pow2(hn::Vec<hn::ScalableTag<I>> n) {
 
   auto res = hn::IfThenZeroElse(hn::Not(is_subnormal), hn::Set(di, 1));
 
-  debug_vec<I>("[pow2] res", res);
+  debug_vec<DI>("[pow2] res", res);
 
   auto shift = hn::Sub(hn::Set(di, mantissa), precision_loss);
 
-  debug_mask<I>("[pow2] is_subnormal", is_subnormal);
-  debug_vec<I>("[pow2] n_adjusted", n_adjusted, false);
-  debug_vec<I>("[pow2] precision_loss", precision_loss, false);
-  debug_vec<I>("[pow2] shift", shift, false);
+  debug_mask<DI>("[pow2] is_subnormal", is_subnormal);
+  debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
+  debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
+  debug_vec<DI>("[pow2] shift", shift, false);
 
   res = res + (n_adjusted << shift);
 
-  debug_vec<I>("[pow2] res", res);
-  debug_vec<T>("[pow2] res", hn::BitCast(d, res));
+  debug_vec<DI>("[pow2] res", res);
+  debug_vec<D>("[pow2] res", hn::BitCast(d, res));
   debug_msg("[pow2] END\n");
 
   return hn::BitCast(d, res);
 }
 
-template <typename T>
-hn::Mask<hn::ScalableTag<T>> isnumber(hn::Vec<hn::ScalableTag<T>> a,
-                                      hn::Vec<hn::ScalableTag<T>> b) {
-  using D = hn::ScalableTag<T>;
+template <class D, class V, typename T = hn::TFromD<D>> V isnumber(V a, V b) {
   const D d;
   using U = typename hwy::MakeUnsigned<T>;
   constexpr U naninf_mask = sr::utils::IEEE754<T>::inf_nan_mask;
@@ -161,20 +160,21 @@ hn::Mask<hn::ScalableTag<T>> isnumber(hn::Vec<hn::ScalableTag<T>> a,
   auto a_not_naninf = hn::Ne(hn::And(a_bits, mask), mask);
   auto b_not_naninf = hn::Ne(hn::And(b_bits, mask), mask);
 
-  return hn::And(hn::And(a_not_zero, a_not_naninf),
-                 hn::And(b_not_zero, b_not_naninf));
+  auto res = hn::And(hn::And(a_not_zero, a_not_naninf),
+                     hn::And(b_not_zero, b_not_naninf));
+  return hn::VecFromMask(d, res);
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
-V sr_round(V sigma, V tau) {
+HWY_MAYBE_UNUSED V sr_round(V sigma, V tau) {
   debug_msg("\n[sr_round] START");
-  debug_vec<T>("[sr_round] sigma", sigma);
-  debug_vec<T>("[sr_round] tau", tau);
+  debug_vec<D>("[sr_round] sigma", sigma);
+  debug_vec<D>("[sr_round] tau", tau);
 
   const D d{};
-  using I = typename sr::utils::IEEE754<T>::I;
-  using U = hn::ScalableTag<I>;
-  const U u;
+  // get tag for int with same number of lanes as T
+  using DI = hn::RebindToSigned<D>;
+  const DI di;
 
   constexpr int32_t mantissa = sr::utils::IEEE754<T>::mantissa;
 
@@ -182,56 +182,61 @@ V sr_round(V sigma, V tau) {
   auto sign_tau = hn::Lt(tau, zero);
   auto sign_sigma = hn::Lt(sigma, zero);
 
-  auto z = xoroshiro256plus::rng.Uniform<V>();
+  auto z = xoroshiro256plus::uniform(d);
 
-  auto pred_sigma = get_predecessor_abs<D>(sigma);
+  auto pred_sigma = get_predecessor_abs(d, sigma);
+
   auto sign_diff =
-      hn::Xor(hn::RebindMask(u, sign_tau), hn::RebindMask(u, sign_sigma));
+      hn::Xor(sign_tau, sign_sigma); // sign_diff = sign_tau != sign_sigma
 
-  auto eta = hn::IfThenElse(sign_diff, get_exponent<D, V>(pred_sigma),
-                            get_exponent<D, V>(sigma));
+  auto sign_diff_int = hn::RebindMask(di, sign_diff);
 
-  auto ulp = hn::Mul(hn::IfThenElse(sign_tau, hn::Set(d, -1), hn::Set(d, 1)),
-                     pow2<D, V>(hn::Sub(eta, hn::Set(u, mantissa))));
+  auto eta = hn::IfThenElse(sign_diff_int, get_exponent(d, pred_sigma),
+                            get_exponent(d, sigma));
+
+  auto ulp_abs = pow2(d, hn::Sub(eta, hn::Set(di, mantissa)));
+  auto ulp = hn::IfThenElse(sign_diff, hn::Neg(ulp_abs), ulp_abs);
 
   auto pi = hn::Mul(ulp, z);
   auto abs_tau_plus_pi = hn::Abs(hn::Add(tau, pi));
   auto abs_ulp = hn::Abs(ulp);
   auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
 
-  debug_vec<T>("[sr_round] z", z);
-  debug_vec<I>("[sr_round] eta", eta, false);
-  debug_vec<T>("[sr_round] ulp", ulp);
-  debug_vec<T>("[sr_round] pi", pi);
-  debug_vec<T>("[sr_round] abs_tau_plus_pi", abs_tau_plus_pi);
-  debug_vec<T>("[sr_round] abs_ulp", abs_ulp);
-  debug_vec<T>("[sr_round] round", round);
+  debug_vec<D>("[sr_round] z", z);
+  debug_vec<DI>("[sr_round] eta", eta, false);
+  debug_vec<D>("[sr_round] ulp", ulp);
+  debug_vec<D>("[sr_round] pi", pi);
+  debug_vec<D>("[sr_round] abs_tau_plus_pi", abs_tau_plus_pi);
+  debug_vec<D>("[sr_round] abs_ulp", abs_ulp);
+  debug_vec<D>("[sr_round] round", round);
 
   auto res = hn::IfThenElse(hn::Eq(tau, zero), sigma, round);
 
-  debug_vec<T>("[sr_round] res", res);
+  debug_vec<D>("[sr_round] res", res);
   debug_msg("[sr_round] END\n");
 
   return res;
 }
 
-template <class D, class V, typename T = hn::TFromD<D>> V sr_add(V a, V b) {
+template <class D, class V, typename T = hn::TFromD<D>>
+HWY_API V sr_add(V a, V b) {
   debug_msg("\n[sr_add] START");
 
   // using D = hn::ScalableTag<T>;
   // const D d;
 
-  auto is_number = isnumber<T>(a, b);
+  auto is_number = isnumber<D>(a, b);
   auto normal_sum = hn::Add(a, b);
 
   // auto z = xoroshiro256plus::rng.Uniform(hn::Lanes(d));
   hn::Vec<D> sigma, tau;
-  twosum<T>(a, b, sigma, tau);
+  twosum<D>(a, b, sigma, tau);
   auto round = sr_round<D>(sigma, tau);
   auto stochastic_sum = hn::Add(sigma, round);
 
-  auto ret = hn::IfThenElse(is_number, stochastic_sum, normal_sum);
-  debug_vec<T>("[sr_add] res", ret);
+  auto is_number_mask = hn::MaskFromVec(is_number);
+  auto ret = hn::IfThenElse(is_number_mask, stochastic_sum, normal_sum);
+  debug_vec<D>("[sr_add] res", ret);
   debug_msg("[sr_add] END\n");
   return ret;
 }
@@ -292,6 +297,7 @@ hn::Vec<hn::ScalableTag<T>> sr_sqrt(hn::Vec<hn::ScalableTag<T>> a) {
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
+} // namespace sr
 HWY_AFTER_NAMESPACE();
 
 #endif // HIGHWAY_HWY_VERIFICARLO_SR_INL_H_

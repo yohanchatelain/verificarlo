@@ -8,9 +8,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/eft.hpp"
-#include "src/main.hpp"
-#include "src/sr_hw.hpp"
+// #include "src/eft.hpp"
+#include "src/sr_hw.h"
 #include "src/utils.hpp"
 #include "tests/helper.hpp"
 
@@ -74,16 +73,16 @@ template <typename T, typename Op> typename Op::function get_target_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
 
   if constexpr (std::is_same_v<Op, helper::AddOp<T>>) {
-    return sr_add<T>;
+    return sr::add<T>;
   }
   if constexpr (std::is_same_v<Op, helper::SubOp<T>>) {
-    return sr_sub<T>;
+    return sr::sub<T>;
   }
   if constexpr (std::is_same_v<Op, helper::MulOp<T>>) {
-    return sr_mul<T>;
+    return sr::mul<T>;
   }
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
-    return sr_div<T>;
+    return sr::div<T>;
   }
 }
 
@@ -219,8 +218,7 @@ void check_distribution_match(T a, T b,
       << fmt_proba(probability_down_estimated) << ")\n"
       << "              #↑: " << count_up << " ("
       << fmt_proba(probability_up_estimated) << ")\n"
-      << std::hexfloat << ""
-      << "              ↓: " << counter.down() << "\n"
+      << std::hexfloat << "" << "              ↓: " << counter.down() << "\n"
       << "              ↑: " << counter.up() << "\n"
       << compute_distance_error_str(a, b, reference) << std::defaultfloat
       << flush();
@@ -243,8 +241,7 @@ void check_distribution_match(T a, T b,
       << "               a: " << helper::hexfloat(a) << "\n"
       << "               b: " << helper::hexfloat(b) << "\n"
       << "             a+b: " << helper::hexfloat(reference) << "\n"
-      << std::defaultfloat << ""
-      << "-- theoretical -\n"
+      << std::defaultfloat << "" << "-- theoretical -\n"
       << "   probability ↓: " << fmt_proba(probability_down) << "\n"
       << "   probability ↑: " << fmt_proba(probability_up) << "\n"
       << "--- estimated --\n"
