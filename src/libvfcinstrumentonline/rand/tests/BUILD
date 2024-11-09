@@ -93,6 +93,29 @@ cc_test_lib_gen(
 )
 
 
+cc_test_lib_gen(
+    name = "sr_hw_test",
+    size = "medium",
+    src = ["//tests:sr_hw_test.cpp"],
+    rng = "XOROSHIRO",
+    copts = [
+        "-O2",
+        "-march=native",
+        "-Wfatal-errors",
+        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+        "-DHWY_IS_TEST",
+        "-g",
+        "-DSR_DEBUG"
+    ],    
+    deps = [
+        "@hwy",
+        "@hwy//:math",
+        "@hwy//:hwy_test_util",
+        "@hwy//:nanobenchmark",
+        "@//src:rand-hw-lib",
+    ],
+)
+
 test_suite(
     name = "all",
     tests = [

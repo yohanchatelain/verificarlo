@@ -100,13 +100,32 @@ public:
   HWY_CXX14_CONSTEXPR std::uint64_t operator()() noexcept { return Next(); }
 
 #if HWY_HAVE_FLOAT64
-  template <typename T> HWY_CXX14_CONSTEXPR T Uniform() noexcept {
-    constexpr auto shift = std::is_same<T, float>::value ? 9 : 11;
-    constexpr auto kMul =
-        std::is_same<T, float>::value ? kMulConstF : kMulConst;
-    return static_cast<T>(Next() >> shift) * kMul;
+  HWY_CXX14_CONSTEXPR double Uniform() noexcept {
+    return static_cast<double>(Next() >> 11) * kMulConst;
   }
 #endif
+
+  Vec<FixedTag<double, 1>> UniformVec(double) noexcept {
+    const FixedTag<std::uint64_t, 1> u64_tag;
+    const FixedTag<double, 1> real_tag;
+    const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
+    const auto bits = Set(u64_tag, Next());
+    const auto bitsshift = ShiftRight<11>(bits);
+    const auto real = ConvertTo(real_tag, bitsshift);
+    return Mul(real, MUL_VALUE);
+  }
+
+  Vec<ScalableTag<float>> UniformVec(float) noexcept {
+    const ScalableTag<std::uint64_t> u64_tag;
+    const ScalableTag<std::uint32_t> u32_tag;
+    const ScalableTag<float> real_tag;
+    const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
+    const auto bits = Set(u64_tag, Next());
+    const auto bitscast = BitCast(u32_tag, bits);
+    const auto bitsshift = ShiftRight<8>(bitscast);
+    const auto real = ConvertTo(real_tag, bitsshift);
+    return Mul(real, MUL_VALUE);
+  }
 
   HWY_CXX14_CONSTEXPR std::array<std::uint64_t, 4> GetState() const {
     return {state_[0], state_[1], state_[2], state_[3]};
@@ -259,23 +278,21 @@ public:
 
   template <typename T, class D = ScalableTag<T>, class V = Vec<D>>
   HWY_INLINE V Uniform(T) noexcept;
-  template <typename T> AlignedVector<T> Uniform(const std::size_t n);
+  template <typename T> AlignedVector<T> Uniform(T, const std::size_t n);
+  template <typename T, std::uint64_t N> std::array<T, N> Uniform(T) noexcept;
 
   template <> HWY_INLINE VF32 Uniform(float) noexcept {
-    sn::debug_msg("\n[Uniform] VF32 START");
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<float> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
     const auto bits = Next();
-    const auto bitscast = ResizeBitCast(u32_tag, bits);
+    const auto bitscast = BitCast(u32_tag, bits);
     const auto bitsshift = ShiftRight<8>(bitscast);
     const auto real = ConvertTo(real_tag, bitsshift);
-    sn::debug_msg("[Uniform] VF32 END\n");
     return Mul(real, MUL_VALUE);
   }
 
-  template <> AlignedVector<float> Uniform(const std::size_t n) {
-    sn::debug_msg("\n[Uniform] AlignedVector<float> START");
+  template <> AlignedVector<float> Uniform(float, const std::size_t n) {
     AlignedVector<float> result(n);
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
@@ -289,8 +306,8 @@ public:
 
     for (std::uint64_t i = 0; i < n; i += Lanes(real_tag)) {
       const auto next = Update(s0, s1, s2, s3);
-      const auto bits = ShiftRight<8>(next);
-      const auto bitscast = BitCast(u32_tag, bits);
+      const auto bits = BitCast(u32_tag, next);
+      const auto bitscast = ShiftRight<8>(bits);
       const auto real = ConvertTo(real_tag, bitscast);
       const auto uniform = Mul(real, MUL_VALUE);
       Store(uniform, real_tag, result.data() + i);
@@ -300,24 +317,48 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
-    sn::debug_msg("\n[Uniform] AlignedVector<float> END");
+    return result;
+  }
+
+  template <std::uint64_t N> std::array<float, N> Uniform(float) noexcept {
+    alignas(HWY_ALIGNMENT) std::array<float, N> result;
+    const ScalableTag<std::uint32_t> u32_tag{};
+    const ScalableTag<std::uint64_t> tag{};
+    const ScalableTag<float> real_tag{};
+    const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
+
+    auto s0 = Load(tag, state_[{0}].data());
+    auto s1 = Load(tag, state_[{1}].data());
+    auto s2 = Load(tag, state_[{2}].data());
+    auto s3 = Load(tag, state_[{3}].data());
+
+    for (std::uint32_t i = 0; i < N; i += Lanes(real_tag)) {
+      const auto next = Update(s0, s1, s2, s3);
+      const auto bits = BitCast(u32_tag, next);
+      const auto bitscast = ShiftRight<8>(bits);
+      const auto real = ConvertTo(real_tag, bitscast);
+      const auto uniform = Mul(real, MUL_VALUE);
+      Store(uniform, real_tag, result.data() + i);
+    }
+
+    Store(s0, tag, state_[{0}].data());
+    Store(s1, tag, state_[{1}].data());
+    Store(s2, tag, state_[{2}].data());
+    Store(s3, tag, state_[{3}].data());
     return result;
   }
 
 #if HWY_HAVE_FLOAT64
 
   template <> HWY_INLINE VF64 Uniform(double) noexcept {
-    sn::debug_msg("\n[Uniform] VF64 START");
     const ScalableTag<double> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
     const auto bits = ShiftRight<11>(Next());
     const auto real = ConvertTo(real_tag, bits);
-    sn::debug_msg("\n[Uniform] VF64 END");
     return Mul(real, MUL_VALUE);
   }
 
-  template <> AlignedVector<double> Uniform(const std::size_t n) {
-    sn::debug_msg("\n[Uniform] AlignedVector<double> START");
+  template <> AlignedVector<double> Uniform(double, const std::size_t n) {
     AlignedVector<double> result(n);
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<double> real_tag{};
@@ -340,11 +381,10 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
-    sn::debug_msg("\n[Uniform] AlignedVector<double> END");
     return result;
   }
 
-  template <std::uint64_t N> std::array<double, N> Uniform() noexcept {
+  template <std::uint64_t N> std::array<double, N> Uniform(double) noexcept {
     alignas(HWY_ALIGNMENT) std::array<double, N> result;
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<double> real_tag{};

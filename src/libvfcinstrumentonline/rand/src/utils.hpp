@@ -21,8 +21,8 @@ template <typename T> struct IEEE754 {};
 // specialize IEEE754 for float and double
 
 template <> struct IEEE754<float> {
-  using I = int32_t;
-  using U = uint32_t;
+  using I = std::int32_t;
+  using U = std::uint32_t;
   static constexpr I sign = 1;
   static constexpr I exponent = 8;
   static constexpr I mantissa = 23;
@@ -41,8 +41,8 @@ template <> struct IEEE754<float> {
 };
 
 template <> struct IEEE754<double> {
-  using I = int64_t;
-  using U = uint64_t;
+  using I = std::int64_t;
+  using U = std::uint64_t;
   static constexpr I sign = 1;
   static constexpr I exponent = 11;
   static constexpr I mantissa = 52;

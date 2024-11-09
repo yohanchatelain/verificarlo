@@ -4,7 +4,7 @@ COPTS = [
     "-Wfatal-errors",
 ]
 
-XOROSHIRO_COPTS = COPTS + ["-DXOROSHIRO", "-mavx2", "-O3", "-mfma"]
+XOROSHIRO_COPTS = COPTS + []
 SHISHUA_COPTS = COPTS + ["-DSHISHUA", "-mavx2", "-O3", "-mfma"]
 USE_CXX11_RANDOM_COPTS = COPTS + ["-DUSE_CXX11_RANDOM", "-mavx2", "-O3", "-mfma"]
 

@@ -1,4 +1,5 @@
 # BUILD file
+load("//:llvm_ir.bzl", "llvm_ir")
 
 # Compiler options
 COPTS = [
@@ -92,8 +93,29 @@ cc_library(
     copts = COPTS + [
         "-DXOROSHIRO",
         "-mavx2",
+        "-mfma",
         "-O2",
         "-Wfatal-errors",
+    ],
+    deps = [
+        "@hwy",
+        "@hwy//:random",
+
+    ],
+    visibility = ["//visibility:public"]
+)
+
+llvm_ir(
+    name = "sr_hw-ir",
+    srcs = ["sr_hw.cpp"],
+    copts = COPTS + [
+        "-DXOROSHIRO",
+        "-mavx2",
+        "-mfma",
+        "-O2",
+        "-Wfatal-errors",
+        "-S",
+        "-emit-llvm"
     ],
     deps = [
         "@hwy",
@@ -123,8 +145,42 @@ cc_binary(
     deps = [
         "@hwy",
         "@hwy//:random",
+        "@hwy//:math",
+
     ],
 )
+
+cc_library(
+    name = "rand-hw-lib",
+    srcs = [
+        "//src:sr_hw.cpp",
+        "//src:debug.hpp",
+        "//src:debug_hwy-inl.h",
+        "//src:random-inl.h",
+        "//src:sr_hw-inl.h",
+        "//src:utils.hpp",
+        "//src:xoroshiro256+_hw.hpp",
+    ],
+    copts = COPTS + [
+        "-DXOROSHIRO",
+        "-march=native",
+        "-O2",
+        "-g",
+        "-Wfatal-errors",
+        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+        "-DSR_DEBUG"
+    ],
+    deps = [
+        "@hwy",
+        "@hwy//:random",
+        "@hwy//:math",
+        
+
+    ],
+    visibility = ["//visibility:public"]
+)
+
+
 
 cc_test(
     name = "test_sr_hw-API",

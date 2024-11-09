@@ -1,3 +1,4 @@
+#include <cmath>
 #include <iostream>
 
 #if defined(HIGHWAY_HWY_VERIFICARLO_SR_INL_H_) == defined(HWY_TARGET_TOGGLE)
@@ -7,27 +8,25 @@
 #define HIGHWAY_HWY_VERIFICARLO_SR_INL_H_
 #endif
 
+// clang-format off
 #include "hwy/highway.h"
 #include "hwy/print-inl.h"
 #include "src/debug_hwy-inl.h"
 #include "src/utils.hpp"
 #include "src/xoroshiro256+_hw.hpp"
+// clang-format on
 
 HWY_BEFORE_NAMESPACE(); // at file scope
 namespace sr {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
-// using hn::HWY_NAMESPACE::hn::ScalableTag;
 
 template <class D, class V, typename T = hn::TFromD<D>>
 void twosum(V a, V b, V &sigma, V &tau) {
   debug_msg("\n[twosum] START");
   debug_vec<D>("[twosum] a", a);
   debug_vec<D>("[twosum] b", b);
-
-  // using D = hn::ScalableTag<T>;
-  // const D d{};
 
   auto abs_a = hn::Abs(a);
   auto abs_b = hn::Abs(b);
@@ -46,17 +45,175 @@ void twosum(V a, V b, V &sigma, V &tau) {
   debug_msg("[twosum] END\n");
 }
 
+/*
+Algorithm 3 – Split(x, s). Veltkamp’s splitting algorithm. Returns a pair
+(xh, xℓ) of FP numbers such that the significand of xh fits in s − p bits, the
+significand of xℓ fits in s − 1 bits, and xh + xℓ = x.
+Require: K = 2s + 1
+Require: 2 ≤ s ≤ p − 2
+γ ← RN(K · x)
+δ ← RN(x − γ)
+ah ← RN(γ + δ)
+aℓ ← RN(x − ah)
+return (xh, xℓ)
+*/
+template <class D, class V = hn::TFromD<D>, typename T = hn::TFromD<D>>
+void Split(V x, V &xh, V &xl) {
+  const D d;
+  debug_msg("\n[Split] START");
+  debug_vec<D>("[Split] x", x);
+
+  const int s = (int)std::ceil((utils::IEEE754<T>::precision) / 2.0);
+  const auto K = hn::Set(d, (1 << s) + 1);
+
+  auto gamma = hn::Mul(K, x);
+  auto delta = hn::Sub(x, gamma);
+  xh = hn::Add(gamma, delta);
+  xl = hn::Sub(x, xh);
+
+  debug_vec<D>("[Split] xh", xh);
+  debug_vec<D>("[Split] xl", xl);
+  debug_msg("[Split] END\n");
+}
+
+/*
+Algorithm 4 – DekkerProd(a, b). Dekker’s product. Returns a pair (πh, πℓ)
+of FP numbers such that πh = RN(ab) and πh + πℓ = ab.
+Require: s = ⌈p/2⌉
+(ah, aℓ) ← Split(a, s)
+(bh, bℓ) ← Split(b, s)
+πh ← RN(a · b)
+t1 ← RN(−πh + RN(ah · bh))
+t2 ← RN(t1 + RN(ah · bℓ))
+t3 ← RN(t2 + RN(aℓ · bh))
+πℓ ← RN(t3 + RN(aℓ · bℓ))
+return (πh, πℓ)
+*/
+template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
+void DekkerProd(V a, V b, V &pi_h, V &pi_l) {
+  debug_msg("\n[DekkerProd] START");
+  debug_vec<D>("[DekkerProd] a", a);
+  debug_vec<D>("[DekkerProd] b", b);
+
+  V ah, al;
+  V bh, bl;
+  Split<D>(a, ah, al);
+  Split<D>(b, bh, bl);
+
+  pi_h = hn::Mul(a, b);
+  auto t1 = hn::Add(hn::Neg(pi_h), hn::Mul(ah, bh));
+  auto t2 = hn::Add(t1, hn::Mul(ah, bl));
+  auto t3 = hn::Add(t2, hn::Mul(al, bh));
+  pi_l = hn::Add(t3, hn::Mul(al, bl));
+
+  debug_vec<D>("[DekkerProd] pi_h", pi_h);
+  debug_vec<D>("[DekkerProd] pi_l", pi_l);
+  debug_msg("[DekkerProd] END\n");
+}
+
+/*
+Algorithm 7 EmulFMA(a, b, c).
+Require: P = 2^(p−1) + 1
+Require: Q = 2^(p−1)
+(πh, πℓ) ← DekkerProd(a, b)
+(sh, sℓ) ← 2Sum(πh, c)
+(vh, vℓ) ← 2Sum(πℓ, sℓ)
+(zh, zℓ) ← Fast2Sum(sh, vh)
+w ← RN(vℓ + zℓ)
+L ← RN(P · w)
+R ← RN(Q · w)
+∆ ← RN(L − R)
+d_temp_1 ← RN(zh + w)
+if ∆ ≠ w then // mask
+  return d_temp_1
+else
+  w' ← RN(3/2 · w)
+  d_temp_2 ← RN(zh + w')
+  if d_temp_2 = zh then // mask1
+    return zh
+  else
+    δ ← RN(w − zℓ)
+    t ← RN(vℓ − δ)
+    if t = 0 then // mask2
+      return d_temp_2
+    else
+      g ← RN(t · w)
+      if g < 0 then // mask3
+        return zh
+      else
+        return d_temp_2
+      end if
+    end if
+  end if
+end if
+*/
+template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
+V fma(V a, V b, V c) {
+  debug_msg("\n[fma] START");
+  debug_vec<D>("[fma] a", a);
+  debug_vec<D>("[fma] b", b);
+  debug_vec<D>("[fma] c", c);
+
+  const D d;
+
+  constexpr auto ulp = std::is_same<T, float>::value ? 0x1.0p-23f : 0x1.0p-52;
+  const auto P = hn::Set(d, 1 + ulp);
+  const auto Q = hn::Set(d, ulp);
+  const auto q3_2 = hn::Set(d, 1.5);
+
+  V pi_h, pi_l;
+  V s_h, s_l;
+  V v_h, v_l;
+  V z_h, z_l;
+
+  DekkerProd<D>(a, b, pi_h, pi_l);
+  twosum<D>(pi_h, c, s_h, s_l);
+  twosum<D>(pi_l, s_l, v_h, v_l);
+  twosum<D>(s_h, v_h, z_h, z_l);
+
+  auto w = hn::Add(v_l, z_l);
+  auto L = hn::Mul(P, w);
+  auto R = hn::Mul(Q, w);
+  auto delta = hn::Sub(L, R);
+  auto d_temp_1 = hn::Add(z_h, w);
+  auto mask = hn::Ne(delta, w); // if delta != w then
+  // else
+  auto w_prime = hn::Mul(q3_2, w);
+  auto d_temp_2 = hn::Add(z_h, w_prime);
+  auto mask1 = hn::Eq(d_temp_2, z_h); // if d_temp_2 = z_h then
+  // else
+  auto delta_prime = hn::Sub(w, z_l);
+  auto t = hn::Sub(v_l, delta_prime);
+  auto mask2 = hn::Eq(t, hn::Zero(d)); // if t = 0 then
+  // else
+  auto g = hn::Mul(t, w);
+  auto mask3 = hn::Lt(g, hn::Zero(d)); // if g < 0 then
+
+  auto res = hn::IfThenElse(
+      mask, d_temp_1,
+      hn::IfThenElse(mask1, z_h,
+                     hn::IfThenElse(mask2, d_temp_2,
+                                    hn::IfThenElse(mask3, z_h, d_temp_2))));
+
+  debug_vec<D>("[fma] res", res);
+  debug_msg("[fma] END\n");
+
+  return res;
+}
+
 template <class D, class V, typename T = hn::TFromD<D>>
 void twoprodfma(V a, V b, V &sigma, V &tau) {
   debug_msg("\n[twoprodfma] START");
   debug_vec<D>("[twoprodfma] a", a);
   debug_vec<D>("[twoprodfma] b", b);
 
-  // using D = hn::ScalableTag<T>;
-  const D d{};
-
   sigma = hn::Mul(a, b);
+#if HWY_NATIVE_FMA
   tau = hn::MulSub(a, b, sigma); // Highway's MulSub is equivalent to FMA
+#else
+#warning "FMA not supported, using emulation (slow)"
+  tau = fma<D>(a, b, hn::Neg(sigma));
+#endif
 
   debug_vec<D>("[twoprodfma] sigma", sigma);
   debug_vec<D>("[twoprodfma] tau", tau);
@@ -104,15 +261,29 @@ VI get_exponent(D d, V a) {
   return res;
 }
 
+// Computes 2^x, where x is an integer.
+// Only works for x in the range of the exponent of the floating point type.
+template <class D, class VI = hn::Vec<hn::Rebind<hwy::MakeSigned<D>, D>>,
+          typename T = hn::TFromD<D>>
+HWY_INLINE hn::Vec<D> FastPow2I(D d, VI x) {
+  constexpr auto kOffsetS = std::is_same<T, float>::value ? 0x7F : 0x3FF;
+  constexpr auto mantissa = std::is_same<T, float>::value ? 23 : 52;
+  const hn::Rebind<hwy::MakeSigned<D>, D> di;
+  const auto kOffset = Set(di, kOffsetS);
+  const auto offset = Add(x, kOffset);
+  const auto shift = ShiftLeft<mantissa>(offset);
+  return BitCast(d, shift);
+}
+
 template <class D, class V, typename T = hn::TFromD<D>>
 hn::Vec<D> pow2(D d, V n) {
-  debug_msg("\n[pow2] START");
+  // debug_msg("\n[pow2] START");
 
   using DI = hn::RebindToSigned<D>;
   using I = typename sr::utils::IEEE754<T>::I;
   const DI di;
 
-  debug_vec<DI>("[pow2] n", n, false);
+  // debug_vec<DI>("[pow2] n", n, false);
 
   constexpr I mantissa = sr::utils::IEEE754<T>::mantissa;
   constexpr I min_exponent = sr::utils::IEEE754<T>::min_exponent;
@@ -128,45 +299,26 @@ hn::Vec<D> pow2(D d, V n) {
 
   auto res = hn::IfThenZeroElse(hn::Not(is_subnormal), hn::Set(di, 1));
 
-  debug_vec<DI>("[pow2] res", res);
+  // debug_vec<DI>("[pow2] res", res);
 
   auto shift = hn::Sub(hn::Set(di, mantissa), precision_loss);
 
   debug_mask<DI>("[pow2] is_subnormal", is_subnormal);
-  debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
-  debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
-  debug_vec<DI>("[pow2] shift", shift, false);
+  // debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
+  // debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
+  // debug_vec<DI>("[pow2] shift", shift, false);
 
   res = res + (n_adjusted << shift);
 
-  debug_vec<DI>("[pow2] res", res);
-  debug_vec<D>("[pow2] res", hn::BitCast(d, res));
-  debug_msg("[pow2] END\n");
+  // debug_vec<DI>("[pow2] res", res);
+  // debug_vec<D>("[pow2] res", hn::BitCast(d, res));
+  // debug_msg("[pow2] END\n");
 
   return hn::BitCast(d, res);
 }
 
-template <class D, class V, typename T = hn::TFromD<D>> V isnumber(V a, V b) {
-  const D d;
-  using U = typename hwy::MakeUnsigned<T>;
-  constexpr U naninf_mask = sr::utils::IEEE754<T>::inf_nan_mask;
-
-  auto a_bits = hn::BitCast(d, a);
-  auto b_bits = hn::BitCast(d, b);
-  auto mask = hn::Set(d, naninf_mask);
-
-  auto a_not_zero = hn::Ne(a_bits, hn::Zero(d));
-  auto b_not_zero = hn::Ne(b_bits, hn::Zero(d));
-  auto a_not_naninf = hn::Ne(hn::And(a_bits, mask), mask);
-  auto b_not_naninf = hn::Ne(hn::And(b_bits, mask), mask);
-
-  auto res = hn::And(hn::And(a_not_zero, a_not_naninf),
-                     hn::And(b_not_zero, b_not_naninf));
-  return hn::VecFromMask(d, res);
-}
-
 template <class D, class V, typename T = hn::TFromD<D>>
-HWY_MAYBE_UNUSED V sr_round(V sigma, V tau) {
+V sr_round(V sigma, V tau) {
   debug_msg("\n[sr_round] START");
   debug_vec<D>("[sr_round] sigma", sigma);
   debug_vec<D>("[sr_round] tau", tau);
@@ -194,12 +346,12 @@ HWY_MAYBE_UNUSED V sr_round(V sigma, V tau) {
   auto eta = hn::IfThenElse(sign_diff_int, get_exponent(d, pred_sigma),
                             get_exponent(d, sigma));
 
-  auto ulp_abs = pow2(d, hn::Sub(eta, hn::Set(di, mantissa)));
-  auto ulp = hn::IfThenElse(sign_diff, hn::Neg(ulp_abs), ulp_abs);
+  auto exp = hn::Sub(eta, hn::Set(di, mantissa));
+  auto abs_ulp = pow2(d, exp);
+  auto ulp = hn::CopySign(abs_ulp, tau);
 
   auto pi = hn::Mul(ulp, z);
   auto abs_tau_plus_pi = hn::Abs(hn::Add(tau, pi));
-  auto abs_ulp = hn::Abs(ulp);
   auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
 
   debug_vec<D>("[sr_round] z", z);
@@ -218,81 +370,88 @@ HWY_MAYBE_UNUSED V sr_round(V sigma, V tau) {
   return res;
 }
 
-template <class D, class V, typename T = hn::TFromD<D>>
+template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
 HWY_API V sr_add(V a, V b) {
   debug_msg("\n[sr_add] START");
-
-  // using D = hn::ScalableTag<T>;
-  // const D d;
-
-  auto is_number = isnumber<D>(a, b);
-  auto normal_sum = hn::Add(a, b);
-
-  // auto z = xoroshiro256plus::rng.Uniform(hn::Lanes(d));
-  hn::Vec<D> sigma, tau;
+  V sigma, tau;
   twosum<D>(a, b, sigma, tau);
   auto round = sr_round<D>(sigma, tau);
-  auto stochastic_sum = hn::Add(sigma, round);
-
-  auto is_number_mask = hn::MaskFromVec(is_number);
-  auto ret = hn::IfThenElse(is_number_mask, stochastic_sum, normal_sum);
+  auto ret = hn::Add(sigma, round);
   debug_vec<D>("[sr_add] res", ret);
   debug_msg("[sr_add] END\n");
   return ret;
 }
 
-template <typename T>
-hn::Vec<hn::ScalableTag<T>> sr_mul(hn::Vec<hn::ScalableTag<T>> a,
-                                   hn::Vec<hn::ScalableTag<T>> b) {
-  using D = hn::ScalableTag<T>;
-  const D d;
-
-  auto is_number = isnumber(a, b);
-  auto normal_product = hn::Mul(a, b);
-
-  // auto z = get_rand_double01_vec(d);
-  hn::Vec<D> sigma, tau;
-  twoprodfma(a, b, sigma, tau);
-  auto round = sr_round<T>(sigma, tau);
-  auto stochastic_product = hn::Add(sigma, round);
-
-  return hn::IfThenElse(is_number, stochastic_product, normal_product);
+template <class D, class V, typename T = hn::TFromD<D>>
+HWY_API V sr_sub(V a, V b) {
+  return sr_add<D>(a, hn::Neg(b));
 }
 
-template <typename T>
-hn::Vec<hn::ScalableTag<T>> sr_div(hn::Vec<hn::ScalableTag<T>> a,
-                                   hn::Vec<hn::ScalableTag<T>> b) {
-  using D = hn::ScalableTag<T>;
-  const D d;
+template <class D, class V, typename T = hn::TFromD<D>>
+HWY_API V sr_mul(V a, V b) {
+  debug_msg("\n[sr_add] START");
+  V sigma, tau;
+  twoprodfma<D>(a, b, sigma, tau);
+  auto round = sr_round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, round);
+  debug_vec<D>("[sr_mul] res", ret);
+  debug_msg("[sr_mul] END\n");
 
-  auto is_number = isnumber(a, b);
-  auto normal_quotient = hn::Div(a, b);
+  return ret;
+}
 
-  // auto z = get_rand_double01_vec(d);
+/*
+Algorithm 6.9. Division With Stochastic Rounding Without
+the Change of the Rounding Mode
+
+1. Function Div2(a, b)
+2. Compute σ = SR(a / b)
+3. Z = rand()
+4. σ = RN(a / b)
+5. τ = RN(-σ * b + a)
+6. τ = RN(τ / b)
+7. round = SRround(σ, τ, Z)
+8. σ = RN(σ + round)
+9. return σ
+*/
+template <class D, class V, typename T = hn::TFromD<D>>
+HWY_API V sr_div(V a, V b) {
+  debug_msg("\n[sr_div] START");
+  debug_vec<D>("[sr_div] a", a);
+  debug_vec<D>("[sr_div] b", b);
   auto sigma = hn::Div(a, b);
-  auto tau = hn::Div(hn::MulSub(hn::Neg(sigma), b, a), b);
-  auto round = sr_round(sigma, tau);
-  auto stochastic_quotient = hn::Add(sigma, round);
+#if HWY_NATIVE_FMA
+  auto taup = hn::NegMulAdd(sigma, b, a);
+#else
+#warning "FMA not supported, using emulation (slow)"
+  auto taup = fma<D>(hn::Neg(sigma), b, a);
+#endif
+  auto tau = hn::Div(taup, b);
+  auto round = sr_round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, round);
+  debug_vec<D>("[sr_div] sigma", sigma);
+  debug_vec<D>("[sr_div] tau'", taup);
+  debug_vec<D>("[sr_div] tau", tau);
+  debug_vec<D>("[sr_div] round", round);
+  debug_vec<D>("[sr_div] res", ret);
+  debug_msg("[sr_div] END\n");
 
-  return hn::IfThenElse(is_number, stochastic_quotient, normal_quotient);
+  return ret;
 }
 
-template <typename T>
-hn::Vec<hn::ScalableTag<T>> sr_sqrt(hn::Vec<hn::ScalableTag<T>> a) {
-  using D = hn::ScalableTag<T>;
-  const D d;
+template <class D, class V, typename T = hn::TFromD<D>> V sr_sqrt(V a) {
+  debug_msg("\n[sr_sqrt] START");
 
-  auto is_number = isnumber(a, a);
-  auto normal_sqrt = hn::Sqrt(a);
-
-  // auto z = get_rand_double01_vec(d);
+  const D d{};
   auto sigma = hn::Sqrt(a);
   auto tau = hn::Div(hn::MulSub(hn::Neg(sigma), sigma, a),
                      hn::Mul(hn::Set(d, 2), sigma));
-  auto round = sr_round(sigma, tau);
-  auto stochastic_sqrt = hn::Add(sigma, round);
+  auto round = sr_round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, round);
+  debug_vec<D>("[sr_sqrt] res", ret);
+  debug_msg("[sr_sqrt] END\n");
 
-  return hn::IfThenElse(is_number, stochastic_sqrt, normal_sqrt);
+  return ret;
 }
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)

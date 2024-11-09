@@ -40,12 +40,13 @@ void RngLoop(const std::uint64_t seed, std::uint64_t *HWY_RESTRICT result,
 }
 
 #if HWY_HAVE_FLOAT64
-void UniformLoop(const std::uint64_t seed, double *HWY_RESTRICT result,
+template <typename T>
+void UniformLoop(const std::uint64_t seed, T *HWY_RESTRICT result,
                  const size_t size) {
-  const ScalableTag<double> d;
+  const ScalableTag<T> d;
   VectorXoshiro generator{seed};
   for (size_t i = 0; i < size; i += Lanes(d)) {
-    Store(generator.Uniform(double{}), d, result + i);
+    Store(generator.Uniform(T{}), d, result + i);
   }
 }
 #endif
@@ -127,6 +128,7 @@ void TestRandomUint64() {
     }
   }
 }
+
 void TestUniformDist() {
 #if HWY_HAVE_FLOAT64
   const std::uint64_t seed = GetSeed();
@@ -136,11 +138,83 @@ void TestUniformDist() {
   const ScalableTag<double> d;
   const std::size_t lanes = Lanes(d);
   for (std::size_t i = 0UL; i < tests; i += lanes) {
-    const double result = reference.Uniform<double>();
+    const double result = reference.Uniform();
     if (result_array[i] != result) {
       std::cerr << "SEED: " << seed << std::endl;
       std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
                 << result_array[i] << " != " << result << std::endl;
+      HWY_ASSERT(0);
+    }
+    if (0.0 > result_array[i] or 1.0 <= result_array[i]) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " out of bounds" << std::endl;
+      HWY_ASSERT(0);
+    }
+  }
+#endif // HWY_HAVE_FLOAT64
+}
+
+void TestUniformVecDist() {
+#if HWY_HAVE_FLOAT64
+  using D = ScalableTag<double>;
+  const std::uint64_t seed = GetSeed();
+  const auto result_array = hwy::MakeUniqueAlignedArray<double>(tests);
+  UniformLoop(seed, result_array.get(), tests);
+  internal::Xoshiro reference{seed};
+  const D d;
+  const std::size_t lanes = Lanes(d);
+  for (std::size_t i = 0UL; i < tests; i += lanes) {
+    const double result = GetLane(reference.UniformVec(double{}));
+    if (result_array[i] != result) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " != " << result << std::endl;
+      HWY_ASSERT(0);
+    }
+    if (0.0 > result_array[i] or 1.0 <= result_array[i]) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " out of bounds" << std::endl;
+      HWY_ASSERT(0);
+    }
+  }
+#endif // HWY_HAVE_FLOAT64
+}
+
+void TestUniformVecDistF32() {
+#if HWY_HAVE_FLOAT64
+  using D = ScalableTag<float>;
+  const std::uint64_t seed = GetSeed();
+  const auto result_array = hwy::MakeUniqueAlignedArray<float>(tests);
+  UniformLoop(seed, result_array.get(), tests);
+  internal::Xoshiro reference{seed};
+  const D d;
+  const std::size_t lanes = Lanes(d);
+  for (std::size_t i = 0UL; i < tests; i += lanes) {
+    const auto result = reference.UniformVec(float{});
+    const float result1 = GetLane(result);
+    const float result2 = ExtractLane(result, 1);
+    if (result_array[i] != result1 or result_array[i + 1] != result2) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " != " << result1 << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
+                << "] -> " << result_array[i + 1] << " != " << result2
+                << std::endl;
+      HWY_ASSERT(0);
+    }
+    if (0.0 > result_array[i] or 1.0 <= result_array[i]) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " out of bounds" << std::endl;
+      HWY_ASSERT(0);
+    }
+    if (0.0 > result_array[i + 1] or 1.0 <= result_array[i + 1]) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
+                << "] -> " << result_array[i + 1] << " out of bounds"
+                << std::endl;
       HWY_ASSERT(0);
     }
   }
@@ -203,21 +277,47 @@ void TestNextFixedNRandomUint64() {
     }
   }
 }
+
 void TestNextNUniformDist() {
 #if HWY_HAVE_FLOAT64
   const std::uint64_t seed = GetSeed();
   VectorXoshiro generator{seed};
-  const auto result_array = generator.Uniform(tests);
+  const auto result_array = generator.Uniform(double{}, tests);
   internal::Xoshiro reference{seed};
   const ScalableTag<double> d;
   const std::size_t lanes = Lanes(d);
   for (std::size_t i = 0UL; i < tests; i += lanes) {
-    const double result = reference.Uniform<double>();
-    auto res_array = ExtractLane(result_array, i);
-    if (res_array != result) {
+    const double result = reference.Uniform();
+    if (result_array[i] != result) {
       std::cerr << "SEED: " << seed << std::endl;
       std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
-                << res_array << " != " << result << std::endl;
+                << result_array[i] << " != " << result << std::endl;
+
+      HWY_ASSERT(0);
+    }
+  }
+#endif // HWY_HAVE_FLOAT64
+}
+
+void TestNextNUniformVecDistF32() {
+#if HWY_HAVE_FLOAT64
+  const std::uint64_t seed = GetSeed();
+  VectorXoshiro generator{seed};
+  const auto result_array = generator.Uniform(float{}, tests);
+  internal::Xoshiro reference{seed};
+  const ScalableTag<float> d;
+  const std::size_t lanes = Lanes(d);
+  for (std::size_t i = 0UL; i < tests; i += lanes) {
+    const auto result = reference.UniformVec(float{});
+    const auto result1 = GetLane(result);
+    const auto result2 = ExtractLane(result, 1);
+    if (result_array[i] != result1 or result_array[i + 1] != result2) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " != " << result1 << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
+                << "] -> " << result_array[i + 1] << " != " << result2
+                << std::endl;
 
       HWY_ASSERT(0);
     }
@@ -229,16 +329,41 @@ void TestNextFixedNUniformDist() {
 #if HWY_HAVE_FLOAT64
   const std::uint64_t seed = GetSeed();
   VectorXoshiro generator{seed};
-  const auto result_array = generator.Uniform<tests>();
+  const auto result_array = generator.Uniform<tests>(double{});
   internal::Xoshiro reference{seed};
   const ScalableTag<double> d;
   const std::size_t lanes = Lanes(d);
   for (std::size_t i = 0UL; i < tests; i += lanes) {
-    const double result = reference.Uniform<double>();
+    const double result = reference.Uniform();
     if (result_array[i] != result) {
       std::cerr << "SEED: " << seed << std::endl;
       std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
                 << result_array[i] << " != " << result << std::endl;
+      HWY_ASSERT(0);
+    }
+  }
+#endif // HWY_HAVE_FLOAT64
+}
+
+void TestNextFixedNUniformVecDistF32() {
+#if HWY_HAVE_FLOAT64
+  const std::uint64_t seed = GetSeed();
+  VectorXoshiro generator{seed};
+  const auto result_array = generator.Uniform<tests>(float{});
+  internal::Xoshiro reference{seed};
+  const ScalableTag<float> d;
+  const std::size_t lanes = Lanes(d);
+  for (std::size_t i = 0UL; i < tests; i += lanes) {
+    const auto result = reference.UniformVec(float{});
+    const auto result1 = GetLane(result);
+    const auto result2 = ExtractLane(result, 1);
+    if (result_array[i] != result1 or result_array[i + 1] != result2) {
+      std::cerr << "SEED: " << seed << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
+                << result_array[i] << " != " << result1 << std::endl;
+      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
+                << "] -> " << result_array[i + 1] << " != " << result2
+                << std::endl;
       HWY_ASSERT(0);
     }
   }
@@ -310,8 +435,12 @@ HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestNextNRandomUint64);
 HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestNextFixedNRandomUint64);
 HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestCachedXorshiro);
 HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestUniformDist);
+HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestUniformVecDistF32);
+HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestUniformVecDist);
 HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestNextNUniformDist);
+HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestNextNUniformVecDistF32);
 HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestNextFixedNUniformDist);
+HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestNextFixedNUniformVecDistF32);
 HWY_EXPORT_AND_TEST_P(HwyRandomTest, TestUniformCachedXorshiro);
 HWY_AFTER_TEST();
 } // namespace

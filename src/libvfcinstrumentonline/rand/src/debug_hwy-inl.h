@@ -18,19 +18,26 @@ namespace HWY_NAMESPACE {
 namespace hn = hwy::HWY_NAMESPACE;
 
 bool _print_debug() {
+#ifdef SR_DEBUG
   const char *env_debug = getenv("VFC_DEBUG");
   return env_debug && std::string(env_debug) == "1";
+#else
+  return false;
+#endif
 }
 
 HWY_API void debug_msg(const std::string &msg) {
+#ifdef SR_DEBUG
   if (not _print_debug())
     return;
   std::cout << msg << std::endl;
+#endif
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
 HWY_API void debug_vec(const std::string &msg, const V &a,
                        const bool hex = true) {
+#ifdef SR_DEBUG
   const D d;
   if (not _print_debug())
     return;
@@ -61,14 +68,17 @@ HWY_API void debug_vec(const std::string &msg, const V &a,
   } else {
     hn::Print(d, msg.c_str(), a);
   }
+#endif
 }
 
 template <class D, class M, typename T = hn::TFromD<D>>
 HWY_API void debug_mask(const std::string &msg, const M &a) {
+#ifdef SR_DEBUG
   const D d;
   if (not _print_debug())
     return;
   debug_vec<D>(msg, hn::VecFromMask(d, a));
+#endif
 }
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)

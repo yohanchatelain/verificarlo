@@ -174,17 +174,6 @@ template <typename T> bool is_subnormal(const T a) {
          abs(a) < IEEE754<T>::min_normal;
 }
 
-// compute ulp(a)
-template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
-  if (is_subnormal(a))
-    return static_cast<H>(IEEE754<T>::min_subnormal);
-  int exponent;
-  std::frexp(a, &exponent);
-  exponent--;
-  H ulp = std::ldexp(1.0, exponent - IEEE754<T>::mantissa);
-  return ulp;
-}
-
 template <typename T> int get_exponent(T a) {
   int exp = 0;
   if (a == 0)
@@ -203,6 +192,15 @@ template <typename T> int get_exponent(T a) {
     exp -= IEEE754<T>::bias;
   }
   return exp;
+}
+
+// compute ulp(a)
+template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
+  if (is_subnormal(a))
+    return static_cast<H>(IEEE754<T>::min_subnormal);
+  int exponent = get_exponent(a);
+  H ulp = std::ldexp(1.0, exponent - IEEE754<T>::mantissa);
+  return ulp;
 }
 
 struct RNG {

@@ -11,14 +11,14 @@ extern void __debug_header_end(const char *func);
 #ifndef SR_DEBUG_FUNCTIONS_DECLARED
 #include <cstdarg>
 #include <cstdio>
-#define __buffer_size 1024
+#define sr_buffer_size 1024
 static char __end = '\0';
 static char __indent = '\t';
 static int __debug_level = 0;
-static char __debug_buffer[__buffer_size] = {__indent};
+static char __debug_buffer[sr_buffer_size] = {__indent};
 
-#define __buffer_size_str 1048576
-static char __debug_buffer_str[__buffer_size_str] = {__end};
+#define sr_buffer_size_str 1048576
+static char __debug_buffer_str[sr_buffer_size_str] = {__end};
 static int __debug_str_pos = 0;
 #endif // SR_DEBUG_FUNCTIONS_DECLARED
 
@@ -27,11 +27,11 @@ static int __debug_str_pos = 0;
 
 void __debug_printf(const char *fmt, ...) {
   assert(__debug_level >= 0);
-  assert(__debug_level < __buffer_size);
+  assert(__debug_level < sr_buffer_size);
   __debug_buffer[__debug_level] = __end;
 #ifdef SR_DEBUG_BUFFERIZED
   __debug_str_pos += snprintf(__debug_buffer_str + __debug_str_pos,
-                              __buffer_size_str, "[debug] %s", __debug_buffer);
+                              sr_buffer_size_str, "[debug] %s", __debug_buffer);
 #else
   fprintf(stderr, "[debug] %s", __debug_buffer);
 #endif
@@ -40,7 +40,7 @@ void __debug_printf(const char *fmt, ...) {
   va_start(args, fmt);
 #ifdef SR_DEBUG_BUFFERIZED
   __debug_str_pos += vsnprintf(__debug_buffer_str + __debug_str_pos,
-                               __buffer_size_str, fmt, args);
+                               sr_buffer_size_str, fmt, args);
 #else
   vfprintf(stderr, fmt, args);
 #endif
@@ -49,11 +49,11 @@ void __debug_printf(const char *fmt, ...) {
 
 void __debug_header_start(const char *func) {
   assert(__debug_level >= 0);
-  assert(__debug_level < __buffer_size);
+  assert(__debug_level < sr_buffer_size);
   __debug_buffer[__debug_level] = __end;
 #ifdef SR_DEBUG_BUFFERIZED
   __debug_str_pos +=
-      snprintf(__debug_buffer_str + __debug_str_pos, __buffer_size_str,
+      snprintf(__debug_buffer_str + __debug_str_pos, sr_buffer_size_str,
                "[debug] %s===%s===\n", __debug_buffer, func);
 #else
   fprintf(stderr, "[debug] %s===%s===\n", __debug_buffer, func);
@@ -65,11 +65,11 @@ void __debug_header_start(const char *func) {
 void __debug_header_end(const char *func) {
   __debug_level--;
   assert(__debug_level >= 0);
-  assert(__debug_level < __buffer_size);
+  assert(__debug_level < sr_buffer_size);
   __debug_buffer[__debug_level] = __end;
 #ifdef SR_DEBUG_BUFFERIZED
   __debug_str_pos +=
-      snprintf(__debug_buffer_str + __debug_str_pos, __buffer_size_str,
+      snprintf(__debug_buffer_str + __debug_str_pos, sr_buffer_size_str,
                "[debug] %s===%s===\n\n", __debug_buffer, func);
 #else
   fprintf(stderr, "[debug] %s===%s===\n\n", __debug_buffer, func);

@@ -71,6 +71,7 @@ struct TestAdd {
       hn::Print(d, "c", c, 0, 7, fmt);
     }
 
+
     auto c_min = hn::ReduceMin(d, c);
     auto c_max = hn::ReduceMax(d, c);
 

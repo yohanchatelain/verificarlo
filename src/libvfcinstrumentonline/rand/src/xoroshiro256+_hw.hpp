@@ -26,6 +26,7 @@ namespace xoroshiro256plus {
 namespace hn = hwy::HWY_NAMESPACE;
 
 uint64_t get_user_seed() throw() {
+  debug_msg("[get_user_seed] START");
   // try to get VFC_RNG_SEED from the environment
   const char *env_seed = getenv("VFC_RNG_SEED");
   if (env_seed) {
@@ -40,6 +41,7 @@ uint64_t get_user_seed() throw() {
     struct timeval t1;
     gettimeofday(&t1, nullptr);
     seed = t1.tv_sec ^ t1.tv_usec ^ syscall(__NR_gettid);
+    debug_msg("[get_user_seed] STOP");
     return seed;
   }
   return 0;
@@ -49,12 +51,13 @@ uint64_t get_user_seed() throw() {
 static auto rng = hn::VectorXoshiro(get_user_seed());
 
 template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
+  debug_msg("[uniform] START");
   using T = hn::TFromD<D>;
   // rng.Uniform returns at most 128 bits vector
   // so we need to call it multiple times to fill the vector D
-
-  auto z = rng.Uniform<T>(hn::Lanes(d));
+  auto z = rng.Uniform(T{}, hn::Lanes(d));
   auto z_load = hn::Load(d, z.data());
+  debug_msg("[uniform] END");
   return z_load;
 }
 
