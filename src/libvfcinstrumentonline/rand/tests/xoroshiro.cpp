@@ -193,29 +193,29 @@ void TestUniformVecDistF32() {
   const std::size_t lanes = Lanes(d);
   for (std::size_t i = 0UL; i < tests; i += lanes) {
     const auto result = reference.UniformVec(float{});
-    const float result1 = GetLane(result);
-    const float result2 = ExtractLane(result, 1);
-    if (result_array[i] != result1 or result_array[i + 1] != result2) {
-      std::cerr << "SEED: " << seed << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
-                << result_array[i] << " != " << result1 << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
-                << "] -> " << result_array[i + 1] << " != " << result2
-                << std::endl;
-      HWY_ASSERT(0);
-    }
-    if (0.0 > result_array[i] or 1.0 <= result_array[i]) {
-      std::cerr << "SEED: " << seed << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
-                << result_array[i] << " out of bounds" << std::endl;
-      HWY_ASSERT(0);
-    }
-    if (0.0 > result_array[i + 1] or 1.0 <= result_array[i + 1]) {
-      std::cerr << "SEED: " << seed << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
-                << "] -> " << result_array[i + 1] << " out of bounds"
-                << std::endl;
-      HWY_ASSERT(0);
+#if HWY_TARGET == HWY_SCALAR
+    // Scalar implementation is not vectorized
+    // so it returns 1 float per call
+    const auto value_per_result = 1;
+#else
+    const auto value_per_result = 2;
+#endif
+    for (std::size_t lane = 0UL; lane < value_per_result; ++lane) {
+      const float result_lane = ExtractLane(result, lane);
+      if (result_array[i + lane] != result_lane) {
+        std::cerr << "SEED: " << seed << std::endl;
+        std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + lane
+                  << "] -> " << result_array[i + lane] << " != " << result_lane
+                  << std::endl;
+        HWY_ASSERT(0);
+      }
+      if (0.0 > result_array[i + lane] or 1.0 <= result_array[i + lane]) {
+        std::cerr << "SEED: " << seed << std::endl;
+        std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + lane
+                  << "] -> " << result_array[i + lane] << " out of bounds"
+                  << std::endl;
+        HWY_ASSERT(0);
+      }
     }
   }
 #endif // HWY_HAVE_FLOAT64
@@ -309,17 +309,29 @@ void TestNextNUniformVecDistF32() {
   const std::size_t lanes = Lanes(d);
   for (std::size_t i = 0UL; i < tests; i += lanes) {
     const auto result = reference.UniformVec(float{});
-    const auto result1 = GetLane(result);
-    const auto result2 = ExtractLane(result, 1);
-    if (result_array[i] != result1 or result_array[i + 1] != result2) {
-      std::cerr << "SEED: " << seed << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
-                << result_array[i] << " != " << result1 << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
-                << "] -> " << result_array[i + 1] << " != " << result2
-                << std::endl;
-
-      HWY_ASSERT(0);
+#if HWY_TARGET == HWY_SCALAR
+    // Scalar implementation is not vectorized
+    // so it returns 1 float per call
+    const auto value_per_result = 1;
+#else
+    const auto value_per_result = 2;
+#endif
+    for (std::size_t lane = 0UL; lane < value_per_result; ++lane) {
+      const float result_lane = ExtractLane(result, lane);
+      if (result_array[i + lane] != result_lane) {
+        std::cerr << "SEED: " << seed << std::endl;
+        std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + lane
+                  << "] -> " << result_array[i + lane] << " != " << result_lane
+                  << std::endl;
+        HWY_ASSERT(0);
+      }
+      if (0.0 > result_array[i + lane] or 1.0 <= result_array[i + lane]) {
+        std::cerr << "SEED: " << seed << std::endl;
+        std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + lane
+                  << "] -> " << result_array[i + lane] << " out of bounds"
+                  << std::endl;
+        HWY_ASSERT(0);
+      }
     }
   }
 #endif // HWY_HAVE_FLOAT64
@@ -355,16 +367,29 @@ void TestNextFixedNUniformVecDistF32() {
   const std::size_t lanes = Lanes(d);
   for (std::size_t i = 0UL; i < tests; i += lanes) {
     const auto result = reference.UniformVec(float{});
-    const auto result1 = GetLane(result);
-    const auto result2 = ExtractLane(result, 1);
-    if (result_array[i] != result1 or result_array[i + 1] != result2) {
-      std::cerr << "SEED: " << seed << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i << "] -> "
-                << result_array[i] << " != " << result1 << std::endl;
-      std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + 1
-                << "] -> " << result_array[i + 1] << " != " << result2
-                << std::endl;
-      HWY_ASSERT(0);
+#if HWY_TARGET == HWY_SCALAR
+    // Scalar implementation is not vectorized
+    // so it returns 1 float per call
+    const auto value_per_result = 1;
+#else
+    const auto value_per_result = 2;
+#endif
+    for (std::size_t lane = 0UL; lane < value_per_result; ++lane) {
+      const float result_lane = ExtractLane(result, lane);
+      if (result_array[i + lane] != result_lane) {
+        std::cerr << "SEED: " << seed << std::endl;
+        std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + lane
+                  << "] -> " << result_array[i + lane] << " != " << result_lane
+                  << std::endl;
+        HWY_ASSERT(0);
+      }
+      if (0.0 > result_array[i + lane] or 1.0 <= result_array[i + lane]) {
+        std::cerr << "SEED: " << seed << std::endl;
+        std::cerr << "TEST UNIFORM GENERATOR ERROR: result_array[" << i + lane
+                  << "] -> " << result_array[i + lane] << " out of bounds"
+                  << std::endl;
+        HWY_ASSERT(0);
+      }
     }
   }
 #endif // HWY_HAVE_FLOAT64
