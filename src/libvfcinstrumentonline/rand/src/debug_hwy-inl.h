@@ -1,8 +1,6 @@
 #include <cstdint>
 #include <iostream>
 
-#include "hwy/highway.h"
-
 #if defined(HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_) ==                        \
     defined(HWY_TARGET_TOGGLE)
 #ifdef HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_
@@ -11,13 +9,19 @@
 #define HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_
 #endif
 
+#include "hwy/highway.h"
+#include "hwy/print-inl.h"
+
 HWY_BEFORE_NAMESPACE(); // at file scope
 namespace sr {
+
+namespace vector {
+
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
 
-bool _print_debug() {
+HWY_API bool _print_debug() {
 #ifdef SR_DEBUG
   const char *env_debug = getenv("VFC_DEBUG");
   return env_debug && std::string(env_debug) == "1";
@@ -83,6 +87,7 @@ HWY_API void debug_mask(const std::string &msg, const M &a) {
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
+} // namespace vector
 } // namespace sr
 HWY_AFTER_NAMESPACE();
 

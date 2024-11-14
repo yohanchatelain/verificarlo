@@ -35,7 +35,7 @@ template <typename T> void is_close(T a, T b) {
   T ref_cast = static_cast<T>(ref);
   T x = 0, e = 0;
   twoprodfma(a, b, x, e);
-  H target = x + e;
+  H target = static_cast<H>(x) + static_cast<H>(e);
 
   if (std::isnan(x) and std::isnan(ref_cast))
     return;
@@ -71,8 +71,7 @@ template <typename T> void is_close(T a, T b) {
                        << "lowest: " << min_subnormal << "\n"
                        << "a    : " << a << "\n"
                        << "b    : " << b << "\n"
-                       << "target : "
-                       << "(" << x << " , " << e << ")\n"
+                       << "target : " << "(" << x << " , " << e << ")\n"
                        << "reference: " << (double)ref << "\n"
                        << "target   : " << (double)target << "\n"
                        << "abs_diff     : " << (double)diff << "\n"

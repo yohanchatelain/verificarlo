@@ -27,11 +27,24 @@ BINARY=test_$(type)_$(optimization)_$(operator)
 SOURCE=test.c
 endif
 
+ifdef debug
+DEBUG=--online-instrumentation-debug
+else
+DEBUG=
+endif
+
+ifdef loop
+LOOP=-DN=$(loop)
+else
+LOOP=
+endif
+
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi --online-instrumentation=sr --save-temps # --show-cmd --verbose
-LDFLAGS=--online-instrumentation=sr -lm
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi $(DEBUG) --online-instrumentation=sr --save-temps -march=native $(LOOP) # --show-cmd --verbose
+SRLIB=/home/yohan/snap/alacritty/common/.cache/bazel/_bazel_yohan/ae88ab9e827214603d27a251ccdde8c0/execroot/_main/bazel-out/k8-fastbuild/bin/
+LDFLAGS=--online-instrumentation=sr -lm -lstdc++
 
 
 all:
-	$(CC) $(CFLAGS) -c $(SOURCE) -o $(BINARY).o
-	$(CC) $(BINARY).o -o $(BINARY) $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(SOURCE)   -o $(BINARY).o
+	$(CC) $(BINARY).o -o $(BINARY) -L$(SRLIB)/src/ -L$(SRLIB)/external/_main~_repo_rules~hwy/ -lsr  -lhwy $(LDFLAGS)

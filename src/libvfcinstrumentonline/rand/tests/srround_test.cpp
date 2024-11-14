@@ -9,8 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "src/eft.hpp"
-#include "src/main.hpp"
-#include "src/sr.hpp"
+#include "src/sr.h"
 #include "src/utils.hpp"
 #include "tests/helper.hpp"
 
@@ -32,22 +31,22 @@ namespace reference {
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_add(T a, T b) {
+H add(T a, T b) {
   return static_cast<H>(a) + static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_sub(T a, T b) {
+H sub(T a, T b) {
   return static_cast<H>(a) - static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_mul(T a, T b) {
+H mul(T a, T b) {
   return static_cast<H>(a) * static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_div(T a, T b) {
+H div(T a, T b) {
   return static_cast<H>(a) / static_cast<H>(b);
 }
 
@@ -55,16 +54,16 @@ template <typename T, typename Op, typename H = typename helper::IEEE754<T>::H>
 std::function<H(T, T)> get_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
   if constexpr (std::is_same_v<helper::AddOp<T>, Op>) {
-    return sr_add<T>;
+    return add<T>;
   }
   if constexpr (std::is_same_v<Op, helper::SubOp<T>>) {
-    return sr_sub<T>;
+    return sub<T>;
   }
   if constexpr (std::is_same_v<Op, helper::MulOp<T>>) {
-    return sr_mul<T>;
+    return mul<T>;
   }
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
-    return sr_div<T>;
+    return div<T>;
   }
 }
 
@@ -74,59 +73,132 @@ template <typename T, typename Op> typename Op::function get_target_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
 
   if constexpr (std::is_same_v<Op, helper::AddOp<T>>) {
-    return sr_add<T>;
+    return sr::scalar::add<T>;
   }
   if constexpr (std::is_same_v<Op, helper::SubOp<T>>) {
-    return sr_sub<T>;
+    return sr::scalar::sub<T>;
   }
   if constexpr (std::is_same_v<Op, helper::MulOp<T>>) {
-    return sr_mul<T>;
+    return sr::scalar::mul<T>;
   }
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
-    return sr_div<T>;
+    return sr::scalar::div<T>;
   }
 }
 
+// template <typename T, typename H = typename helper::IEEE754<T>::H>
+// std::pair<H, H> compute_distance_error(T a, T b, H reference) {
+//   T ref_cast = static_cast<T>(reference);
+
+//   H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
+//   H ulp = helper::get_ulp(ref_cast);
+
+//   H probability_down = 1 - (error / ulp);
+//   H probability_up = 1 - probability_down;
+
+//   if (ref_cast > reference) {
+//     std::swap(probability_down, probability_up);
+//   }
+
+//   if (error == 0 or ulp == 0 or
+//       helper::abs(reference) < helper::IEEE754<T>::min_subnormal or
+//       helper::abs(error) < helper::IEEE754<T>::min_subnormal) {
+//     probability_down = 0;
+//     probability_up = 1;
+//   }
+
+//   return {probability_down, probability_up};
+// }
+
+// template <typename T, typename H = typename helper::IEEE754<T>::H>
+// std::string compute_distance_error_str(T a, T b, H reference) {
+//   T ref_cast = static_cast<T>(reference);
+//   H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
+//   H ulp = helper::get_ulp(ref_cast);
+
+//   auto [probability_down, probability_up] =
+//       compute_distance_error(a, b, reference);
+
+//   H next, prev;
+//   if (ref_cast < reference) {
+//     prev = ref_cast;
+//     next = static_cast<T>(reference + error);
+//   } else {
+//     prev = static_cast<T>(reference - error);
+//     next = ref_cast;
+//   }
+
+//   std::ostringstream os;
+//   os << std::hexfloat << std::setprecision(13);
+//   os << "-- compute_distance_error --" << std::endl;
+//   os << "         reference: " << helper::hexfloat(reference) << std::endl;
+//   if constexpr (std::is_same_v<T, float>) {
+//     os << "  (float)reference: " << helper::hexfloat(ref_cast) << std::endl;
+//     os << "  |ref-(float)ref|: " << helper::hexfloat(error) << std::endl;
+//   }
+//   if constexpr (std::is_same_v<T, double>) {
+//     os << " (double)reference: " << helper::hexfloat(ref_cast) << std::endl;
+//     os << " |ref-(double)ref|: " << helper::hexfloat(error) << std::endl;
+//   }
+//   os << "               ulp: " << helper::hexfloat(ulp) << std::endl;
+//   os << "       reference ↓: " << helper::hexfloat(prev) << std::endl;
+//   os << "       reference ↑: " << helper::hexfloat(next) << std::endl;
+//   os << std::defaultfloat;
+//   os << "                 p: " << probability_down << std::endl;
+//   os << "               1-p: " << probability_up << std::endl;
+//   return os.str();
+// }
+
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-std::pair<H, H> compute_distance_error(T a, T b, H reference) {
+std::tuple<H, H, std::string> compute_distance_error(T a, T b, H reference) {
   T ref_cast = static_cast<T>(reference);
 
-  H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
-  H ulp = helper::get_ulp(ref_cast);
-
-  H probability_down = 1 - (error / ulp);
-  H probability_up = 1 - probability_down;
-
-  if (ref_cast > reference) {
-    std::swap(probability_down, probability_up);
+  if (helper::isnan(a) or helper::isnan(b) or helper::isnan(reference) or
+      helper::isinf(a) or helper::isinf(b) or helper::isinf(reference) or
+      helper::isinf(ref_cast)) {
+    return {0, 0, ""};
   }
 
-  if (error == 0 or ulp == 0 or
-      helper::abs(reference) < helper::IEEE754<T>::min_subnormal or
-      helper::abs(error) < helper::IEEE754<T>::min_subnormal) {
-    probability_down = 0;
+  H error = 0, error_c = 0;
+  H probability_down = 0, probability_up = 0;
+  H next = 0, prev = 0;
+  H ulp = helper::get_ulp(ref_cast);
+
+  if (ref_cast == reference) {
+    error = 0;
+    probability_down = 1;
     probability_up = 1;
-  }
-
-  return {probability_down, probability_up};
-}
-
-template <typename T, typename H = typename helper::IEEE754<T>::H>
-std::string compute_distance_error_str(T a, T b, H reference) {
-  T ref_cast = static_cast<T>(reference);
-  H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
-  H ulp = helper::get_ulp(ref_cast);
-
-  auto [probability_down, probability_up] =
-      compute_distance_error(a, b, reference);
-
-  H next, prev;
-  if (ref_cast < reference) {
-    prev = ref_cast;
-    next = static_cast<T>(reference + error);
+    prev = reference;
+    next = reference;
   } else {
-    prev = static_cast<T>(reference - error);
-    next = ref_cast;
+    error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
+    error_c = helper::absolute_distance(static_cast<H>(ulp), error);
+    prev = (ref_cast < reference) ? ref_cast : (ref_cast - ulp);
+    next = (ref_cast < reference) ? (ref_cast + ulp) : ref_cast;
+    probability_down = (next - reference) / ulp;
+    probability_up = (reference - prev) / ulp;
+
+    if (((error + error_c) != ulp)) {
+      std::cerr << "error + error_c != ulp" << "\n"
+                << "error:   " << helper::hexfloat(error) << "\n"
+                << "error_c: " << helper::hexfloat(error_c) << "\n"
+                << "prev:    " << helper::hexfloat(prev) << "\n"
+                << "next:    " << helper::hexfloat(next) << "\n"
+                << "ulp:     " << helper::hexfloat(ulp) << std::endl;
+      HWY_ASSERT(false);
+    }
+    if (probability_down + probability_up != 1) {
+      std::cerr << "probability_down + probability_up != 1" << "\n"
+                << "probability_down: " << probability_down << "\n"
+                << "probability_up:   " << probability_up << "\n"
+                << "reference:        " << helper::hexfloat(reference) << "\n"
+                << "prev:             " << helper::hexfloat(prev) << "\n"
+                << "next:             " << helper::hexfloat(next) << "\n"
+                << "error:            " << helper::hexfloat(error) << "\n"
+                << "error_c:          " << helper::hexfloat(error_c) << "\n"
+                << "ulp:              " << helper::hexfloat(ulp) << std::endl;
+      HWY_ASSERT(false);
+    }
   }
 
   std::ostringstream os;
@@ -141,13 +213,16 @@ std::string compute_distance_error_str(T a, T b, H reference) {
     os << " (double)reference: " << helper::hexfloat(ref_cast) << std::endl;
     os << " |ref-(double)ref|: " << helper::hexfloat(error) << std::endl;
   }
+  os << "           error_c: " << helper::hexfloat(error_c) << std::endl;
   os << "               ulp: " << helper::hexfloat(ulp) << std::endl;
   os << "       reference ↓: " << helper::hexfloat(prev) << std::endl;
   os << "       reference ↑: " << helper::hexfloat(next) << std::endl;
   os << std::defaultfloat;
   os << "                 p: " << probability_down << std::endl;
   os << "               1-p: " << probability_up << std::endl;
-  return os.str();
+  auto msg = os.str();
+
+  return {probability_down, probability_up, msg};
 }
 
 template <typename T, typename Op>
@@ -183,7 +258,7 @@ void check_distribution_match(T a, T b,
 
   auto reference_op = reference::get_operator<T, Op>();
   H reference = reference_op(a, b);
-  auto [probability_down, probability_up] =
+  auto [probability_down, probability_up, distance_error] =
       compute_distance_error(a, b, reference);
 
   auto counter = eval_op<T, Op>(a, b, repetitions);
@@ -219,11 +294,11 @@ void check_distribution_match(T a, T b,
       << fmt_proba(probability_down_estimated) << ")\n"
       << "              #↑: " << count_up << " ("
       << fmt_proba(probability_up_estimated) << ")\n"
-      << std::hexfloat << ""
-      << "              ↓: " << counter.down() << "\n"
+      << std::hexfloat << "" << "              ↓: " << counter.down() << "\n"
       << "              ↑: " << counter.up() << "\n"
-      << compute_distance_error_str(a, b, reference) << std::defaultfloat
-      << flush();
+      << distance_error
+      // << compute_distance_error_str(a, b, reference)
+      << std::defaultfloat << flush();
 
   auto test = helper::binomial_test(repetitions, count_down,
                                     static_cast<double>(probability_down));
@@ -243,8 +318,7 @@ void check_distribution_match(T a, T b,
       << "               a: " << helper::hexfloat(a) << "\n"
       << "               b: " << helper::hexfloat(b) << "\n"
       << "             a+b: " << helper::hexfloat(reference) << "\n"
-      << std::defaultfloat << ""
-      << "-- theoretical -\n"
+      << std::defaultfloat << "" << "-- theoretical -\n"
       << "   probability ↓: " << fmt_proba(probability_down) << "\n"
       << "   probability ↑: " << fmt_proba(probability_up) << "\n"
       << "--- estimated --\n"
@@ -257,8 +331,9 @@ void check_distribution_match(T a, T b,
       << std::hexfloat << ""
       << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
       << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
-      << compute_distance_error_str(a, b, reference) << std::defaultfloat
-      << flush();
+      << distance_error
+      // << compute_distance_error_str(a, b, reference)
+      << std::defaultfloat << flush();
   debug_reset();
 }
 
@@ -499,6 +574,5 @@ TEST(SRRoundTest, RandomMidOverlapDivAssertions) {
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
-  init();
   return RUN_ALL_TESTS();
 }

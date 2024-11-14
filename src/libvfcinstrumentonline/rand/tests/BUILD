@@ -1,56 +1,91 @@
 load("//tests:macros.bzl", "cc_test_gen", "cc_test_lib_gen")
 
-cc_test_gen(name = "get_exponent_test")
+HWY_OPTS = [
+    "-O2",
+    "-std=c++20",
+    "-Wfatal-errors",
+    "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+    "-DHWY_IS_TEST",
+]
 
-cc_test_gen(name = "get_predabs_test")
+DEPS = [
+    "@hwy//:math",
+]
 
-cc_test_gen(name = "get_pow2_test")
+cc_test_gen(
+    name = "get_exponent_test",
+    copts = HWY_OPTS,
+)
 
-cc_test_gen(name = "twosum_test")
+cc_test_gen(
+    name = "get_predabs_test",
+    copts = HWY_OPTS,
+)
 
-cc_test_gen(name = "twoprodfma_test")
+cc_test_gen(
+    name = "get_pow2_test",
+    copts = HWY_OPTS,
+)
+
+cc_test_gen(
+    name = "get_pow2_test-hw",
+    copts = HWY_OPTS + ["-DSR_DEBUG"],
+)
+
+cc_test_gen(
+    name = "twosum_test",
+    copts = HWY_OPTS,
+)
+
+cc_test_gen(
+    name = "twoprodfma_test",
+    copts = HWY_OPTS,
+)
 
 cc_test_lib_gen(
     name = "udround_test",
-    rng = "XOROSHIRO",
 )
 
 cc_test_lib_gen(
-    name = "srround_boost_test",
-    size = "medium",
+    name = "sr_accuracy",
+    size = "small",
     src = ["//tests:srround_test.cpp"],
-    rng = "CXX11_RANDOM",
+    copts = HWY_OPTS,
 )
 
 cc_test_lib_gen(
-    name = "srround_xoroshiro_test",
-    size = "medium",
+    name = "sr_accuracy-dbg",
+    size = "small",
     src = ["//tests:srround_test.cpp"],
-    rng = "XOROSHIRO",
+    copts = HWY_OPTS + ["-DSR_DEBUG"],
 )
 
-cc_test_lib_gen(
-    name = "srround_xoroshiro_test_x2",
-    size = "medium",
-    src = ["//tests:srround_test_x2.cpp"],
-    rng = "XOROSHIRO",
-)
-
-cc_test_lib_gen(
-    name = "srround_shishua_test",
-    size = "medium",
-    src = ["//tests:srround_test.cpp"],
-    rng = "SHISHUA",
-)
-
-cc_test_lib_gen(
-    name = "srround_xoroshiro_test_hw",
-    size = "medium",
-    src = ["//tests:srround_test_hw.cpp"],
-    rng = "XOROSHIRO",
+# single test for scalar operations
+cc_binary(
+    name = "single-test",
+    srcs = ["//tests:test_sr_hw.cpp"],
+    copts = HWY_OPTS + [
+        "-DSR_DEBUG",
+    ],
     deps = [
+        "@//src:sr",
         "@hwy",
-        "@hwy//:math",
+    ],
+)
+
+# single test for vector operations
+cc_binary(
+    name = "single-test-hw",
+    srcs = ["//tests:test_sr_hw-API.cpp"],
+    copts = HWY_OPTS + [
+        "-DSR_DEBUG",
+    ],
+    deps = [
+        "@//src:sr",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "@hwy",
+        "@hwy//:hwy_test_util",
     ],
 )
 
@@ -58,61 +93,45 @@ cc_test_lib_gen(
     name = "xoroshiro",
     size = "medium",
     src = ["//tests:xoroshiro.cpp"],
-    rng = "XOROSHIRO",
     copts = [
         "-O2",
         "-Wfatal-errors",
         "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-        "-DSR_DEBUG"
-    ],
-    deps = [
-        "@hwy",
-        "@hwy//:math",
-        "@hwy//:hwy_test_util",
+        "-DHWY_IS_TEST",
+        "-DSR_DEBUG",
     ],
 )
-
-
 
 cc_test_lib_gen(
-    name = "srround_xoroshiro_test_hw-inl",
+    name = "sr_hw_accuracy",
     size = "medium",
     src = ["//tests:srround_test_hw-inl.cpp"],
-    rng = "XOROSHIRO",
-    copts = [
-        "-O2",
-        "-Wfatal-errors",
-        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-        "-DSR_DEBUG"
-    ],
-    deps = [
-        "@hwy",
-        "@hwy//:math",
-        "@hwy//:hwy_test_util",
-    ],
+    copts = HWY_OPTS,
 )
 
+cc_test_lib_gen(
+    name = "sr_hw_accuracy-dbg",
+    size = "medium",
+    src = ["//tests:srround_test_hw-inl.cpp"],
+    copts = HWY_OPTS + ["-DSR_DEBUG"],
+)
 
 cc_test_lib_gen(
     name = "sr_hw_test",
     size = "medium",
     src = ["//tests:sr_hw_test.cpp"],
-    rng = "XOROSHIRO",
     copts = [
+        "-std=c++20",
         "-O2",
-        "-march=native",
         "-Wfatal-errors",
         "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
         "-DHWY_IS_TEST",
-        "-g",
-        "-DSR_DEBUG"
-    ],    
+        "-DSR_DEBUG",
+        "-Wno-psabi",
+    ],
     deps = [
-        "@hwy",
-        "@hwy//:math",
-        "@hwy//:hwy_test_util",
+        "@//src:sr",
         "@hwy//:nanobenchmark",
-        "@//src:rand-hw-lib",
     ],
 )
 

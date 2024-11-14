@@ -4,11 +4,11 @@
 #include <cmath>
 
 #include "debug.hpp"
-#include "vector_types.hpp"
+// #include "vector_types.hpp"
 
 // fast two sum if |a| > |b|
 // a and b are not nan or inf
-template <typename T> void twosum(T a, T b, T &sigma, T &tau) {
+template <typename T> void fasttwosum(T a, T b, T &sigma, T &tau) {
   if (std::abs(a) < std::abs(b))
     std::swap(a, b);
   sigma = a + b;
@@ -17,7 +17,19 @@ template <typename T> void twosum(T a, T b, T &sigma, T &tau) {
   debug_print("twosum(%.13a, %.13a) = %.13a, %.13a\n", a, b, sigma, tau);
 }
 
-template <typename T> void twoprodfma(T a, T b, T &sigma, T &tau) {
+// twosum
+template <typename T>
+__attribute__((optnone)) inline void twosum(T a, T b, T &sigma, T &tau) {
+  sigma = a + b;
+  T ap = sigma - b;
+  T bp = sigma - ap;
+  T da = a - ap;
+  T db = b - bp;
+  tau = da + db;
+}
+
+template <typename T>
+__attribute__((optnone)) inline void twoprodfma(T a, T b, T &sigma, T &tau) {
   sigma = a * b;
   tau = std::fma(a, b, -sigma);
   debug_print("twoprodfma(%.13a, %.13a) = %.13a, %.13a\n", a, b, sigma, tau);

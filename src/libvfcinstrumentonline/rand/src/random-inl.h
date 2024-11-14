@@ -38,7 +38,7 @@ namespace hwy {
 namespace HWY_NAMESPACE { // required: unique per target
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace sn = sr::HWY_NAMESPACE;
+namespace sn = sr::vector::HWY_NAMESPACE;
 
 namespace internal {
 
@@ -218,6 +218,8 @@ public:
         streams{state_.shape().back()} {
     internal::Xoshiro xoshiro{seed};
 
+    std::cerr << "threadNumber: " << threadNumber << "\n";
+
     for (std::uint64_t i = 0; i < threadNumber; ++i) {
       xoshiro.LongJump();
     }
@@ -281,7 +283,7 @@ public:
   template <typename T> AlignedVector<T> Uniform(T, const std::size_t n);
   template <typename T, std::uint64_t N> std::array<T, N> Uniform(T) noexcept;
 
-  template <> HWY_INLINE VF32 Uniform(float) noexcept {
+  HWY_INLINE VF32 Uniform(float) noexcept {
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<float> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
@@ -292,8 +294,11 @@ public:
     return Mul(real, MUL_VALUE);
   }
 
-  template <> AlignedVector<float> Uniform(float, const std::size_t n) {
+  HWY_INLINE AlignedVector<float> Uniform(float, const std::size_t n) {
+    // std::cerr << "Uniform float start\n";
     AlignedVector<float> result(n);
+    // std::cerr << "result address: " << &result << "\n";
+    // std::cerr << "result size: " << result.size() << "\n";
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<float> real_tag{};
@@ -304,12 +309,14 @@ public:
     auto s2 = Load(tag, state_[{2}].data());
     auto s3 = Load(tag, state_[{3}].data());
 
-    for (std::uint64_t i = 0; i < n; i += Lanes(real_tag)) {
+    for (std::size_t i = 0; i < n; i += Lanes(real_tag)) {
+      // std::cerr << "i: " << i << "\n";
       const auto next = Update(s0, s1, s2, s3);
       const auto bits = BitCast(u32_tag, next);
       const auto bitscast = ShiftRight<8>(bits);
       const auto real = ConvertTo(real_tag, bitscast);
       const auto uniform = Mul(real, MUL_VALUE);
+      // std::cerr << "store at " << i << " " << result.data() + i << "\n";
       Store(uniform, real_tag, result.data() + i);
     }
 
@@ -317,6 +324,8 @@ public:
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
+
+    // std::cerr << "Uniform float end\n";
     return result;
   }
 
@@ -350,7 +359,7 @@ public:
 
 #if HWY_HAVE_FLOAT64
 
-  template <> HWY_INLINE VF64 Uniform(double) noexcept {
+  HWY_INLINE VF64 Uniform(double) noexcept {
     const ScalableTag<double> real_tag{};
     const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
     const auto bits = ShiftRight<11>(Next());
@@ -358,7 +367,7 @@ public:
     return Mul(real, MUL_VALUE);
   }
 
-  template <> AlignedVector<double> Uniform(double, const std::size_t n) {
+  AlignedVector<double> Uniform(double, const std::size_t n) {
     AlignedVector<double> result(n);
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<double> real_tag{};
@@ -369,7 +378,7 @@ public:
     auto s2 = Load(tag, state_[{2}].data());
     auto s3 = Load(tag, state_[{3}].data());
 
-    for (std::uint64_t i = 0; i < n; i += Lanes(real_tag)) {
+    for (std::size_t i = 0; i < n; i += Lanes(real_tag)) {
       const auto next = Update(s0, s1, s2, s3);
       const auto bits = ShiftRight<11>(next);
       const auto real = ConvertTo(real_tag, bits);
@@ -467,6 +476,10 @@ public:
       index_ = 0;
     }
     return cache_[index_++];
+  }
+
+  double Uniform() noexcept {
+    return static_cast<double>(operator()() >> 11) * internal::kMulConst;
   }
 
 private:

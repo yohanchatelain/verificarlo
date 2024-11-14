@@ -102,14 +102,14 @@ template <typename T, typename I = typename IEEE754<T>::I> I get_exponent(T a) {
   debug_print("bias = %d\n", bias);
   debug_print("mantissa = %d\n", mantissa);
   debug_print("exponent_mask = %d\n", exponent_mask);
-  I exp = reinterpret_cast<I &>(a);
+  I *exp = reinterpret_cast<I *>(&a);
   debug_print("a = 0x%016x\n", exp);
-  const auto raw_exp = (exp >> mantissa) & exponent_mask;
+  const auto raw_exp = ((*exp) >> mantissa) & exponent_mask;
   debug_print("raw exponent = %d\n", raw_exp);
-  exp = raw_exp - bias;
-  debug_print("get_exponent(%.13a) = %d\n", a, exp);
+  *exp = raw_exp - bias;
+  debug_print("get_exponent(%.13a) = %d\n", a, *exp);
   debug_end();
-  return exp;
+  return *exp;
 }
 
 template <typename T> T pow2(int n) {
@@ -120,12 +120,12 @@ template <typename T> T pow2(int n) {
   constexpr auto min_exponent = IEEE754<T>::min_exponent;
 
   const auto is_subnormal = n < min_exponent;
-  const int precision_loss = (is_subnormal) ? min_exponent - n - 1 : 0;
+  const int precision_loss = (is_subnormal) ? min_exponent - n : 0;
   n = (is_subnormal) ? 1 : n;
   T res = (is_subnormal) ? 0 : 1;
-  U i = *reinterpret_cast<U *>(&res);
-  i += static_cast<U>(n) << (mantissa - precision_loss);
-  res = *reinterpret_cast<T *>(&i);
+  U *i = reinterpret_cast<U *>(&res);
+  (*i) += static_cast<U>(n) << (mantissa - precision_loss);
+  res = *reinterpret_cast<T *>(&(*i));
 
   debug_print("pow2(%d) = %.13a\n", n, res);
 

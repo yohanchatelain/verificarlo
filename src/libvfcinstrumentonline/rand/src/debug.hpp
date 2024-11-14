@@ -22,67 +22,42 @@ static char __debug_buffer_str[sr_buffer_size_str] = {__end};
 static int __debug_str_pos = 0;
 #endif // SR_DEBUG_FUNCTIONS_DECLARED
 
-// TODO: make bufferized version of debug_print to avoid multiple calls to
-// fprintf
-
-void __debug_printf(const char *fmt, ...) {
+inline void __debug_printf(const char *fmt, ...) {
   assert(__debug_level >= 0);
   assert(__debug_level < sr_buffer_size);
   __debug_buffer[__debug_level] = __end;
-#ifdef SR_DEBUG_BUFFERIZED
-  __debug_str_pos += snprintf(__debug_buffer_str + __debug_str_pos,
-                              sr_buffer_size_str, "[debug] %s", __debug_buffer);
-#else
   fprintf(stderr, "[debug] %s", __debug_buffer);
-#endif
   __debug_buffer[__debug_level] = __indent;
   va_list args;
   va_start(args, fmt);
-#ifdef SR_DEBUG_BUFFERIZED
-  __debug_str_pos += vsnprintf(__debug_buffer_str + __debug_str_pos,
-                               sr_buffer_size_str, fmt, args);
-#else
   vfprintf(stderr, fmt, args);
-#endif
   va_end(args);
 }
 
-void __debug_header_start(const char *func) {
+inline void __debug_header_start(const char *func) {
   assert(__debug_level >= 0);
   assert(__debug_level < sr_buffer_size);
   __debug_buffer[__debug_level] = __end;
-#ifdef SR_DEBUG_BUFFERIZED
-  __debug_str_pos +=
-      snprintf(__debug_buffer_str + __debug_str_pos, sr_buffer_size_str,
-               "[debug] %s===%s===\n", __debug_buffer, func);
-#else
   fprintf(stderr, "[debug] %s===%s===\n", __debug_buffer, func);
-#endif
   __debug_buffer[__debug_level] = __indent;
   __debug_level++;
 }
 
-void __debug_header_end(const char *func) {
+inline void __debug_header_end(const char *func) {
   __debug_level--;
   assert(__debug_level >= 0);
   assert(__debug_level < sr_buffer_size);
   __debug_buffer[__debug_level] = __end;
-#ifdef SR_DEBUG_BUFFERIZED
-  __debug_str_pos +=
-      snprintf(__debug_buffer_str + __debug_str_pos, sr_buffer_size_str,
-               "[debug] %s===%s===\n\n", __debug_buffer, func);
-#else
   fprintf(stderr, "[debug] %s===%s===\n\n", __debug_buffer, func);
-#endif
   __debug_buffer[__debug_level] = __indent;
 }
 
-void __debug_reset() {
+inline void __debug_reset() {
   __debug_str_pos = 0;
   __debug_buffer_str[__debug_str_pos] = __end;
 }
 
-void __debug_flush() {
+inline void __debug_flush() {
   fprintf(stderr, "%s", __debug_buffer_str);
   __debug_reset();
 }

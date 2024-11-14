@@ -238,7 +238,7 @@ def apply_function_instrumentation_pass(ir, ins, args):
     )
 
 
-def get_vfclibinst_online_ll(rng, debug, verbose):
+def get_vfclibinst_online_ll(rng, debug, verbose):    
     # TODO: cache the generated file
     vfclibinst_online_c = f"{mcalib_includes}/rand.cpp"
     vfclibinst_online_ll = "/tmp/rand.ll"
@@ -257,15 +257,18 @@ def apply_mca_instrumentation_pass(
 ):
     if args.online_instrumentation:
         debug = args.online_instrumentation_debug
-        vfclibinst_online_ll = get_vfclibinst_online_ll(
-            args.online_instrumentation_rng, debug, args.verbose
-        )
+        # vfclibinst_online_ll = get_vfclibinst_online_ll(
+        #     args.online_instrumentation_rng, debug, args.verbose
+        # )
+        vfclibinst_online_ll = '/home/yohan/Work/verificarlo/src/libvfcinstrumentonline/rand/sr_hw.ll'
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
         extra_args += f" -vfclibinst-rng {args.online_instrumentation_rng} "
         extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
         if args.online_instrumentation_seed:
             extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
+        if debug:
+            extra_args += f" -vfclibinst-debug "
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "

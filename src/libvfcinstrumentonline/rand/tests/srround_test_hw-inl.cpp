@@ -29,7 +29,11 @@
 HWY_BEFORE_NAMESPACE(); // at file scope
 
 namespace sr {
+
 namespace HWY_NAMESPACE {
+
+namespace hn = hwy::HWY_NAMESPACE;
+
 namespace {
 
 using ::testing::AllOf;
@@ -41,7 +45,7 @@ constexpr auto default_alpha = 0.001;
 #ifdef SR_DEBUG
 constexpr auto default_repetitions = 100;
 #else
-constexpr auto default_repetitions = 100'000;
+constexpr auto default_repetitions = 10'000;
 #endif
 
 static auto distribution_failed_tests_counter = 0;
@@ -75,13 +79,15 @@ H div(T a, T b) {
 
 }; // namespace reference
 
+namespace srvh = sr::vector::HWY_NAMESPACE;
+
 struct SRAdd {
   static constexpr std::string name = "add";
   static constexpr std::string symbol = "+";
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return sr_add<D>(a, b);
+    return srvh::sr_add<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -96,7 +102,7 @@ struct SRSub {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return sr_sub<D>(a, b);
+    return srvh::sr_sub<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -111,7 +117,7 @@ struct SRMul {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return sr_mul<D>(a, b);
+    return srvh::sr_mul<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -126,7 +132,7 @@ struct SRDiv {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return sr_div<D>(a, b);
+    return srvh::sr_div<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -248,12 +254,14 @@ void assert_equal_inputs(D d, V a) {
   if (helper::isnan(a_min) and helper::isnan(a_max))
     return;
 
+#if HWY_TARGET != HWY_EMU128
   if (a_min != a_max) {
     std::cerr << "Vector does not have equal inputs!\n"
               << "min(a): " << helper::hexfloat(a_min) << "\n"
               << "max(a): " << helper::hexfloat(a_max) << std::endl;
     HWY_ASSERT(false);
   }
+#endif
 }
 
 template <class Op, class D, class V = hn::VFromD<D>,

@@ -13,14 +13,17 @@
 #include "hwy/print-inl.h"
 #include "src/debug_hwy-inl.h"
 #include "src/utils.hpp"
-#include "src/xoroshiro256+_hw.hpp"
+#include "src/xoroshiro256+_hw-inl.hpp"
 // clang-format on
 
 HWY_BEFORE_NAMESPACE(); // at file scope
 namespace sr {
+
+namespace vector {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
+namespace rng = sr::vector::xoroshiro256plus::HWY_NAMESPACE;
 
 template <class D, class V, typename T = hn::TFromD<D>>
 void twosum(V a, V b, V &sigma, V &tau) {
@@ -277,42 +280,49 @@ HWY_INLINE hn::Vec<D> FastPow2I(D d, VI x) {
 
 template <class D, class V, typename T = hn::TFromD<D>>
 hn::Vec<D> pow2(D d, V n) {
-  // debug_msg("\n[pow2] START");
+  debug_msg("\n[pow2] START");
 
   using DI = hn::RebindToSigned<D>;
   using I = typename sr::utils::IEEE754<T>::I;
   const DI di;
 
-  // debug_vec<DI>("[pow2] n", n, false);
+  debug_vec<DI>("[pow2] n", n, false);
 
   constexpr I mantissa = sr::utils::IEEE754<T>::mantissa;
   constexpr I min_exponent = sr::utils::IEEE754<T>::min_exponent;
-  constexpr I bias = sr::utils::IEEE754<T>::bias;
+  // constexpr I bias = sr::utils::IEEE754<T>::bias;
 
+  // is_subnormal = n < min_exponent
   auto is_subnormal = hn::Lt(n, hn::Set(di, min_exponent));
+  // precision_loss = is_subnormal ? min_exponent - n : 0
   auto precision_loss =
-      hn::IfThenElseZero(is_subnormal, hn::Sub(hn::Set(di, min_exponent),
-                                               hn::Add(n, hn::Set(di, 1))));
+      hn::IfThenElseZero(is_subnormal, hn::Sub(hn::Set(di, min_exponent), n));
 
-  auto n_adjusted =
-      hn::IfThenElse(is_subnormal, hn::Set(di, 0), n + hn::Set(di, bias));
+  // n_adjusted = is_subnormal ? 1 : n
+  auto n_adjusted = hn::IfThenElse(is_subnormal, hn::Set(di, 1), n);
 
-  auto res = hn::IfThenZeroElse(hn::Not(is_subnormal), hn::Set(di, 1));
+  const T one = 1.0;
+  const auto one_as_int = reinterpret_cast<const I &>(one);
 
-  // debug_vec<DI>("[pow2] res", res);
+  // res = is_subnormal ? 0 : 1
+  auto res = hn::IfThenZeroElse(is_subnormal, hn::Set(di, one_as_int));
 
+  debug_vec<DI>("[pow2] res", res);
+
+  // shift = mantissa - precision_loss
   auto shift = hn::Sub(hn::Set(di, mantissa), precision_loss);
 
   debug_mask<DI>("[pow2] is_subnormal", is_subnormal);
-  // debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
-  // debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
-  // debug_vec<DI>("[pow2] shift", shift, false);
+  debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
+  debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
+  debug_vec<DI>("[pow2] shift", shift, false);
 
+  // res += res << shift
   res = res + (n_adjusted << shift);
 
-  // debug_vec<DI>("[pow2] res", res);
-  // debug_vec<D>("[pow2] res", hn::BitCast(d, res));
-  // debug_msg("[pow2] END\n");
+  debug_vec<DI>("[pow2] res", res);
+  debug_vec<D>("[pow2] res", hn::BitCast(d, res));
+  debug_msg("[pow2] END\n");
 
   return hn::BitCast(d, res);
 }
@@ -334,7 +344,8 @@ V sr_round(V sigma, V tau) {
   auto sign_tau = hn::Lt(tau, zero);
   auto sign_sigma = hn::Lt(sigma, zero);
 
-  auto z = xoroshiro256plus::uniform(d);
+  auto z = rng::uniform(d);
+  debug_vec<D>("[sr_round] z", z);
 
   auto pred_sigma = get_predecessor_abs(d, sigma);
 
@@ -345,28 +356,25 @@ V sr_round(V sigma, V tau) {
 
   auto eta = hn::IfThenElse(sign_diff_int, get_exponent(d, pred_sigma),
                             get_exponent(d, sigma));
+  debug_vec<DI>("[sr_round] eta", eta, false);
 
   auto exp = hn::Sub(eta, hn::Set(di, mantissa));
   auto abs_ulp = pow2(d, exp);
+  debug_vec<D>("[sr_round] abs_ulp", abs_ulp);
   auto ulp = hn::CopySign(abs_ulp, tau);
+  debug_vec<D>("[sr_round] ulp", ulp);
 
   auto pi = hn::Mul(ulp, z);
-  auto abs_tau_plus_pi = hn::Abs(hn::Add(tau, pi));
-  auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
-
-  debug_vec<D>("[sr_round] z", z);
-  debug_vec<DI>("[sr_round] eta", eta, false);
-  debug_vec<D>("[sr_round] ulp", ulp);
   debug_vec<D>("[sr_round] pi", pi);
+  auto abs_tau_plus_pi = hn::Abs(hn::Add(tau, pi));
   debug_vec<D>("[sr_round] abs_tau_plus_pi", abs_tau_plus_pi);
-  debug_vec<D>("[sr_round] abs_ulp", abs_ulp);
+  auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
   debug_vec<D>("[sr_round] round", round);
 
   auto res = hn::IfThenElse(hn::Eq(tau, zero), sigma, round);
-
   debug_vec<D>("[sr_round] res", res);
-  debug_msg("[sr_round] END\n");
 
+  debug_msg("[sr_round] END\n");
   return res;
 }
 
@@ -456,6 +464,7 @@ template <class D, class V, typename T = hn::TFromD<D>> V sr_sqrt(V a) {
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
+} // namespace vector
 } // namespace sr
 HWY_AFTER_NAMESPACE();
 

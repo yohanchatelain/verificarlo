@@ -78,12 +78,15 @@
 #define CREATE_FMA_CALL(Builder, type, args)                                   \
   Builder.CreateIntrinsic(Intrinsic::fma, args)
 #define CREATE_VECTOR_ELEMENT_COUNT(size) size
+#define GET_VECTOR_ELEMENT_COUNT(vecType) vecType->getNumElements()
 #else
 #define VECTOR_TYPE FixedVectorType
 #define GET_VECTOR_TYPE(ty, size) FixedVectorType::get(ty, size)
 #define CREATE_FMA_CALL(Builder, type, args)                                   \
   Builder.CreateIntrinsic(Intrinsic::fma, type, args)
 #define CREATE_VECTOR_ELEMENT_COUNT(size) ElementCount::getFixed(size)
+#define GET_VECTOR_ELEMENT_COUNT(vecType)                                      \
+  ((::llvm::FixedVectorType *)vecType)->getNumElements()
 #endif
 
 using namespace llvm;
@@ -150,8 +153,8 @@ const std::string Fops2str[] = {"add", "sub", "mul",   "div",
 
 /* valid floating-point type to instrument */
 std::map<Type::TypeID, std::string> validTypesMap = {
-    std::pair<Type::TypeID, std::string>(Type::FloatTyID, "float"),
-    std::pair<Type::TypeID, std::string>(Type::DoubleTyID, "double")};
+    std::pair<Type::TypeID, std::string>(Type::FloatTyID, "f32"),
+    std::pair<Type::TypeID, std::string>(Type::DoubleTyID, "f64")};
 
 /* valid vector sizes to instrument */
 const std::set<unsigned> validVectorSizes = {2, 4, 8, 16, 32, 64};
@@ -484,21 +487,10 @@ struct VfclibInst : public ModulePass {
                            GlobalValue::LinkageTypes linkage, Module &M,
                            const std::string &name) {
 #if LLVM_VERSION_MAJOR < 9
-
     return Function::Create(functionType, Function::ExternalLinkage, name, &M);
 #else
     return Function::Create(functionType, Function::ExternalLinkage, name, M);
 #endif
-  }
-
-  Function *getFunction(Module *M, StringRef name) {
-    if (demangledShortNamesToMangled.find(name.str()) ==
-        demangledShortNamesToMangled.end()) {
-      errs() << "Function " << name << " not found\n";
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-
-    return M->getFunction(demangledShortNamesToMangled[name.str()]);
   }
 
   std::string get_mangled_name(Function *F) {
@@ -524,7 +516,20 @@ struct VfclibInst : public ModulePass {
     }
   }
 
-  std::string getFunctionName(Instruction *I, Fops opCode) {
+  std::string getFPTypeName(Type *Ty) {
+    if (Ty->isVectorTy()) {
+      auto vecType = static_cast<VectorType *>(Ty);
+      auto baseType = vecType->getScalarType();
+      auto size = GET_VECTOR_ELEMENT_COUNT(vecType);
+      auto base_type_name = validTypesMap[baseType->getTypeID()];
+      return base_type_name + "x" + std::to_string(size);
+    } else {
+      return validTypesMap[Ty->getTypeID()];
+    }
+  }
+
+  std::string getFunctionName(Instruction *I, Fops opCode,
+                              const bool fallback = false) {
     if (opCode == FOP_IGNORE) {
       errs() << "Unsupported opcode: " << opCode << "\n";
       report_fatal_error("libVFCInstrument fatal error");
@@ -535,32 +540,124 @@ struct VfclibInst : public ModulePass {
     if (VfclibInstMode == "up-down")
       libname = "ud";
 
-    // Print the mangled name
-    // llvm::outs() << "Mangled name: " << MangledName << "\n";
+    if (VfclibInstDebug) {
+      errs() << "Instrumenting " << *I << "\n";
+      errs() << "type: " << *baseType << "\n";
+    }
 
     const std::string &libname_prefix = libname;
     const std::string &opname = Fops2str[opCode];
-    const std::string &fpname = validTypesMap[baseType->getTypeID()];
+    const std::string &fpname = getFPTypeName(baseType);
 
-    // TODO: add vector size to the function name
-    return libname + "_" + opname + "_" + fpname;
+    std::string vectype;
+    std::string dispatch;
+
+    if (baseType->isVectorTy()) {
+      vectype = "vector";
+      dispatch = fallback ? "_d" : "_v";
+    } else {
+      vectype = "scalar";
+      dispatch = "";
+    }
+
+    return libname + "::" + vectype + "::" + opname + fpname + dispatch;
   }
 
-  Function *getMCAFunction(Instruction *I) {
+  Function *getFunction(Module *M, StringRef name) {
+    if (demangledShortNamesToMangled.find(name.str()) ==
+        demangledShortNamesToMangled.end()) {
+      return nullptr;
+    }
+
+    return M->getFunction(demangledShortNamesToMangled[name.str()]);
+  }
+
+  Function *getPRFunction(Instruction *I) {
     Fops opCode = mustReplace(*I);
     std::string functionName = getFunctionName(I, opCode);
-    return getFunction(I->getModule(), functionName);
+    auto function = getFunction(I->getModule(), functionName);
+    if (function == nullptr) {
+      /* Use fallback implementation */
+      /* Useful when vector size is not supported */
+      /* by the current architecture */
+      functionName = getFunctionName(I, opCode, true);
+      function = getFunction(I->getModule(), functionName);
+    }
+
+    if (function == nullptr) {
+      errs() << "Function not found: " << functionName << "\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    } else if (VfclibInstDebug) {
+      errs() << "Function found: " << functionName << "\n";
+    }
+
+    return function;
   }
 
-  /* Replace arithmetic instructions with MCA */
-  Value *replaceArithmeticWithMCACall(IRBuilder<> &Builder, Instruction *I) {
-    Function *F = getMCAFunction(I);
+  bool isDoubleFunction(Function *F) {
+    return F->getReturnType()->isDoubleTy();
+  }
+
+  bool isFloatx2Function(Function *F) {
+    if (not F->getReturnType()->isVectorTy()) {
+      return false;
+    }
+    auto vecType = static_cast<VectorType *>(F->getReturnType());
+    auto baseType = vecType->getScalarType();
+    auto size = GET_VECTOR_ELEMENT_COUNT(vecType);
+    return baseType->isFloatTy() and size == 2;
+  }
+
+  bool isFloatx2Instruction(Instruction *I) {
+    if (not I->getType()->isVectorTy()) {
+      return false;
+    }
+    auto vecType = static_cast<VectorType *>(I->getType());
+    auto baseType = vecType->getScalarType();
+    auto size = GET_VECTOR_ELEMENT_COUNT(vecType);
+    return baseType->isFloatTy() and size == 2;
+  }
+
+  std::vector<Value *> getFloatx2ToDoubleCastOperands(IRBuilder<> &Builder,
+                                                      Instruction *I) {
+    std::vector<Value *> newOperands;
+    for (auto &op : I->operands()) {
+      auto op_cast = Builder.CreateBitCast(op.get(), Builder.getDoubleTy());
+      newOperands.push_back(op_cast);
+    }
+    return newOperands;
+  }
+
+  /* Replace arithmetic instructions with PR */
+  Value *replaceArithmeticWithPRCall(IRBuilder<> &Builder, Instruction *I) {
+    Function *F = getPRFunction(I);
+
+    // check if operands of F are pointers, and skip if so
+    for (auto &arg : F->args()) {
+      if (arg.getType()->isPointerTy()) {
+        if (VfclibInstVerbose) {
+          errs() << "Skipping function " << F->getName()
+                 << " because it has pointer arguments\n";
+        }
+        return nullptr;
+      }
+    }
+
+    // Check if the instruction is a 2xfloat instruction.
+    // If so, cast the operands to double and cast the result back to 2 x float
+    if (isDoubleFunction(F) and isFloatx2Instruction(I)) {
+      auto newOperands = getFloatx2ToDoubleCastOperands(Builder, I);
+      auto call = Builder.CreateCall(F, newOperands);
+      auto bitcast = Builder.CreateBitCast(call, I->getType());
+      return bitcast;
+    }
+
     // get arguments of the instruction
     std::vector<Value *> operands(I->op_begin(), I->op_end());
     return Builder.CreateCall(F, operands);
   }
 
-  Value *replaceWithMCACall(Module &M, Instruction *I, Fops opCode) {
+  Value *replaceWithPRCall(Module &M, Instruction *I, Fops opCode) {
     if (not isValidInstruction(I)) {
       return nullptr;
     }
@@ -578,7 +675,8 @@ struct VfclibInst : public ModulePass {
 
     // We call directly a hardcoded helper function
     // no need to go through the vtable at this stage.
-    Value *newInst = replaceArithmeticWithMCACall(Builder, I);
+    Value *newInst = replaceArithmeticWithPRCall(Builder, I);
+
     return newInst;
   }
 
@@ -637,7 +735,7 @@ struct VfclibInst : public ModulePass {
       Fops opCode = p.second;
       if (VfclibInstVerbose)
         errs() << "Instrumenting" << *I << '\n';
-      Value *value = replaceWithMCACall(M, I, opCode);
+      Value *value = replaceWithPRCall(M, I, opCode);
       if (value != nullptr) {
         BasicBlock::iterator ii(I);
 #if LLVM_VERSION_MAJOR >= 16
