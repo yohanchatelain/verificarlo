@@ -38,11 +38,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-#if defined(REAL) && REAL == float
-  std::cout << "Using float\n";
-#elif defined(REAL) && REAL == double
-  std::cout << "Using double\n";
-#endif
+  if constexpr (std::is_same_v<REAL, float>) {
+    std::cout << "Using float\n";
+  } else if constexpr (std::is_same_v<REAL, double>) {
+    std::cout << "Using double\n";
+  }
 
   REAL a = strtod(argv[2], NULL);
   REAL b = strtod(argv[3], NULL);

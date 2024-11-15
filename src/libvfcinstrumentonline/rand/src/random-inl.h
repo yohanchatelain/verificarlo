@@ -24,6 +24,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <set>
 
 #include "hwy/highway.h"
 
@@ -217,8 +218,6 @@ public:
                 Lanes(ScalableTag<std::uint64_t>{})}},
         streams{state_.shape().back()} {
     internal::Xoshiro xoshiro{seed};
-
-    std::cerr << "threadNumber: " << threadNumber << "\n";
 
     for (std::uint64_t i = 0; i < threadNumber; ++i) {
       xoshiro.LongJump();

@@ -22,7 +22,7 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --header : "make --silent type={type} optimization={optimization} operator={operator}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div
 
 run_test() {
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
@@ -52,7 +52,7 @@ run_test() {
     rm -f $file
 
     for i in $(seq 1 $SAMPLES); do
-        ./$bin $op ${args["$type$op"]} >>$file
+        ./$bin $op ${args["$type$op"]} &>>$file
     done
 
     if [[ $? != 0 ]]; then

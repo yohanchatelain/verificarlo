@@ -25,8 +25,7 @@
 #endif
 
 #ifndef SIZE
-#warning "size is not defined, defaulting to 2"
-#define SIZE 2
+#define SIZE 1
 #endif
 
 #ifndef N
@@ -34,27 +33,33 @@
 #endif
 
 #ifdef __GNUC__
+typedef double double1;
 typedef double double2 __attribute__((ext_vector_type(2)));
 typedef double double4 __attribute__((ext_vector_type(4)));
 typedef double double8 __attribute__((ext_vector_type(8)));
 // typedef double double16 __attribute__((ext_vector_type(16)));
+typedef float float1;
 typedef float float2 __attribute__((ext_vector_type(2)));
 typedef float float4 __attribute__((ext_vector_type(4)));
 typedef float float8 __attribute__((ext_vector_type(8)));
 typedef float float16 __attribute__((ext_vector_type(16)));
+typedef int int1;
 typedef int int2 __attribute__((ext_vector_type(2)));
 typedef int int4 __attribute__((ext_vector_type(4)));
 typedef int int8 __attribute__((ext_vector_type(8)));
 typedef int int16 __attribute__((ext_vector_type(16)));
 #elif __clang__
+typedef float float1;
 typedef float float2 __attribute__((vector_size(8)));
 typedef float float4 __attribute__((vector_size(16)));
 typedef float float8 __attribute__((vector_size(32)));
 typedef float float16 __attribute__((vector_size(64)));
+typedef double double1;
 typedef double double2 __attribute__((vector_size(16)));
 typedef double double4 __attribute__((vector_size(32)));
 typedef double double8 __attribute__((vector_size(64)));
 // typedef double double16 __attribute__((vector_size(128)));
+typedef int int1;
 typedef int int2 __attribute__((vector_size(8)));
 typedef int int4 __attribute__((vector_size(16)));
 typedef int int8 __attribute__((vector_size(32)));
@@ -96,6 +101,25 @@ typedef int int16 __attribute__((vector_size(64)));
     return res;                                                                \
   }
 
+double1 fma_1x_double(double1 a, double1 b, double1 c) {
+  return __builtin_fma(a, b, c);
+}
+
+float1 fma_1x_float(float1 a, float1 b, float1 c) {
+  return __builtin_fmaf(a, b, c);
+}
+
+/* scalar functions */
+define_binary_vector(float, add, +, 1);
+define_binary_vector(float, sub, -, 1);
+define_binary_vector(float, mul, *, 1);
+define_binary_vector(float, div, /, 1);
+define_binary_vector(double, add, +, 1);
+define_binary_vector(double, sub, -, 1);
+define_binary_vector(double, mul, *, 1);
+define_binary_vector(double, div, /, 1);
+
+/* vector functions */
 define_binary_vector(float, add, +, 2);
 define_binary_vector(float, sub, -, 2);
 define_binary_vector(float, mul, *, 2);
@@ -160,10 +184,12 @@ define_fmaf_vector(16);
     }                                                                          \
   }
 
+define_operator_vector(double, 1);
 define_operator_vector(double, 2);
 define_operator_vector(double, 4);
 define_operator_vector(double, 8);
 // define_operator_vector(double, 16);
+define_operator_vector(float, 1);
 define_operator_vector(float, 2);
 define_operator_vector(float, 4);
 define_operator_vector(float, 8);
@@ -171,6 +197,11 @@ define_operator_vector(float, 16);
 
 void operator_double(char op, double a, double b, double c, int size) {
   switch (size) {
+  case 1: {
+    double1 aa = a, bb = b, cc = c;
+    double1 res1 = operator_1x_double(op, aa, bb, cc);
+    fprintf(stderr, "%.13a\n", res1);
+  } break;
   case 2: {
     double2 aa = {a, 2 * a}, bb = {b, 2 * b}, cc = {c, 2 * c};
     double2 res2 = operator_2x_double(op, aa, bb, cc);
@@ -219,8 +250,18 @@ void operator_double(char op, double a, double b, double c, int size) {
 
 void operator_float(char op, float a, float b, float c, int size) {
   switch (size) {
+  case 1: {
+    float1 aa = a, bb = b, cc = c;
+    float1 res1 = operator_1x_float(op, aa, bb, cc);
+    fprintf(stderr, "%.6a\n", res1);
+  } break;
   case 2: {
-    float2 aa = {a, 2 * a}, bb = {b, 2 * b}, cc = {c, 2 * c};
+    float2 aa, bb, cc;
+    for (int i = 0; i < 2; i++) {
+      aa[i] = (i + 1) * a;
+      bb[i] = (i + 2) * b;
+      cc[i] = (i + 3) * c;
+    }
     float2 res2 = operator_2x_float(op, aa, bb, cc);
     fprintf(stderr, "%.6a %.6a\n", res2[0], res2[1]);
   } break;
@@ -278,7 +319,6 @@ int main(int argc, const char *argv[]) {
     fprintf(stderr, "usage: ./test <op> a b\n");
     exit(1);
   }
-  // run_test();
 
   const char op = argv[1][0];
   REAL a = atof(argv[2]), b = 0, c = 0;
@@ -289,24 +329,19 @@ int main(int argc, const char *argv[]) {
 
   if (op == 'f')
     c = atof(argv[4]);
-  else
-    n = atoi(argv[4]);
 
-  float f = 0.0f;
+  if (argc == 5)
+    n = atoi(argv[4]);
 
   for (int i = 0; i < n; i++) {
 #ifdef DOUBLE
     // fprintf(stderr, "[double] op = %c, a = %.13a, b = %.13a\n", op, a, b);
     operator_double(op, a, b, c, SIZE);
-    f += c;
 #elif defined(FLOAT)
     // fprintf(stderr, "[float] op = %c, a = %.6a, b = %.6a\n", op, a, b);
     operator_float(op, a, b, c, SIZE);
-    f += c;
 #endif
   }
-
-  fprintf(stderr, "f = %.6f\n", f);
 
   return EXIT_SUCCESS;
 }

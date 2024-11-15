@@ -4,8 +4,8 @@ HWY_OPTS = [
     "-O2",
     "-std=c++20",
     "-Wfatal-errors",
-    "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-    "-DHWY_IS_TEST",
+    # "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+    # "-DHWY_IS_TEST",
 ]
 
 DEPS = [

@@ -6,17 +6,12 @@ exports_files([
     "debug.hpp",
     "debug_hwy-inl.h",
     "eft.hpp",
-    "export_symbols.hpp",
-    "rand.hpp",
     "random-inl.h",
     "sr_hw.h",
-    "shishua.h",
     "sr.h",
     "sr_hw-inl.h",
     "ud.hpp",
     "utils.hpp",
-    "vector_types.hpp",
-    "xoroshiro256+.hpp",
     "xoroshiro256+_hw.hpp",
     "xoroshiro256+_hw.h",
     "xoroshiro256+_hw.cpp",
@@ -26,8 +21,7 @@ exports_files([
 # Compiler options
 COPTS = [
     "-std=c++20",
-    "-DXOROSHIRO",  # Equivalent to -D$(RNG) where RNG=XOROSHIRO
-    "-I.",
+    "-Wfatal-errors",
 ]
 
 filegroup(
@@ -42,36 +36,15 @@ filegroup(
 
 cc_library(
     name = "sr",
-    srcs = [
-        "//src:debug.hpp",
-        "//src:debug_hwy-inl.h",
-        "//src:eft.hpp",
-        "//src:random-inl.h",
-        "//src:sr.h",
-        "//src:sr_hw.cpp",
-        "//src:sr_hw-inl.h",
-        "//src:utils.hpp",
-        "//src:xoroshiro256+_hw.cpp",
-        "//src:xoroshiro256+_hw.h",
-        "//src:xoroshiro256+_hw-inl.hpp",
-    ],
-    hdrs = [
-        "//src:sr_hw.h",
-    ],
+    srcs = [":srcs"],
+    hdrs = ["//src:sr_hw.h"],
     copts = COPTS + [
-        "-std=c++20",
         "-O2",
-        "-march=native",
-        "-Wfatal-errors",
-        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
+        "-Wall",
         "-Wno-psabi",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "@hwy",
-        "@hwy//:math",
-        "@hwy//:random",
-    ],
+    deps = ["@hwy"],
 )
 
 cc_library(
@@ -95,17 +68,16 @@ cc_library(
     copts = COPTS + [
         "-std=c++20",
         "-Og",
+        "-g",
         "-march=native",
         "-Wfatal-errors",
         "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-        "-g",
         "-DSR_DEBUG",
         "-Wno-psabi",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "@hwy",
-        "@hwy//:math",
         "@hwy//:random",
     ],
 )
@@ -127,9 +99,7 @@ cc_test(
         "-march=native",
         "-Wfatal-errors",
         "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-    ],
-    local_defines = [
-        "HWY_IS_TEST",
+        "-DHWY_IS_TEST",
     ],
     deps = [
         "@googletest//:gtest",

@@ -214,7 +214,9 @@ void twoprodfma(V a, V b, V &sigma, V &tau) {
 #if HWY_NATIVE_FMA
   tau = hn::MulSub(a, b, sigma); // Highway's MulSub is equivalent to FMA
 #else
+#ifdef HWY_COMPILE_ONLY_STATIC
 #warning "FMA not supported, using emulation (slow)"
+#endif
   tau = fma<D>(a, b, hn::Neg(sigma));
 #endif
 
@@ -431,7 +433,9 @@ HWY_API V sr_div(V a, V b) {
 #if HWY_NATIVE_FMA
   auto taup = hn::NegMulAdd(sigma, b, a);
 #else
+#ifdef HWY_COMPILE_ONLY_STATIC
 #warning "FMA not supported, using emulation (slow)"
+#endif
   auto taup = fma<D>(hn::Neg(sigma), b, a);
 #endif
   auto tau = hn::Div(taup, b);

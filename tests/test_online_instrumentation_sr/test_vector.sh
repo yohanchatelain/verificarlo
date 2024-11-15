@@ -18,14 +18,18 @@ check_executable() {
     fi
 }
 
-# TODO: Find flags to make it work with -O3 and -Ofast
-optimizations=('-O0' '-O1' '-O2')
+optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
 parallel --header : "make --silent type={type} optimization={optimization} operator={operator} size={size}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div ::: size 2 4 8 16
 
 run_test() {
+    # stop if double and 16
+    if [[ $1 == "double" && $4 == 16 ]]; then
+        return
+    fi
+
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
 
     declare -A args

@@ -21,10 +21,8 @@ endif
 ifdef size
 vector_size=-DSIZE=$(size)
 BINARY=test_$(type)_$(optimization)_$(operator)_$(size)
-SOURCE=test_vector.c
 else
 BINARY=test_$(type)_$(optimization)_$(operator)
-SOURCE=test.c
 endif
 
 ifdef debug
@@ -40,11 +38,15 @@ LOOP=
 endif
 
 CC=verificarlo-c
+SOURCE=test.c
 CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi $(DEBUG) --online-instrumentation=sr --save-temps -march=native $(LOOP) # --show-cmd --verbose
-SRLIB=/home/yohan/snap/alacritty/common/.cache/bazel/_bazel_yohan/ae88ab9e827214603d27a251ccdde8c0/execroot/_main/bazel-out/k8-fastbuild/bin/
 LDFLAGS=--online-instrumentation=sr -lm -lstdc++
+
+ifdef debug
+CFLAGS+=--show-cmd --verbose
+endif
 
 
 all:
-	$(CC) $(CFLAGS) -c $(SOURCE)   -o $(BINARY).o
-	$(CC) $(BINARY).o -o $(BINARY) -L$(SRLIB)/src/ -L$(SRLIB)/external/_main~_repo_rules~hwy/ -lsr  -lhwy $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(SOURCE) -o $(BINARY).o
+	$(CC) $(BINARY).o -o $(BINARY) -L$(SRLIB)/src/ -lsr  -lhwy $(LDFLAGS)

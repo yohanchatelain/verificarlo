@@ -238,18 +238,6 @@ def apply_function_instrumentation_pass(ir, ins, args):
     )
 
 
-def get_vfclibinst_online_ll(rng, debug, verbose):    
-    # TODO: cache the generated file
-    vfclibinst_online_c = f"{mcalib_includes}/rand.cpp"
-    vfclibinst_online_ll = "/tmp/rand.ll"
-    rng = rng.upper()
-    debug = "-DDEBUG" if debug else ""
-    shell(
-        f"{clangxx} {debug} -std=c++17 -mavx2 -O3 -c -S -emit-llvm -D{rng} {vfclibinst_online_c} -o {vfclibinst_online_ll}",
-        verbose=verbose,
-    )
-    return vfclibinst_online_ll
-
 
 # Apply MCA instrumentation pass
 def apply_mca_instrumentation_pass(
@@ -257,13 +245,9 @@ def apply_mca_instrumentation_pass(
 ):
     if args.online_instrumentation:
         debug = args.online_instrumentation_debug
-        # vfclibinst_online_ll = get_vfclibinst_online_ll(
-        #     args.online_instrumentation_rng, debug, args.verbose
-        # )
         vfclibinst_online_ll = '/home/yohan/Work/verificarlo/src/libvfcinstrumentonline/rand/sr_hw.ll'
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
-        extra_args += f" -vfclibinst-rng {args.online_instrumentation_rng} "
         extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
         if args.online_instrumentation_seed:
             extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
@@ -344,11 +328,11 @@ def compiler_mode(sources, options, output, args):
 
         # Activate fma instrumentation
         if args.inst_fma:
-            extra_args += " -vfclibinst-inst-fma"
+            extra_args += " -vfclibinst-inst-fma "
 
         # Activate cast instrumentation
         if args.inst_cast:
-            extra_args += " -vfclibinst-inst-cast"
+            extra_args += " -vfclibinst-inst-cast "
 
         if args.inst_func:
             # Apply function's instrumentation pass
