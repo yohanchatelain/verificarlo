@@ -125,6 +125,19 @@ void divf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
                float *HWY_RESTRICT result);
 #endif
 
+/* 1024-bits */
+#if HWY_MAX_BYTES >= 128
+/* IEEE-754 binary64 x16 */
+void addf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result);
+void subf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result);
+void mulf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result);
+void divf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result);
+#endif
+
 /* Single vector functions, vector argument */
 
 /* 64-bits */
@@ -181,6 +194,14 @@ f32x16_v mulf32x16_v(const f32x16_v a, const f32x16_v b);
 f32x16_v divf32x16_v(const f32x16_v a, const f32x16_v b);
 #endif
 
+typedef double f64x16_v __attribute__((vector_size(128)));
+#if HWY_MAX_BYTES >= 128
+f64x16_v addf64x16_v(const f64x16_v a, const f64x16_v b);
+f64x16_v subf64x16_v(const f64x16_v a, const f64x16_v b);
+f64x16_v mulf64x16_v(const f64x16_v a, const f64x16_v b);
+f64x16_v divf64x16_v(const f64x16_v a, const f64x16_v b);
+#endif
+
 /* Single vectors functions, vector arguments, dynamic dispatch */
 
 /* IEEE-754 binary32 x2 */
@@ -224,6 +245,12 @@ f32x16_v addf32x16_d(const f32x16_v a, const f32x16_v b);
 f32x16_v subf32x16_d(const f32x16_v a, const f32x16_v b);
 f32x16_v mulf32x16_d(const f32x16_v a, const f32x16_v b);
 f32x16_v divf32x16_d(const f32x16_v a, const f32x16_v b);
+
+/* IEEE-754 binary64 x16 */
+f64x16_v addf64x16_d(const f64x16_v a, const f64x16_v b);
+f64x16_v subf64x16_d(const f64x16_v a, const f64x16_v b);
+f64x16_v mulf64x16_d(const f64x16_v a, const f64x16_v b);
+f64x16_v divf64x16_d(const f64x16_v a, const f64x16_v b);
 
 } // namespace vector
 } // namespace sr

@@ -534,6 +534,15 @@ HWY_EXPORT(_divx16_f32);
 HWY_EXPORT(_sqrtx16_f32);
 #endif
 
+/* 1024-bits */
+#if HWY_MAX_BYTES >= 128
+HWY_EXPORT(_addx16_f64);
+HWY_EXPORT(_subx16_f64);
+HWY_EXPORT(_mulx16_f64);
+HWY_EXPORT(_divx16_f64);
+HWY_EXPORT(_sqrtx16_f64);
+#endif
+
 template <typename T>
 void round(const T *HWY_RESTRICT sigma, const T *HWY_RESTRICT tau,
            T *HWY_RESTRICT result, const size_t count) {
@@ -802,6 +811,29 @@ void mulf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
 void divf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
                float *HWY_RESTRICT result) {
   HWY_DYNAMIC_DISPATCH(_divx16_f32)(a, b, result);
+}
+#endif
+
+/* 1024-bits functions */
+#if HWY_MAX_BYTES >= 128
+void addf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result) {
+  HWY_DYNAMIC_DISPATCH(_addx16_f64)(a, b, result);
+}
+
+void subf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result) {
+  HWY_DYNAMIC_DISPATCH(_subx16_f64)(a, b, result);
+}
+
+void mulf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result) {
+  HWY_DYNAMIC_DISPATCH(_mulx16_f64)(a, b, result);
+}
+
+void divf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
+               double *HWY_RESTRICT result) {
+  HWY_DYNAMIC_DISPATCH(_divx16_f64)(a, b, result);
 }
 #endif
 
@@ -1109,6 +1141,49 @@ f32x16_v divf32x16_v(const f32x16_v a, const f32x16_v b) {
 
 #endif // 512-bits
 
+/* 1024-bits */
+#if HWY_MAX_BYTES >= 128
+f64x16_v addf64x16_v(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  HWY_STATIC_DISPATCH(_addx16_f64)(a_ptr, b_ptr, result_ptr);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+
+f64x16_v subf64x16_v(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  HWY_STATIC_DISPATCH(_subx16_f64)(a_ptr, b_ptr, result_ptr);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+
+f64x16_v mulf64x16_v(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  HWY_STATIC_DISPATCH(_mulx16_f64)(a_ptr, b_ptr, result_ptr);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+
+f64x16_v divf64x16_v(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  HWY_STATIC_DISPATCH(_divx16_f64)(a_ptr, b_ptr, result_ptr);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+#endif // 1024-bits
+
 /* Single vector functions, dynamic dispatch */
 
 /* IEEE-754 binary32 x2 */
@@ -1401,6 +1476,48 @@ f32x16_v divf32x16_d(const f32x16_v a, const f32x16_v b) {
   divf32(a_ptr, b_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
+  return result;
+}
+
+/* IEEE-754 binary64 x16 */
+
+f64x16_v addf64x16_d(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  addf64(a_ptr, b_ptr, result_ptr, 16);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+
+f64x16_v subf64x16_d(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  subf64(a_ptr, b_ptr, result_ptr, 16);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+
+f64x16_v mulf64x16_d(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  mulf64(a_ptr, b_ptr, result_ptr, 16);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
+  return result;
+}
+
+f64x16_v divf64x16_d(const f64x16_v a, const f64x16_v b) {
+  const double *a_ptr = reinterpret_cast<const double *>(&a);
+  const double *b_ptr = reinterpret_cast<const double *>(&b);
+  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  divf64(a_ptr, b_ptr, result_ptr, 16);
+  f64x16_v result;
+  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
   return result;
 }
 

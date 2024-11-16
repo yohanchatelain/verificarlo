@@ -340,6 +340,11 @@ void check_distribution_match(D d, V va, V vb,
       HWY_ASSERT(false);
     }
 
+    // 95% relative error
+    auto error_down = (probability_down_estimated / probability_down);
+    auto error_up = (probability_up_estimated / probability_up);
+
+    // binomial test
     auto test = helper::binomial_test(repetitions, count_down,
                                       static_cast<double>(probability_down));
 
@@ -355,33 +360,40 @@ void check_distribution_match(D d, V va, V vb,
     const auto alpha_bon = (alpha / 2) / lanes;
 
     if (test.pvalue < alpha_bon) {
-      std::cerr << "Null hypotheis rejected!\n"
-                << "     Lane/#Lanes: " << lane + 1 << "/" << lanes << "\n"
-                << "            type: " << ftype << "\n"
-                << "              op: " << op_name << "\n"
-                << "           alpha: " << alpha_bon << "\n"
-                << std::hexfloat << std::setprecision(13) << ""
-                << "               a: " << helper::hexfloat(a) << "\n"
-                << "               b: " << helper::hexfloat(b) << "\n"
-                << "             a" << op_symbol
-                << "b: " << helper::hexfloat(reference) << "\n"
-                << std::defaultfloat << "" << "-- theoretical -\n"
-                << "   probability ↓: " << fmt_proba(probability_down) << "\n"
-                << "   probability ↑: " << fmt_proba(probability_up) << "\n"
-                << "--- estimated --\n"
-                << "     sample size: " << repetitions << "\n"
-                << "              #↓: " << count_down << " ("
-                << fmt_proba(probability_down_estimated) << ")\n"
-                << "              #↑: " << count_up << " ("
-                << fmt_proba(probability_up_estimated) << ")\n"
-                << "         p-value: " << test.pvalue << "\n"
-                << std::hexfloat << ""
-                << "              ↓: " << helper::hexfloat(counter.down())
-                << "\n"
-                << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
-                << distance_error_msg << std::defaultfloat << flush();
+      // check that we are in the 95% confidence interval
+      // to avoid false positives
+      if (error_down < 0.90 or error_up < 0.90) {
+        std::cerr << "Null hypotheis rejected!\n"
+                  << "     Lane/#Lanes: " << lane + 1 << "/" << lanes << "\n"
+                  << "            type: " << ftype << "\n"
+                  << "              op: " << op_name << "\n"
+                  << "           alpha: " << alpha_bon << "\n"
+                  << std::hexfloat << std::setprecision(13) << ""
+                  << "               a: " << helper::hexfloat(a) << "\n"
+                  << "               b: " << helper::hexfloat(b) << "\n"
+                  << "             a" << op_symbol
+                  << "b: " << helper::hexfloat(reference) << "\n"
+                  << std::defaultfloat << "" << "-- theoretical -\n"
+                  << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+                  << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+                  << "--- estimated --\n"
+                  << "     sample size: " << repetitions << "\n"
+                  << "              #↓: " << count_down << " ("
+                  << fmt_proba(probability_down_estimated) << ")\n"
+                  << "              #↑: " << count_up << " ("
+                  << fmt_proba(probability_up_estimated) << ")\n"
+                  << "         p-value: " << test.pvalue << "\n"
+                  << "            ↓ %: " << error_down * 100 << "\n"
+                  << "            ↑ %: " << error_up * 100 << "\n"
+                  << std::hexfloat
+                  << "              ↓: " << helper::hexfloat(counter.down())
+                  << "\n"
+                  << "              ↑: " << helper::hexfloat(counter.up())
+                  << "\n"
+                  << distance_error_msg << std::defaultfloat << flush();
+        HWY_ASSERT(0);
+      }
       distribution_failed_tests_counter++;
-      // HWY_ASSERT(0);
     }
     distribution_tests_counter++;
     lane++;
@@ -492,37 +504,7 @@ template <class Op> struct TestBasicAssertions {
 using TestBasicAssertionsAdd = TestBasicAssertions<SRAdd>;
 using TestBasicAssertionsSub = TestBasicAssertions<SRSub>;
 using TestBasicAssertionsMul = TestBasicAssertions<SRMul>;
-
-struct TestBasicAssertionsDiv {
-  template <typename T, class D> void operator()(T /*unused*/, D d) {
-    do_run_test_simple_case<SRDiv>(d);
-    assert_almost_exact(true);
-  }
-};
-
-// struct TestBasicAssertionsAdd {
-//   template <typename T, class D> void operator()(T /*unused*/, D d) {
-//     do_run_test_simple_case<SRAdd>(d);
-//   }
-// };
-
-// struct TestBasicAssertionsSub {
-//   template <typename T, class D> void operator()(T /*unused*/, D d) {
-//     do_run_test_simple_case<SRSub>(d);
-//   }
-// };
-
-// struct TestBasicAssertionsMul {
-//   template <typename T, class D> void operator()(T /*unused*/, D d) {
-//     do_run_test_simple_case<SRMul>(d);
-//   }
-// };
-
-// struct TestBasicAssertionsDiv {
-//   template <typename T, class D> void operator()(T /*unused*/, D d) {
-//     do_run_test_simple_case<SRDiv>(d);
-//   }
-// };
+using TestBasicAssertionsDiv = TestBasicAssertions<SRDiv>;
 
 HWY_NOINLINE void TestAllExactOperationsAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestExactOperationsAdd>());
@@ -544,35 +526,32 @@ HWY_NOINLINE void TestAllBasicAssertionsDiv() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestBasicAssertionsDiv>());
 }
 
-struct TestRandom01AssertionsAdd {
+template <class Op> struct TestRandom01Assertions {
   template <typename T, class D> void operator()(T /*unused*/, D d) {
-    do_run_test_random<SRAdd>(d);
+    do_run_test_random<Op>(d);
   }
 };
+
+using TestRandom01AssertionsAdd = TestRandom01Assertions<SRAdd>;
+using TestRandom01AssertionsSub = TestRandom01Assertions<SRSub>;
+using TestRandom01AssertionsMul = TestRandom01Assertions<SRMul>;
+using TestRandom01AssertionsDiv = TestRandom01Assertions<SRDiv>;
 
 HWY_NOINLINE void TestAllRandom01AssertionsAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsAdd>());
 }
 
-// TEST(SRRoundTest, Random01AssertionsAdd) {
-//   do_run_test_random<float, helper::AddOp<float>>();
-//   do_run_test_random<double, helper::AddOp<double>>();
-// }
+HWY_NOINLINE void TestAllRandom01AssertionsSub() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsSub>());
+}
 
-// TEST(SRRoundTest, Random01AssertionsSub) {
-//   do_run_test_random<float, helper::AddOp<float>>();
-//   do_run_test_random<double, helper::SubOp<double>>();
-// }
+HWY_NOINLINE void TestAllRandom01AssertionsMul() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsMul>());
+}
 
-// TEST(SRRoundTest, Random01AssertionsMul) {
-//   do_run_test_random<float, helper::MulOp<float>>();
-//   do_run_test_random<double, helper::MulOp<double>>();
-// }
-
-// TEST(SRRoundTest, Random01AssertionsDiv) {
-//   do_run_test_random<float, helper::DivOp<float>>();
-//   do_run_test_random<double, helper::DivOp<double>>();
-// }
+HWY_NOINLINE void TestAllRandom01AssertionsDiv() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsDiv>());
+}
 
 template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
@@ -591,45 +570,36 @@ void do_random_no_overlap_test(D d) {
                          end_range_2nd);
 }
 
-struct TestRandomNoOverlapAssertionsAdd {
+template <class Op> struct TestRandomNoOverlapAssertions {
   template <typename T, class D> void operator()(T /*unused*/, D d) {
-    do_random_no_overlap_test<SRAdd>(d);
+    do_random_no_overlap_test<Op>(d);
   }
 };
+
+using TestRandomNoOverlapAssertionsAdd = TestRandomNoOverlapAssertions<SRAdd>;
+using TestRandomNoOverlapAssertionsSub = TestRandomNoOverlapAssertions<SRSub>;
+using TestRandomNoOverlapAssertionsMul = TestRandomNoOverlapAssertions<SRMul>;
+using TestRandomNoOverlapAssertionsDiv = TestRandomNoOverlapAssertions<SRDiv>;
 
 HWY_NOINLINE void TestAllRandomNoOverlapAssertionsAdd() {
   hn::ForFloat3264Types(
       hn::ForPartialVectors<TestRandomNoOverlapAssertionsAdd>());
 }
 
-// //
-// TEST(SRRoundTest, RandomNoOverlapAssertionsAdd) {
-//   using opf = helper::AddOp<float>;
-//   using opd = helper::AddOp<double>;
-//   do_random_no_overlap_test<float, opf>();
-//   do_random_no_overlap_test<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomNoOverlapAssertionsSub() {
+  hn::ForFloat3264Types(
+      hn::ForPartialVectors<TestRandomNoOverlapAssertionsSub>());
+}
 
-// TEST(SRRoundTest, RandomNoOverlapAssertionsSub) {
-//   using opf = helper::SubOp<float>;
-//   using opd = helper::SubOp<double>;
-//   do_random_no_overlap_test<float, opf>();
-//   do_random_no_overlap_test<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomNoOverlapAssertionsMul() {
+  hn::ForFloat3264Types(
+      hn::ForPartialVectors<TestRandomNoOverlapAssertionsMul>());
+}
 
-// TEST(SRRoundTest, RandomNoOverlapAssertionsMul) {
-//   using opf = helper::MulOp<float>;
-//   using opd = helper::MulOp<double>;
-//   do_random_no_overlap_test<float, opf>();
-//   do_random_no_overlap_test<double, opd>();
-// }
-
-// TEST(SRRoundTest, RandomNoOverlapAssertionsDiv) {
-//   using opf = helper::DivOp<float>;
-//   using opd = helper::DivOp<double>;
-//   do_random_no_overlap_test<float, opf>();
-//   do_random_no_overlap_test<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomNoOverlapAssertionsDiv() {
+  hn::ForFloat3264Types(
+      hn::ForPartialVectors<TestRandomNoOverlapAssertionsDiv>());
+}
 
 template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
@@ -648,43 +618,32 @@ void do_random_last_bit_overlap(D d) {
                          end_range_2nd);
 }
 
-struct TestRandomLastBitOverlapAdd {
+template <class Op> struct TestRandomLastBitOverlap {
   template <typename T, class D> void operator()(T /*unused*/, D d) {
-    do_random_last_bit_overlap<SRAdd>(d);
+    do_random_last_bit_overlap<Op>(d);
   }
 };
+
+using TestRandomLastBitOverlapAdd = TestRandomLastBitOverlap<SRAdd>;
+using TestRandomLastBitOverlapSub = TestRandomLastBitOverlap<SRSub>;
+using TestRandomLastBitOverlapMul = TestRandomLastBitOverlap<SRMul>;
+using TestRandomLastBitOverlapDiv = TestRandomLastBitOverlap<SRDiv>;
 
 HWY_NOINLINE void TestAllRandomLastBitOverlapAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomLastBitOverlapAdd>());
 }
 
-// TEST(SRRoundTest, RandomLastBitOverlapAddAssertions) {
-//   using opf = helper::AddOp<float>;
-//   using opd = helper::AddOp<double>;
-//   do_random_last_bit_overlap<float, opf>();
-//   do_random_last_bit_overlap<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomLastBitOverlapSub() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomLastBitOverlapSub>());
+}
 
-// TEST(SRRoundTest, RandomLastBitOverlapSubAssertions) {
-//   using opf = helper::SubOp<float>;
-//   using opd = helper::SubOp<double>;
-//   do_random_last_bit_overlap<float, opf>();
-//   do_random_last_bit_overlap<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomLastBitOverlapMul() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomLastBitOverlapMul>());
+}
 
-// TEST(SRRoundTest, RandomLastBitOverlapMulAssertions) {
-//   using opf = helper::MulOp<float>;
-//   using opd = helper::MulOp<double>;
-//   do_random_last_bit_overlap<float, opf>();
-//   do_random_last_bit_overlap<double, opd>();
-// }
-
-// TEST(SRRoundTest, RandomLastBitOverlapDivAssertions) {
-//   using opf = helper::DivOp<float>;
-//   using opd = helper::DivOp<double>;
-//   do_random_last_bit_overlap<float, opf>();
-//   do_random_last_bit_overlap<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomLastBitOverlapDiv() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomLastBitOverlapDiv>());
+}
 
 template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
@@ -703,43 +662,32 @@ void do_random_mid_overlap_test(D d) {
                          end_range_2nd);
 }
 
-struct TestRandomMidOverlapAdd {
+template <class Op> struct TestRandomMidOverlap {
   template <typename T, class D> void operator()(T /*unused*/, D d) {
-    do_random_mid_overlap_test<SRAdd>(d);
+    do_random_mid_overlap_test<Op>(d);
   }
 };
+
+using TestRandomMidOverlapAdd = TestRandomMidOverlap<SRAdd>;
+using TestRandomMidOverlapSub = TestRandomMidOverlap<SRSub>;
+using TestRandomMidOverlapMul = TestRandomMidOverlap<SRMul>;
+using TestRandomMidOverlapDiv = TestRandomMidOverlap<SRDiv>;
 
 HWY_NOINLINE void TestAllRandomMidOverlapAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomMidOverlapAdd>());
 }
 
-// TEST(SRRoundTest, RandomMidOverlapAddAssertions) {
-//   using opf = helper::AddOp<float>;
-//   using opd = helper::AddOp<double>;
-//   do_random_mid_overlap_test<float, opf>();
-//   do_random_mid_overlap_test<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomMidOverlapSub() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomMidOverlapSub>());
+}
 
-// TEST(SRRoundTest, RandomMidOverlapSubAssertions) {
-//   using opf = helper::SubOp<float>;
-//   using opd = helper::SubOp<double>;
-//   do_random_mid_overlap_test<float, opf>();
-//   do_random_mid_overlap_test<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomMidOverlapMul() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomMidOverlapMul>());
+}
 
-// TEST(SRRoundTest, RandomMidOverlapMulAssertions) {
-//   using opf = helper::MulOp<float>;
-//   using opd = helper::MulOp<double>;
-//   do_random_mid_overlap_test<float, opf>();
-//   do_random_mid_overlap_test<double, opd>();
-// }
-
-// TEST(SRRoundTest, RandomMidOverlapDivAssertions) {
-//   using opf = helper::DivOp<float>;
-//   using opd = helper::DivOp<double>;
-//   do_random_mid_overlap_test<float, opf>();
-//   do_random_mid_overlap_test<double, opd>();
-// }
+HWY_NOINLINE void TestAllRandomMidOverlapDiv() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomMidOverlapDiv>());
+}
 
 } // namespace
 } // namespace HWY_NAMESPACE

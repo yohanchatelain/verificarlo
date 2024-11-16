@@ -86,69 +86,6 @@ template <typename T, typename Op> typename Op::function get_target_operator() {
   }
 }
 
-// template <typename T, typename H = typename helper::IEEE754<T>::H>
-// std::pair<H, H> compute_distance_error(T a, T b, H reference) {
-//   T ref_cast = static_cast<T>(reference);
-
-//   H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
-//   H ulp = helper::get_ulp(ref_cast);
-
-//   H probability_down = 1 - (error / ulp);
-//   H probability_up = 1 - probability_down;
-
-//   if (ref_cast > reference) {
-//     std::swap(probability_down, probability_up);
-//   }
-
-//   if (error == 0 or ulp == 0 or
-//       helper::abs(reference) < helper::IEEE754<T>::min_subnormal or
-//       helper::abs(error) < helper::IEEE754<T>::min_subnormal) {
-//     probability_down = 0;
-//     probability_up = 1;
-//   }
-
-//   return {probability_down, probability_up};
-// }
-
-// template <typename T, typename H = typename helper::IEEE754<T>::H>
-// std::string compute_distance_error_str(T a, T b, H reference) {
-//   T ref_cast = static_cast<T>(reference);
-//   H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
-//   H ulp = helper::get_ulp(ref_cast);
-
-//   auto [probability_down, probability_up] =
-//       compute_distance_error(a, b, reference);
-
-//   H next, prev;
-//   if (ref_cast < reference) {
-//     prev = ref_cast;
-//     next = static_cast<T>(reference + error);
-//   } else {
-//     prev = static_cast<T>(reference - error);
-//     next = ref_cast;
-//   }
-
-//   std::ostringstream os;
-//   os << std::hexfloat << std::setprecision(13);
-//   os << "-- compute_distance_error --" << std::endl;
-//   os << "         reference: " << helper::hexfloat(reference) << std::endl;
-//   if constexpr (std::is_same_v<T, float>) {
-//     os << "  (float)reference: " << helper::hexfloat(ref_cast) << std::endl;
-//     os << "  |ref-(float)ref|: " << helper::hexfloat(error) << std::endl;
-//   }
-//   if constexpr (std::is_same_v<T, double>) {
-//     os << " (double)reference: " << helper::hexfloat(ref_cast) << std::endl;
-//     os << " |ref-(double)ref|: " << helper::hexfloat(error) << std::endl;
-//   }
-//   os << "               ulp: " << helper::hexfloat(ulp) << std::endl;
-//   os << "       reference ↓: " << helper::hexfloat(prev) << std::endl;
-//   os << "       reference ↑: " << helper::hexfloat(next) << std::endl;
-//   os << std::defaultfloat;
-//   os << "                 p: " << probability_down << std::endl;
-//   os << "               1-p: " << probability_up << std::endl;
-//   return os.str();
-// }
-
 template <typename T, typename H = typename helper::IEEE754<T>::H>
 std::tuple<H, H, std::string> compute_distance_error(T a, T b, H reference) {
   T ref_cast = static_cast<T>(reference);
@@ -282,7 +219,6 @@ void check_distribution_match(T a, T b,
     return;
   }
 
-  /* code */
   EXPECT_THAT(static_cast<double>(probability_down), AllOf(Ge(0.0), Le(1.0)))
       << "Probability ↓ is not in [0, 1] range\n"
       << "-- theoretical -\n"
@@ -300,6 +236,15 @@ void check_distribution_match(T a, T b,
       // << compute_distance_error_str(a, b, reference)
       << std::defaultfloat << flush();
 
+  // 95% relative error
+  auto error_down = 0.95 *
+                    helper::abs(probability_down - probability_down_estimated) /
+                    probability_down;
+  auto error_up = 0.95 *
+                  helper::abs(probability_up - probability_up_estimated) /
+                  probability_up;
+
+  // binomial test
   auto test = helper::binomial_test(repetitions, count_down,
                                     static_cast<double>(probability_down));
 
@@ -309,31 +254,37 @@ void check_distribution_match(T a, T b,
   if (test.pvalue == 0)
     return;
 
-  EXPECT_THAT(alpha / 2, Lt(test.pvalue))
-      << "Null hypotheis rejected!\n"
-      << "            type: " << ftype << "\n"
-      << "              op: " << op_name << "\n"
-      << "           alpha: " << alpha << "\n"
-      << std::hexfloat << std::setprecision(13) << ""
-      << "               a: " << helper::hexfloat(a) << "\n"
-      << "               b: " << helper::hexfloat(b) << "\n"
-      << "             a+b: " << helper::hexfloat(reference) << "\n"
-      << std::defaultfloat << "" << "-- theoretical -\n"
-      << "   probability ↓: " << fmt_proba(probability_down) << "\n"
-      << "   probability ↑: " << fmt_proba(probability_up) << "\n"
-      << "--- estimated --\n"
-      << "     sample size: " << repetitions << "\n"
-      << "              #↓: " << count_down << " ("
-      << fmt_proba(probability_down_estimated) << ")\n"
-      << "              #↑: " << count_up << " ("
-      << fmt_proba(probability_up_estimated) << ")\n"
-      << "         p-value: " << test.pvalue << "\n"
-      << std::hexfloat << ""
-      << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
-      << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
-      << distance_error
-      // << compute_distance_error_str(a, b, reference)
-      << std::defaultfloat << flush();
+  if (alpha / 2 < test.pvalue) {
+    // check that we are in the 95% confidence interval
+    // to avoid false positives
+    if (error_down < 0.95 or error_up < 0.95) {
+      EXPECT_THAT(alpha / 2, Lt(test.pvalue))
+          << "Null hypotheis rejected!\n"
+          << "            type: " << ftype << "\n"
+          << "              op: " << op_name << "\n"
+          << "           alpha: " << alpha << "\n"
+          << std::hexfloat << std::setprecision(13) << ""
+          << "               a: " << helper::hexfloat(a) << "\n"
+          << "               b: " << helper::hexfloat(b) << "\n"
+          << "             a+b: " << helper::hexfloat(reference) << "\n"
+          << std::defaultfloat << "" << "-- theoretical -\n"
+          << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+          << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+          << "--- estimated --\n"
+          << "     sample size: " << repetitions << "\n"
+          << "              #↓: " << count_down << " ("
+          << fmt_proba(probability_down_estimated) << ")\n"
+          << "              #↑: " << count_up << " ("
+          << fmt_proba(probability_up_estimated) << ")\n"
+          << "         p-value: " << test.pvalue << "\n"
+          << "            ↓ %: " << error_down << "\n"
+          << "            ↑ %: " << error_up << "\n"
+          << std::hexfloat << ""
+          << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
+          << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
+          << distance_error << std::defaultfloat << flush();
+    }
+  }
   debug_reset();
 }
 

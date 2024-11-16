@@ -39,7 +39,7 @@ endif
 
 CC=verificarlo-c
 SOURCE=test.c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi $(DEBUG) --online-instrumentation=sr --save-temps -march=native $(LOOP) # --show-cmd --verbose
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi $(DEBUG) z--online-instrumentation=sr --save-temps -march=native $(LOOP) # --show-cmd --verbose
 LDFLAGS=--online-instrumentation=sr -lm -lstdc++
 
 ifdef debug

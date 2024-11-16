@@ -318,6 +318,9 @@ BinomialTest binomial_test(const int n, const int k, const double p) {
 
   return BinomialTest{lower, upper, pvalue};
 }
+
+
+
 }; // namespace helper
 
 #endif // __VERIFICARLO_SRLIB_TEST_HELPER_HPP_

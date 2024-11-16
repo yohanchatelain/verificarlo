@@ -163,6 +163,8 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 def linker_mode(sources, options, libraries, output, args):
     if args.online_instrumentation:
         vfcwrapper_o = ""
+        libraries += " -lsr -lhwy -lstdc++ "
+        
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
         compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
