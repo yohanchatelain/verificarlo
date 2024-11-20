@@ -37,7 +37,7 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/MC/SubtargetFeature.h>
-#include <llvm/Support/Alignment.h>
+// #include <llvm/Support/Alignment.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/SourceMgr.h>
@@ -106,9 +106,9 @@ static cl::opt<std::string> VfclibInstExcludeFile(
     cl::desc("Do not instrument modules / functions in file ExcludeNameFile "),
     cl::value_desc("ExcludeNameFile"), cl::init(""));
 
-static cl::opt<std::string> VfclibInstSRIRFile(
+static cl::opt<std::string> VfclibInstStoIRFile(
     "vfclibinst-sr-file",
-    cl::desc("Name of the IR file that contains the sr operators"),
+    cl::desc("Name of the IR file that contains the stochastic operators"),
     cl::value_desc("SRIRFile"), cl::init(""));
 
 static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
@@ -139,9 +139,6 @@ static cl::opt<bool> VfclibInstDebug("vfclibinst-debug",
                                      cl::desc("Activate debug mode"),
                                      cl::value_desc("Debug"), cl::init(false));
 
-/* pointer that hold the vfcwrapper Module */
-// static Module *vfcwrapperM = nullptr;
-
 namespace {
 // Define an enum type to classify the floating points operations
 // that are instrumented by verificarlo
@@ -163,8 +160,11 @@ std::map<std::string, std::string> demangledNamesToMangled;
 std::map<std::string, std::string> demangledShortNamesToMangled;
 std::set<std::string> functionsToExclude;
 
+/* Pointer to the module that contains the stochastic operators */
+
 struct VfclibInst : public ModulePass {
   static char ID;
+  std::unique_ptr<Module> stoLibModule;
 
   VfclibInst() : ModulePass(ID) {
     llvm::InitializeAllTargetInfos();
@@ -223,7 +223,6 @@ struct VfclibInst : public ModulePass {
   }
 
   std::string getSourceFileNameAbsPath(Module &M) {
-
     std::string filename = M.getSourceFileName();
     if (sys::path::is_absolute(filename))
       return filename;
@@ -310,11 +309,12 @@ struct VfclibInst : public ModulePass {
   }
 
   /* Load vfcwrapper.ll Module */
-  std::unique_ptr<Module> loadVfcwrapperIR(Module &M) {
+  std::unique_ptr<Module> loadVfcwrapperIR(Module &M,
+                                           const std::string &irFile) {
     SMDiagnostic err;
-    auto newM = parseIRFile(VfclibInstSRIRFile, err, M.getContext());
+    auto newM = parseIRFile(irFile, err, M.getContext());
     if (newM.get() == nullptr) {
-      err.print(VfclibInstSRIRFile.c_str(), errs());
+      err.print(irFile.c_str(), errs());
       report_fatal_error("libVFCInstrumentOnline fatal error");
     }
     return newM;
@@ -357,22 +357,23 @@ struct VfclibInst : public ModulePass {
   bool runOnModule(Module &M) {
     bool modified = false;
 
-    auto ir = loadVfcwrapperIR(M);
+    stoLibModule = loadVfcwrapperIR(M, VfclibInstStoIRFile);
     // if ir is null, an error message has already been printed
-    if (ir.get() == nullptr) {
-      report_fatal_error("libVFCInstrumentOnline fatal error while reading IR");
+    if (stoLibModule.get() == nullptr) {
+      report_fatal_error(
+          "libVFCInstrumentOnline fatal error while reading SR library IR");
     }
-    getDemangledNamesLibSR(ir.get());
+    getDemangledNamesLibSR(stoLibModule.get());
 
     if (VfclibInstDebug) {
       printDemangledNamesLibsSR();
       printDemangledNamesLibsSRShort();
     }
 
-    if (Linker::linkModules(M, std::move(loadVfcwrapperIR(M)))) {
-      report_fatal_error(
-          "libVFCInstrumentOnline fatal error when linking modules");
-    }
+    // if (Linker::linkModules(M, std::move(loadVfcwrapperIR(M)))) {
+    //   report_fatal_error(
+    //       "libVFCInstrumentOnline fatal error when linking modules");
+    // }
 
     // Parse both included and excluded function set
     std::regex includeFunctionRgx =
@@ -575,13 +576,13 @@ struct VfclibInst : public ModulePass {
   Function *getPRFunction(Instruction *I) {
     Fops opCode = mustReplace(*I);
     std::string functionName = getFunctionName(I, opCode);
-    auto function = getFunction(I->getModule(), functionName);
+    auto function = getFunction(stoLibModule.get(), functionName);
     if (function == nullptr) {
       /* Use fallback implementation */
       /* Useful when vector size is not supported */
       /* by the current architecture */
       functionName = getFunctionName(I, opCode, true);
-      function = getFunction(I->getModule(), functionName);
+      function = getFunction(stoLibModule.get(), functionName);
     }
 
     if (function == nullptr) {
@@ -591,7 +592,16 @@ struct VfclibInst : public ModulePass {
       errs() << "Function found: " << functionName << "\n";
     }
 
-    return function;
+    // Copy the function into the current module
+    auto functionNameMangled = demangledShortNamesToMangled[functionName];
+    auto F = I->getModule()->getOrInsertFunction(functionNameMangled,
+                                                 function->getFunctionType());
+
+#if LLVM_VERSION_MAJOR < 9
+    return dyn_cast<Function>(F);
+#else
+    return dyn_cast<Function>(F.getCallee());
+#endif
   }
 
   bool isDoubleFunction(Function *F) {
