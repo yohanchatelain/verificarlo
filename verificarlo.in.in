@@ -157,7 +157,7 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
         f"{clang} -O3 {march_flag} -g {internal_options} {extra_args} "
         f"{source} -I{libinterflop_stdlib_include} -o {output} "
     )
-    shell(cmd, verbose=args.verbose)
+    shell(cmd, verbose=args.show_cmd)
 
 
 def linker_mode(sources, options, libraries, output, args):
@@ -199,14 +199,14 @@ def linker_mode(sources, options, libraries, output, args):
         linker = linkers[args.linker]
         if args.show_cmd:
             print(f"{linker} {cmd}")
-        shell(f"{linker} @{f.name}", verbose=args.verbose)
+        shell(f"{linker} @{f.name}", verbose=args.show_cmd)
 
 
 # Do not instrument
 def compile_only(sources, options, output, args):
     compiler = linkers[args.linker]
     sources = " ".join(sources)
-    shell(f"{compiler} {sources} {options} {output}", verbose=args.verbose)
+    shell(f"{compiler} {sources} {options} {output}", verbose=args.show_cmd)
 
 
 def get_tmp_name(prefix, suffix):
@@ -236,7 +236,7 @@ def apply_function_instrumentation_pass(ir, ins, args):
     enable_new_pm = get_llvm_pass_manager()
     shell(
         f"{opt} -S {enable_new_pm} -load {libvfcfuncinstrument} -vfclibfunc {ir.name} -o {ins.name}",
-        verbose=args.verbose,
+        verbose=args.show_cmd,
     )
 
 
@@ -266,7 +266,7 @@ def apply_mca_instrumentation_pass(
             f" -vfclibinst {extra_args} {selectfunction} "
             f" {ir.name} -o {ins.name}"
         ),
-        verbose=args.verbose,
+        verbose=args.show_cmd,
     )
 
 
@@ -300,7 +300,7 @@ def compiler_mode(sources, options, output, args):
         # Compile to ir (fortran uses flang, c uses clang)
         shell(
             f"{compiler} -c -S {debug} {source} {include} -emit-llvm {COMPILE_EXTRA_FLAGS} {options} -o {ir.name}",
-            verbose=args.verbose,
+            verbose=args.show_cmd,
         )
 
         selectfunction = ""
@@ -346,14 +346,14 @@ def compiler_mode(sources, options, output, args):
         if not args.emit_llvm:
             # Produce object file
             shell(
-                f"{compiler} -c {cmd_output} {ins.name} {options}", verbose=args.verbose
+                f"{compiler} -c {cmd_output} {ins.name} {options}", verbose=args.show_cmd
             )
         else:
             # Produce a bc file with the wrapper bc linked in.
             vfcwrapper_ir_name = vfcwrapper_ir.name if vfcwrapper_ir else ""
             shell(
                 f"{llvm_link} {ins.name} {vfcwrapper_ir_name} {cmd_output}",
-                verbose=args.verbose,
+                verbose=args.show_cmd,
             )
 
 
