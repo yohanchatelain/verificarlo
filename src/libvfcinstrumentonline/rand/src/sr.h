@@ -34,7 +34,7 @@ template <typename T> inline T sround(const T sigma, const T tau) {
   debug_start();
   if (tau == 0) {
     debug_end();
-    return sigma;
+    return 0;
   }
   constexpr int32_t mantissa = IEEE754<T>::mantissa;
   const bool sign_tau = tau < 0;

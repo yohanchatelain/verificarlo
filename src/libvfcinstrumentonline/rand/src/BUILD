@@ -10,7 +10,10 @@ exports_files([
     "sr_hw.h",
     "sr.h",
     "sr_hw-inl.h",
-    "ud.hpp",
+    "ud.h",
+    "ud_hw.h",
+    "ud_hw.cpp",
+    "ud_hw-inl.h",
     "utils.hpp",
     "xoroshiro256+_hw.hpp",
     "xoroshiro256+_hw.h",
@@ -20,24 +23,76 @@ exports_files([
 
 # Compiler options
 COPTS = [
-    "-std=c++20",
+    "-std=c++17",
     "-Wfatal-errors",
 ]
 
 filegroup(
-    name = "srcs",
-    srcs = glob([
-        "*.cpp",
-        "*.hpp",
-        "*.h",
-    ]),
+    name = "xoroshiro",
+    srcs = [
+        "debug_hwy-inl.h",
+        "random-inl.h",
+        "target-utils.h",
+        "xoroshiro256+_hw.cpp",
+        "xoroshiro256+_hw.h",
+        "xoroshiro256+_hw-inl.hpp",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "srcs-sr",
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.hpp",
+            "*.h",
+        ],
+        exclude = [
+            "ud_hw.cpp",
+            "ud_hw.h",
+            "ud_hw-inl.h",
+            "ud.h",
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "srcs-ud",
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.hpp",
+            "*.h",
+        ],
+        exclude = [
+            "sr_hw.cpp",
+            "sr_hw.h",
+            "sr_hw-inl.h",
+            "sr.h",
+        ],
+    ),
     visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "sr",
-    srcs = [":srcs"],
+    srcs = [":srcs-sr"],
     hdrs = ["//src:sr_hw.h"],
+    copts = COPTS + [
+        "-O2",
+        "-Wall",
+        "-Wno-psabi",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@hwy"],
+)
+
+cc_library(
+    name = "ud",
+    srcs = [":srcs-ud"],
+    hdrs = ["//src:ud_hw.h"],
     copts = COPTS + [
         "-O2",
         "-Wall",
@@ -66,10 +121,8 @@ cc_library(
         "//src:sr_hw.h",
     ],
     copts = COPTS + [
-        "-std=c++20",
         "-Og",
         "-g",
-        "-march=native",
         "-Wfatal-errors",
         "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
         "-DSR_DEBUG",

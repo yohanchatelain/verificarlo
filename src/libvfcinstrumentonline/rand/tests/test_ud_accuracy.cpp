@@ -5,17 +5,24 @@
 #include <random>
 #include <vector>
 
-#include "src/eft.hpp"
-#include "src/main.hpp"
-#include "src/sr.hpp"
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include "src/ud.h"
 #include "src/utils.hpp"
 #include "tests/helper.hpp"
 
-constexpr auto default_alpha = 0.001;
+using ::testing::AllOf;
+using ::testing::Eq;
+using ::testing::Ge;
+using ::testing::Le;
+using ::testing::Lt;
+
+constexpr auto default_alpha = 0.0001;
 #ifdef SR_DEBUG
 constexpr auto default_repetitions = 10;
 #else
-constexpr auto default_repetitions = 100'000;
+constexpr auto default_repetitions = 1'000;
 #endif
 namespace reference {
 // return pred(|s|)
@@ -24,22 +31,22 @@ namespace reference {
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_add(T a, T b) {
+H add(T a, T b) {
   return static_cast<H>(a) + static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_sub(T a, T b) {
+H sub(T a, T b) {
   return static_cast<H>(a) - static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_mul(T a, T b) {
+H mul(T a, T b) {
   return static_cast<H>(a) * static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sr_div(T a, T b) {
+H div(T a, T b) {
   return static_cast<H>(a) / static_cast<H>(b);
 }
 
@@ -47,16 +54,16 @@ template <typename T, typename Op, typename H = typename helper::IEEE754<T>::H>
 std::function<H(T, T)> get_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
   if constexpr (std::is_same_v<helper::AddOp<T>, Op>) {
-    return sr_add<T>;
+    return add<T>;
   }
   if constexpr (std::is_same_v<Op, helper::SubOp<T>>) {
-    return sr_sub<T>;
+    return sub<T>;
   }
   if constexpr (std::is_same_v<Op, helper::MulOp<T>>) {
-    return sr_mul<T>;
+    return mul<T>;
   }
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
-    return sr_div<T>;
+    return div<T>;
   }
 }
 
@@ -66,59 +73,70 @@ template <typename T, typename Op> typename Op::function get_target_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
 
   if constexpr (std::is_same_v<Op, helper::AddOp<T>>) {
-    return sr_add<T>;
+    return ud::scalar::add<T>;
   }
   if constexpr (std::is_same_v<Op, helper::SubOp<T>>) {
-    return sr_sub<T>;
+    return ud::scalar::sub<T>;
   }
   if constexpr (std::is_same_v<Op, helper::MulOp<T>>) {
-    return sr_mul<T>;
+    return ud::scalar::mul<T>;
   }
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
-    return sr_div<T>;
+    return ud::scalar::div<T>;
   }
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-std::pair<H, H> compute_distance_error(T a, T b, H reference) {
+std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
+                                                              H reference) {
   T ref_cast = static_cast<T>(reference);
 
-  H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
-  H ulp = helper::get_ulp(ref_cast);
-
-  H probability_down = 1 - (error / ulp);
-  H probability_up = 1 - probability_down;
-
-  if (ref_cast > reference) {
-    std::swap(probability_down, probability_up);
+  if (helper::isnan(a) or helper::isnan(b) or helper::isnan(reference) or
+      helper::isinf(a) or helper::isinf(b) or helper::isinf(reference) or
+      helper::isinf(ref_cast)) {
+    return {0, 0, reference, reference, 0, ""};
   }
 
-  if (error == 0 or ulp == 0 or
-      helper::abs(reference) < helper::IEEE754<T>::min_subnormal or
-      helper::abs(error) < helper::IEEE754<T>::min_subnormal) {
-    probability_down = 0;
+  H error = 0, error_c = 0;
+  H probability_down = 0, probability_up = 0;
+  H next = 0, prev = 0;
+  H ulp = helper::get_ulp(ref_cast);
+
+  if (ref_cast == reference) {
+    error = 0;
+    probability_down = 1;
     probability_up = 1;
-  }
-
-  return {probability_down, probability_up};
-}
-
-template <typename T, typename H = typename helper::IEEE754<T>::H>
-std::string compute_distance_error_str(T a, T b, H reference) {
-  T ref_cast = static_cast<T>(reference);
-  H error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
-  H ulp = helper::get_ulp(ref_cast);
-
-  auto [probability_down, probability_up] =
-      compute_distance_error(a, b, reference);
-
-  H next, prev;
-  if (ref_cast < reference) {
-    prev = ref_cast;
-    next = static_cast<T>(reference + error);
+    prev = reference;
+    next = reference;
   } else {
-    prev = static_cast<T>(reference - error);
-    next = ref_cast;
+    error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
+    error_c = helper::absolute_distance(static_cast<H>(ulp), error);
+    prev = (ref_cast < reference) ? ref_cast : (ref_cast - ulp);
+    next = (ref_cast < reference) ? (ref_cast + ulp) : ref_cast;
+    probability_down = (next - reference) / ulp;
+    probability_up = (reference - prev) / ulp;
+
+    if (((error + error_c) != ulp)) {
+      std::cerr << "error + error_c != ulp" << "\n"
+                << "error:   " << helper::hexfloat(error) << "\n"
+                << "error_c: " << helper::hexfloat(error_c) << "\n"
+                << "prev:    " << helper::hexfloat(prev) << "\n"
+                << "next:    " << helper::hexfloat(next) << "\n"
+                << "ulp:     " << helper::hexfloat(ulp) << std::endl;
+      HWY_ASSERT(false);
+    }
+    if (probability_down + probability_up != 1) {
+      std::cerr << "probability_down + probability_up != 1" << "\n"
+                << "probability_down: " << probability_down << "\n"
+                << "probability_up:   " << probability_up << "\n"
+                << "reference:        " << helper::hexfloat(reference) << "\n"
+                << "prev:             " << helper::hexfloat(prev) << "\n"
+                << "next:             " << helper::hexfloat(next) << "\n"
+                << "error:            " << helper::hexfloat(error) << "\n"
+                << "error_c:          " << helper::hexfloat(error_c) << "\n"
+                << "ulp:              " << helper::hexfloat(ulp) << std::endl;
+      HWY_ASSERT(false);
+    }
   }
 
   std::ostringstream os;
@@ -133,13 +151,16 @@ std::string compute_distance_error_str(T a, T b, H reference) {
     os << " (double)reference: " << helper::hexfloat(ref_cast) << std::endl;
     os << " |ref-(double)ref|: " << helper::hexfloat(error) << std::endl;
   }
+  os << "           error_c: " << helper::hexfloat(error_c) << std::endl;
   os << "               ulp: " << helper::hexfloat(ulp) << std::endl;
   os << "       reference ↓: " << helper::hexfloat(prev) << std::endl;
   os << "       reference ↑: " << helper::hexfloat(next) << std::endl;
   os << std::defaultfloat;
   os << "                 p: " << probability_down << std::endl;
   os << "               1-p: " << probability_up << std::endl;
-  return os.str();
+  auto msg = os.str();
+
+  return {probability_down, probability_up, prev, next, error, msg};
 }
 
 template <typename T, typename Op>
@@ -173,10 +194,13 @@ void check_distribution_match(T a, T b,
                               const float alpha = default_alpha) {
   using H = typename helper::IEEE754<T>::H;
 
+  const auto op_name = Op::name;
+  const auto ftype = Op::ftype;
+
   auto reference_op = reference::get_operator<T, Op>();
   H reference = reference_op(a, b);
-  auto [probability_down, probability_up] =
-      compute_distance_error(a, b, reference);
+  auto [probability_down, probability_up, down, up, distance_error,
+        distance_error_msg] = compute_distance_error(a, b, reference);
 
   auto counter = eval_op<T, Op>(a, b, repetitions);
   auto count_down = counter.down_count();
@@ -199,58 +223,63 @@ void check_distribution_match(T a, T b,
     return;
   }
 
-  /* code */
-  // EXPECT_THAT(static_cast<double>(probability_down), AllOf(Ge(0.0), Le(1.0)))
-  //     << "Probability ↓ is not in [0, 1] range\n"
-  //     << "-- theoretical -\n"
-  //     << "   probability ↓: " << fmt_proba(probability_down) << "\n"
-  //     << "   probability ↑: " << fmt_proba(probability_up) << "\n"
-  //     << "--- estimated --\n"
-  //     << "     sample size: " << repetitions << "\n"
-  //     << "              #↓: " << count_down << " ("
-  //     << fmt_proba(probability_down_estimated) << ")\n"
-  //     << "              #↑: " << count_up << " ("
-  //     << fmt_proba(probability_up_estimated) << ")\n"
-  //     << std::hexfloat << ""
-  //     << "              ↓: " << counter.down() << "\n"
-  //     << "              ↑: " << counter.up() << "\n"
-  //     << compute_distance_error_str(a, b, reference) << std::defaultfloat
-  //     << flush();
+  EXPECT_THAT(static_cast<double>(probability_down), AllOf(Ge(0.0), Le(1.0)))
+      << "Probability ↓ is not in [0, 1] range\n"
+      << "-- theoretical -\n"
+      << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+      << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+      << "--- estimated --\n"
+      << "     sample size: " << repetitions << "\n"
+      << "              #↓: " << count_down << " ("
+      << fmt_proba(probability_down_estimated) << ")\n"
+      << "              #↑: " << count_up << " ("
+      << fmt_proba(probability_up_estimated) << ")\n"
+      << std::hexfloat << "" << "              ↓: " << counter.down() << "\n"
+      << "              ↑: " << counter.up() << "\n"
+      << distance_error_msg << std::defaultfloat << flush();
 
-  auto test = helper::binomial_test(repetitions, count_down,
-                                    static_cast<double>(probability_down));
+  // do the test only if the operation is not exact (probability is not zero)
+  bool is_exact = probability_down == 1 and probability_up == 1;
 
-  const auto op_name = Op::name;
-  const auto ftype = Op::ftype;
+  // do the test only if the operation is not exact (probability is not zero)
+  // do the test if the distance between the reference and the estimated value
+  // is greater than the minimum subnormal
+  // do not the test if the probability is lower than 1/repetitions
+  bool compare_down_values = not is_exact and down != 0 and
+                             probability_down > (1.0 / repetitions) and
+                             distance_error > helper::IEEE754<T>::min_subnormal;
+  bool compare_up_values = not is_exact and up != 0 and
+                           probability_up > (1.0 / repetitions) and
+                           distance_error > helper::IEEE754<T>::min_subnormal;
 
-  if (test.pvalue == 0)
-    return;
+  // binomial test
+  auto test = helper::binomial_test(repetitions, count_down, 0.5);
 
-  // EXPECT_THAT(alpha / 2, Lt(test.pvalue))
-  //     << "Null hypotheis rejected!\n"
-  //     << "            type: " << ftype << "\n"
-  //     << "              op: " << op_name << "\n"
-  //     << "           alpha: " << alpha << "\n"
-  //     << std::hexfloat << std::setprecision(13) << ""
-  //     << "               a: " << helper::hexfloat(a) << "\n"
-  //     << "               b: " << helper::hexfloat(b) << "\n"
-  //     << "             a+b: " << helper::hexfloat(reference) << "\n"
-  //     << std::defaultfloat << ""
-  //     << "-- theoretical -\n"
-  //     << "   probability ↓: " << fmt_proba(probability_down) << "\n"
-  //     << "   probability ↑: " << fmt_proba(probability_up) << "\n"
-  //     << "--- estimated --\n"
-  //     << "     sample size: " << repetitions << "\n"
-  //     << "              #↓: " << count_down << " ("
-  //     << fmt_proba(probability_down_estimated) << ")\n"
-  //     << "              #↑: " << count_up << " ("
-  //     << fmt_proba(probability_up_estimated) << ")\n"
-  //     << "         p-value: " << test.pvalue << "\n"
-  //     << std::hexfloat << ""
-  //     << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
-  //     << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
-  //     << compute_distance_error_str(a, b, reference) << std::defaultfloat
-  //     << flush();
+  // check probability if we compare the values
+  if (compare_down_values and compare_up_values)
+    EXPECT_THAT(alpha / 2, Lt(test.pvalue))
+        << "Null hypotheis rejected!\n"
+        << "            type: " << ftype << "\n"
+        << "              op: " << op_name << "\n"
+        << "           alpha: " << alpha << "\n"
+        << std::hexfloat << std::setprecision(13) << ""
+        << "               a: " << helper::hexfloat(a) << "\n"
+        << "               b: " << helper::hexfloat(b) << "\n"
+        << "             a+b: " << helper::hexfloat(reference) << "\n"
+        << std::defaultfloat << "" << "-- theoretical -\n"
+        << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+        << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+        << "--- estimated --\n"
+        << "     sample size: " << repetitions << "\n"
+        << "              #↓: " << count_down << " ("
+        << fmt_proba(probability_down_estimated) << ")\n"
+        << "              #↑: " << count_up << " ("
+        << fmt_proba(probability_up_estimated) << ")\n"
+        << "         p-value: " << test.pvalue << "\n"
+        << std::hexfloat << ""
+        << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
+        << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
+        << distance_error_msg << std::defaultfloat << flush();
   debug_reset();
 }
 
@@ -491,6 +520,5 @@ TEST(SRRoundTest, RandomMidOverlapDivAssertions) {
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
-  init();
   return RUN_ALL_TESTS();
 }

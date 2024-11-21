@@ -27,6 +27,8 @@ namespace HWY_NAMESPACE { // required: unique per target
 namespace {
 
 constexpr std::uint64_t tests = 1UL << 10;
+constexpr std::uint64_t u64{};
+constexpr std::uint32_t u32{};
 
 std::uint64_t GetSeed() { return static_cast<uint64_t>(std::time(nullptr)); }
 
@@ -35,7 +37,7 @@ void RngLoop(const std::uint64_t seed, std::uint64_t *HWY_RESTRICT result,
   const ScalableTag<std::uint64_t> d;
   VectorXoshiro generator{seed};
   for (size_t i = 0; i < size; i += Lanes(d)) {
-    Store(generator(), d, result + i);
+    Store(generator(u64), d, result + i);
   }
 }
 
@@ -224,7 +226,7 @@ void TestUniformVecDistF32() {
 void TestNextNRandomUint64() {
   const std::uint64_t seed = GetSeed();
   VectorXoshiro generator{seed};
-  const auto result_array = generator.operator()(tests);
+  const auto result_array = generator.operator()(u64, tests);
   std::vector<internal::Xoshiro> reference;
   reference.emplace_back(seed);
   const ScalableTag<std::uint64_t> d;
@@ -252,7 +254,7 @@ void TestNextNRandomUint64() {
 void TestNextFixedNRandomUint64() {
   const std::uint64_t seed = GetSeed();
   VectorXoshiro generator{seed};
-  const auto result_array = generator.operator()<tests>();
+  const auto result_array = generator.operator()<tests>(u64);
   std::vector<internal::Xoshiro> reference;
   reference.emplace_back(seed);
   const ScalableTag<std::uint64_t> d;

@@ -2,135 +2,142 @@ load("//tests:macros.bzl", "cc_test_gen", "cc_test_lib_gen")
 
 HWY_OPTS = [
     "-O2",
-    "-std=c++20",
-    "-Wfatal-errors",
-    # "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-    # "-DHWY_IS_TEST",
-]
-
-DEPS = [
-    "@hwy//:math",
 ]
 
 cc_test_gen(
-    name = "get_exponent_test",
+    name = "test_get_exponent",
     copts = HWY_OPTS,
 )
 
 cc_test_gen(
-    name = "get_predabs_test",
+    name = "test_get_predabs",
     copts = HWY_OPTS,
 )
 
 cc_test_gen(
-    name = "get_pow2_test",
+    name = "test_get_pow2",
     copts = HWY_OPTS,
 )
 
 cc_test_gen(
-    name = "get_pow2_test-hw",
-    copts = HWY_OPTS + ["-DSR_DEBUG"],
+    name = "test_get_pow2_hwy",
+    copts = HWY_OPTS,
+    dbg = True,
 )
 
 cc_test_gen(
-    name = "twosum_test",
+    name = "test_twosum",
     copts = HWY_OPTS,
 )
 
 cc_test_gen(
-    name = "twoprodfma_test",
+    name = "test_twoprodfma",
     copts = HWY_OPTS,
 )
+
+# Scalar tests
 
 cc_test_lib_gen(
-    name = "udround_test",
-)
-
-cc_test_lib_gen(
-    name = "sr_accuracy",
+    name = "sr-scalar-accuracy",
     size = "small",
-    src = ["//tests:srround_test.cpp"],
+    src = ["//tests:test_sr_accuracy.cpp"],
     copts = HWY_OPTS,
 )
 
 cc_test_lib_gen(
-    name = "sr_accuracy-dbg",
+    name = "sr-scalar-accuracy-dbg",
     size = "small",
-    src = ["//tests:srround_test.cpp"],
+    src = ["//tests:test_sr_accuracy.cpp"],
+    copts = HWY_OPTS,
+    dbg = True,
+)
+
+cc_test_lib_gen(
+    name = "ud-scalar-accuracy",
+    size = "small",
+    src = [
+        "//tests:test_ud_accuracy.cpp",
+        "//src:srcs-ud",
+    ],
+    copts = HWY_OPTS,
+)
+
+cc_binary(
+    name = "sr-scalar-single-test",
+    srcs = ["//tests:test_single_sr.cpp"],
     copts = HWY_OPTS + ["-DSR_DEBUG"],
+    deps = ["@//src:sr"],
 )
 
-# single test for scalar operations
 cc_binary(
-    name = "single-test",
-    srcs = ["//tests:test_sr_hw.cpp"],
-    copts = HWY_OPTS + [
-        "-DSR_DEBUG",
-    ],
-    deps = [
-        "@//src:sr",
-        "@hwy",
-    ],
+    name = "ud-scalar-single-test",
+    srcs = ["//tests:test_single_ud.cpp"],
+    copts = HWY_OPTS + ["-DSR_DEBUG"],
+    deps = ["@//src:ud"],
 )
 
-# single test for vector operations
-cc_binary(
-    name = "single-test-hw",
-    srcs = ["//tests:test_sr_hw-API.cpp"],
-    copts = HWY_OPTS + [
-        "-DSR_DEBUG",
-    ],
-    deps = [
-        "@//src:sr",
-        "@googletest//:gtest",
-        "@googletest//:gtest_main",
-        "@hwy",
-        "@hwy//:hwy_test_util",
-    ],
-)
+# Vector tests
 
 cc_test_lib_gen(
     name = "xoroshiro",
     size = "medium",
-    src = ["//tests:xoroshiro.cpp"],
-    copts = [
-        "-O2",
-        "-Wfatal-errors",
-        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-        "-DHWY_IS_TEST",
-        "-DSR_DEBUG",
+    src = [
+        "//src:xoroshiro",
+        "//tests:test_xoroshiro.cpp",
     ],
-)
-
-cc_test_lib_gen(
-    name = "sr_hw_accuracy",
-    size = "medium",
-    src = ["//tests:srround_test_hw-inl.cpp"],
     copts = HWY_OPTS,
+    dbg = True,
 )
 
-cc_test_lib_gen(
-    name = "sr_hw_accuracy-dbg",
-    size = "medium",
-    src = ["//tests:srround_test_hw-inl.cpp"],
+cc_binary(
+    name = "sr-vector-single-test",
+    srcs = ["//tests:test_single_sr_hwy.cpp"],
     copts = HWY_OPTS + ["-DSR_DEBUG"],
 )
 
 cc_test_lib_gen(
-    name = "sr_hw_test",
+    name = "sr-vector-accuracy",
     size = "medium",
-    src = ["//tests:sr_hw_test.cpp"],
-    copts = [
-        "-std=c++20",
-        "-O2",
-        "-Wfatal-errors",
-        "-DHWY_DISABLED_TARGETS=(HWY_AVX3|HWY_AVX3_ZEN4|HWY_AVX3_SPR)",
-        "-DHWY_IS_TEST",
-        "-DSR_DEBUG",
-        "-Wno-psabi",
+    src = ["//tests:test_sr_hwy_accuracy.cpp"],
+    copts = HWY_OPTS,
+)
+
+cc_test_lib_gen(
+    name = "ud-vector-accuracy",
+    size = "medium",
+    src = [
+        "//tests:test_ud_hwy_accuracy.cpp",
+        "//src:srcs-ud",
     ],
+    copts = HWY_OPTS,
+)
+
+cc_test_lib_gen(
+    name = "sr-vector-accuracy-dbg",
+    size = "medium",
+    src = ["//tests:test_sr_hwy_accuracy.cpp"],
+    copts = HWY_OPTS,
+    dbg = True,
+)
+
+cc_test_lib_gen(
+    name = "sr-perf",
+    size = "medium",
+    src = ["//tests:test_sr_hwy_performance.cpp"],
+    copts = HWY_OPTS,
     deps = [
         "@//src:sr",
+        "@hwy//:nanobenchmark",
+    ],
+)
+
+cc_test_lib_gen(
+    name = "ud-perf",
+    size = "medium",
+    src = ["//tests:test_ud_hwy_performance.cpp"],
+    copts = HWY_OPTS,
+    deps = [
+        "@//src:ud",
         "@hwy//:nanobenchmark",
     ],
 )
@@ -141,9 +148,6 @@ test_suite(
         ":get_exponent_test",
         ":get_pow2_test",
         ":get_predabs_test",
-        ":srround_boost_test",
-        ":srround_shishua_test",
-        ":srround_xoroshiro_test",
         ":twoprodfma_test",
         ":twosum_test",
         ":udround_test",

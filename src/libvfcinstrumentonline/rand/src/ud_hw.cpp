@@ -1,24 +1,22 @@
 
 #include "src/debug.hpp"
-#include "src/sr.h"
+#include "src/ud.h"
 
 // Generates code for every target that this compiler can support.
 #undef HWY_TARGET_INCLUDE
-#define HWY_TARGET_INCLUDE "src/sr_hw.cpp" // this file
+#define HWY_TARGET_INCLUDE "src/ud_hw.cpp" // this file
 #include "hwy/foreach_target.h"            // must come before highway.h
 
 // clang-format off
 #include "hwy/highway.h"
-#include "src/sr_hw-inl.h"
-#include "src/sr_hw.h"
+#include "src/ud_hw-inl.h"
+#include "src/ud_hw.h"
 #include "src/xoroshiro256+_hw-inl.hpp"
 // clang-format on
 
 // Optional, can instead add HWY_ATTR to all functions.
 HWY_BEFORE_NAMESPACE();
-
-namespace sr {
-
+namespace ud {
 namespace vector {
 namespace HWY_NAMESPACE {
 
@@ -29,35 +27,35 @@ namespace internal {
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _add_fp_xN(V a, V b) {
-  auto res = sr_add<D>(a, b);
+  auto res = add<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _sub_fp_xN(V a, V b) {
-  auto res = sr_sub<D>(a, b);
+  auto res = sub<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _mul_fp_xN(V a, V b) {
-  auto res = sr_mul<D>(a, b);
+  auto res = mul<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _div_fp_xN(V a, V b) {
-  auto res = sr_div<D>(a, b);
+  auto res = div<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _sqrt_fp_xN(V a) {
-  auto res = sr_sqrt<D>(a);
+  auto res = sqrt<D>(a);
   return res;
 }
 
@@ -153,7 +151,6 @@ f32x16 _mul_f32_x16(f32x16 a, f32x16 b) { return _mul_fp_xN<float, 16>(a, b); }
 f32x16 _div_f32_x16(f32x16 a, f32x16 b) { return _div_fp_xN<float, 16>(a, b); }
 f32x16 _sqrt_f32_x16(f32x16 a) { return _sqrt_fp_xN<float, 16>(a); }
 #endif
-
 } // namespace internal
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
@@ -292,28 +289,26 @@ define_fp_xN_bin_op(float, f32, 16, mul);
 define_fp_xN_bin_op(float, f32, 16, div);
 define_fp_xN_unary_op(float, f32, 16, sqrt);
 #endif
-
 template <typename T>
-HWY_NOINLINE void _round(const T *HWY_RESTRICT sigma, const T *HWY_RESTRICT tau,
-                         T *HWY_RESTRICT result, const size_t count) {
+void _round(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
+            const size_t count) {
   using D = hn::ScalableTag<T>;
   const D d;
   const size_t N = hn::Lanes(d);
   size_t i = 0;
   for (; i + N <= count; i += N) {
-    auto sigma_vec = hn::Load(d, sigma + i);
-    auto tau_vec = hn::Load(d, tau + i);
-    auto res = sr_round<D>(sigma_vec, tau_vec);
+    auto a_vec = hn::Load(d, a + i);
+    auto res = round<D>(a_vec);
     hn::Store(res, d, result + i);
   }
-  // using C = hn::CappedTag<T, 1>;
-  // const C c;
-  // for (; i < count; ++i) {
-  //   auto sigma_vec = hn::Load(d, sigma + i);
-  //   auto tau_vec = hn::Load(d, tau + i);
-  //   auto res = sr_round<C>(sigma_vec, tau_vec);
-  //   hn::Store(res, c, result + i);
-  // }
+  //   using C = hn::CappedTag<T, 1>;
+  //   const C c;
+  //   for (; i < count; ++i) {
+  //     auto sigma_vec = hn::Load(d, sigma + i);
+  //     auto tau_vec = hn::Load(d, tau + i);
+  //     auto res = ud_round<C>(sigma_vec, tau_vec);
+  //     hn::Store(res, c, result + i);
+  //   }
 }
 
 template <typename T>
@@ -326,17 +321,17 @@ HWY_NOINLINE void _add(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_add<D>(a_vec, b_vec);
+    auto res = add<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
-  using C = hn::CappedTag<T, 1>;
-  const C c;
-  for (; i < count; ++i) {
-    auto a_vec = hn::Load(c, a + i);
-    auto b_vec = hn::Load(c, b + i);
-    auto res = sr_add<C>(a_vec, b_vec);
-    hn::Store(res, c, result + i);
-  }
+  //   using C = hn::CappedTag<T, 1>;
+  //   const C c;
+  //   for (; i < count; ++i) {
+  //     auto a_vec = hn::Load(c, a + i);
+  //     auto b_vec = hn::Load(c, b + i);
+  //     auto res = ud_add<C>(a_vec, b_vec);
+  //     hn::Store(res, c, result + i);
+  //   }
 }
 
 template <typename T>
@@ -349,17 +344,17 @@ HWY_NOINLINE void _sub(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_sub<D>(a_vec, b_vec);
+    auto res = sub<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
-  using C = hn::CappedTag<T, 1>;
-  const C c;
-  for (; i < count; ++i) {
-    auto a_vec = hn::Load(c, a + i);
-    auto b_vec = hn::Load(c, b + i);
-    auto res = sr_sub<C>(a_vec, b_vec);
-    hn::Store(res, c, result + i);
-  }
+  //   using C = hn::CappedTag<T, 1>;
+  //   const C c;
+  //   for (; i < count; ++i) {
+  //     auto a_vec = hn::Load(c, a + i);
+  //     auto b_vec = hn::Load(c, b + i);
+  //     auto res = ud_sub<C>(a_vec, b_vec);
+  //     hn::Store(res, c, result + i);
+  //   }
 }
 
 template <typename T>
@@ -372,17 +367,17 @@ HWY_NOINLINE void _mul(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_mul<D>(a_vec, b_vec);
+    auto res = mul<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
-  using C = hn::CappedTag<T, 1>;
-  const C c;
-  for (; i < count; ++i) {
-    auto a_vec = hn::Load(c, a + i);
-    auto b_vec = hn::Load(c, b + i);
-    auto res = sr_mul<C>(a_vec, b_vec);
-    hn::Store(res, c, result + i);
-  }
+  //   using C = hn::CappedTag<T, 1>;
+  //   const C c;
+  //   for (; i < count; ++i) {
+  //     auto a_vec = hn::Load(c, a + i);
+  //     auto b_vec = hn::Load(c, b + i);
+  //     auto res = ud_mul<C>(a_vec, b_vec);
+  //     hn::Store(res, c, result + i);
+  //   }
 }
 
 template <typename T>
@@ -395,17 +390,17 @@ HWY_NOINLINE void _div(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_div<D>(a_vec, b_vec);
+    auto res = div<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
-  using C = hn::CappedTag<T, 1>;
-  const C c;
-  for (; i < count; ++i) {
-    auto a_vec = hn::Load(c, a + i);
-    auto b_vec = hn::Load(c, b + i);
-    auto res = sr_div<C>(a_vec, b_vec);
-    hn::Store(res, c, result + i);
-  }
+  //   using C = hn::CappedTag<T, 1>;
+  //   const C c;
+  //   for (; i < count; ++i) {
+  //     auto a_vec = hn::Load(c, a + i);
+  //     auto b_vec = hn::Load(c, b + i);
+  //     auto res = ud_div<C>(a_vec, b_vec);
+  //     hn::Store(res, c, result + i);
+  //   }
 }
 
 template <typename T>
@@ -417,21 +412,20 @@ HWY_NOINLINE void _sqrt(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
   size_t i = 0;
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
-    auto res = sr_sqrt<D>(a_vec);
+    auto res = sqrt<D>(a_vec);
     hn::Store(res, d, result + i);
   }
-  // using C = hn::CappedTag<T, 1>;
-  // const C c;
-  // for (; i < count; ++i) {
-  //   auto a_vec = hn::Load(d, a + i);
-  //   auto res = sr_sqrt<C>(a_vec);
-  //   hn::Store(res, c, result + i);
-  // }
+  //   using C = hn::CappedTag<T, 1>;
+  //   const C c;
+  //   for (; i < count; ++i) {
+  //     auto a_vec = hn::Load(d, a + i);
+  //     auto res = ud_sqrt<C>(a_vec);
+  //     hn::Store(res, c, result + i);
+  //   }
 }
-
-void _round_f32(const float *HWY_RESTRICT sigma, const float *HWY_RESTRICT tau,
-                float *HWY_RESTRICT result, const size_t count) {
-  _round<float>(sigma, tau, result, count);
+void _round_f32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
+                const size_t count) {
+  _round<float>(a, result, count);
 }
 
 void _add_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
@@ -458,10 +452,9 @@ void _sqrt_f32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
   _sqrt<float>(a, result, count);
 }
 
-void _round_f64(const double *HWY_RESTRICT sigma,
-                const double *HWY_RESTRICT tau, double *HWY_RESTRICT result,
+void _round_f64(const double *HWY_RESTRICT a, double *HWY_RESTRICT result,
                 const size_t count) {
-  _round<double>(sigma, tau, result, count);
+  _round<double>(a, result, count);
 }
 
 void _add_f64(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
@@ -492,12 +485,12 @@ void _sqrt_f64(const double *HWY_RESTRICT a, double *HWY_RESTRICT result,
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
 } // namespace vector
-} // namespace sr
+} // namespace ud
 HWY_AFTER_NAMESPACE();
 
 #if HWY_ONCE
 
-namespace sr {
+namespace ud {
 namespace vector {
 
 HWY_EXPORT(_round_f32);
@@ -588,12 +581,12 @@ HWY_EXPORT(_sqrtx16_f64);
 #endif
 
 template <typename T>
-void round(const T *HWY_RESTRICT sigma, const T *HWY_RESTRICT tau,
-           T *HWY_RESTRICT result, const size_t count) {
+void round(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
+           const size_t count) {
   if constexpr (std::is_same_v<T, float>) {
-    return HWY_DYNAMIC_DISPATCH(_round_f32)(sigma, tau, result, count);
+    return HWY_DYNAMIC_DISPATCH(_round_f32)(a, result, count);
   } else if constexpr (std::is_same_v<T, double>) {
-    return HWY_DYNAMIC_DISPATCH(_round_f64)(sigma, tau, result, count);
+    return HWY_DYNAMIC_DISPATCH(_round_f64)(a, result, count);
   }
 }
 
@@ -1566,26 +1559,26 @@ f64x16_v divf64x16_d(const f64x16_v a, const f64x16_v b) {
 }
 
 } // namespace vector
-} // namespace sr
+} // namespace ud
 
 #endif // HWY_ONCE
 
 #if HWY_ONCE
-namespace sr {
+namespace ud {
 namespace scalar {
 
-float addf32(float a, float b) { return sr::scalar::add<float>(a, b); }
-float subf32(float a, float b) { return sr::scalar::sub<float>(a, b); }
-float mulf32(float a, float b) { return sr::scalar::mul<float>(a, b); }
-float divf32(float a, float b) { return sr::scalar::div<float>(a, b); }
-float sqrtf32(float a) { return sr::scalar::sqrt<float>(a); }
+float addf32(float a, float b) { return ud::scalar::add<float>(a, b); }
+float subf32(float a, float b) { return ud::scalar::sub<float>(a, b); }
+float mulf32(float a, float b) { return ud::scalar::mul<float>(a, b); }
+float divf32(float a, float b) { return ud::scalar::div<float>(a, b); }
+float sqrtf32(float a) { return ud::scalar::sqrt<float>(a); }
 
-double addf64(double a, double b) { return sr::scalar::add<double>(a, b); }
-double subf64(double a, double b) { return sr::scalar::sub<double>(a, b); }
-double mulf64(double a, double b) { return sr::scalar::mul<double>(a, b); }
-double divf64(double a, double b) { return sr::scalar::div<double>(a, b); }
-double sqrtf64(double a) { return sr::scalar::sqrt<double>(a); }
+double addf64(double a, double b) { return ud::scalar::add<double>(a, b); }
+double subf64(double a, double b) { return ud::scalar::sub<double>(a, b); }
+double mulf64(double a, double b) { return ud::scalar::mul<double>(a, b); }
+double divf64(double a, double b) { return ud::scalar::div<double>(a, b); }
+double sqrtf64(double a) { return ud::scalar::sqrt<double>(a); }
 
 } // namespace scalar
-} // namespace sr
+} // namespace ud
 #endif // HWY_ONCE

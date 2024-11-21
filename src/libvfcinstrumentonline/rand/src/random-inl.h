@@ -205,7 +205,7 @@ private:
 class VectorXoshiro {
 private:
   using VU64 = Vec<ScalableTag<std::uint64_t>>;
-  using VU32 = Vec<ScalableTag<std::uint64_t>>;
+  using VU32 = Vec<ScalableTag<std::uint32_t>>;
   using StateType = AlignedNDArray<std::uint64_t, 2>;
   using VF32 = Vec<ScalableTag<float>>;
 #if HWY_HAVE_FLOAT64
@@ -232,9 +232,34 @@ public:
     }
   }
 
-  HWY_INLINE VU64 operator()() noexcept { return Next(); }
+  HWY_INLINE VU32 operator()(std::uint32_t) noexcept {
+    const auto result = Next();
+    return BitCast(ScalableTag<std::uint32_t>{}, result);
+  }
 
-  AlignedVector<std::uint64_t> operator()(const std::size_t n) {
+  HWY_INLINE VU64 operator()(std::uint64_t) noexcept { return Next(); }
+
+  AlignedVector<std::uint32_t> operator()(std::uint32_t, const std::size_t n) {
+    const auto u32_tag = ScalableTag<std::uint32_t>{};
+    AlignedVector<std::uint32_t> result(n);
+    const ScalableTag<std::uint64_t> tag{};
+    auto s0 = Load(tag, state_[{0}].data());
+    auto s1 = Load(tag, state_[{1}].data());
+    auto s2 = Load(tag, state_[{2}].data());
+    auto s3 = Load(tag, state_[{3}].data());
+    for (std::uint64_t i = 0; i < n; i += Lanes(u32_tag)) {
+      const auto next = Update(s0, s1, s2, s3);
+      const auto next_u32 = BitCast(u32_tag, next);
+      Store(next_u32, u32_tag, result.data() + i);
+    }
+    Store(s0, tag, state_[{0}].data());
+    Store(s1, tag, state_[{1}].data());
+    Store(s2, tag, state_[{2}].data());
+    Store(s3, tag, state_[{3}].data());
+    return result;
+  }
+
+  AlignedVector<std::uint64_t> operator()(std::uint64_t, const std::size_t n) {
     AlignedVector<std::uint64_t> result(n);
     const ScalableTag<std::uint64_t> tag{};
     auto s0 = Load(tag, state_[{0}].data());
@@ -252,8 +277,29 @@ public:
     return result;
   }
 
+  template <std::uint32_t N>
+  std::array<std::uint32_t, N> operator()(std::uint32_t) noexcept {
+    alignas(HWY_ALIGNMENT) std::array<std::uint32_t, N> result;
+    const ScalableTag<std::uint64_t> tag{};
+    const ScalableTag<std::uint32_t> u32_tag{};
+    auto s0 = Load(tag, state_[{0}].data());
+    auto s1 = Load(tag, state_[{1}].data());
+    auto s2 = Load(tag, state_[{2}].data());
+    auto s3 = Load(tag, state_[{3}].data());
+    for (std::uint64_t i = 0; i < N; i += Lanes(u32_tag)) {
+      const auto next = Update(s0, s1, s2, s3);
+      const auto next_u32 = BitCast(u32_tag, next);
+      Store(next_u32, u32_tag, result.data() + i);
+    }
+    Store(s0, tag, state_[{0}].data());
+    Store(s1, tag, state_[{1}].data());
+    Store(s2, tag, state_[{2}].data());
+    Store(s3, tag, state_[{3}].data());
+    return result;
+  }
+
   template <std::uint64_t N>
-  std::array<std::uint64_t, N> operator()() noexcept {
+  std::array<std::uint64_t, N> operator()(std::uint64_t) noexcept {
     alignas(HWY_ALIGNMENT) std::array<std::uint64_t, N> result;
     const ScalableTag<std::uint64_t> tag{};
     auto s0 = Load(tag, state_[{0}].data());
@@ -294,10 +340,7 @@ public:
   }
 
   HWY_INLINE AlignedVector<float> Uniform(float, const std::size_t n) {
-    // std::cerr << "Uniform float start\n";
     AlignedVector<float> result(n);
-    // std::cerr << "result address: " << &result << "\n";
-    // std::cerr << "result size: " << result.size() << "\n";
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<float> real_tag{};
@@ -309,22 +352,17 @@ public:
     auto s3 = Load(tag, state_[{3}].data());
 
     for (std::size_t i = 0; i < n; i += Lanes(real_tag)) {
-      // std::cerr << "i: " << i << "\n";
       const auto next = Update(s0, s1, s2, s3);
       const auto bits = BitCast(u32_tag, next);
       const auto bitscast = ShiftRight<8>(bits);
       const auto real = ConvertTo(real_tag, bitscast);
       const auto uniform = Mul(real, MUL_VALUE);
-      // std::cerr << "store at " << i << " " << result.data() + i << "\n";
       Store(uniform, real_tag, result.data() + i);
     }
-
     Store(s0, tag, state_[{0}].data());
     Store(s1, tag, state_[{1}].data());
     Store(s2, tag, state_[{2}].data());
     Store(s3, tag, state_[{3}].data());
-
-    // std::cerr << "Uniform float end\n";
     return result;
   }
 
@@ -466,12 +504,12 @@ public:
 
   explicit CachedXoshiro(const result_type seed,
                          const result_type threadNumber = 0)
-      : generator_{seed, threadNumber}, cache_{generator_.operator()<size>()},
-        index_{0} {}
+      : generator_{seed, threadNumber},
+        cache_{generator_.operator()<size>(result_type{})}, index_{0} {}
 
   result_type operator()() noexcept {
     if (HWY_UNLIKELY(index_ == size)) {
-      cache_ = std::move(generator_.operator()<size>());
+      cache_ = std::move(generator_.operator()<size>(result_type{}));
       index_ = 0;
     }
     return cache_[index_++];

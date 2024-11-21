@@ -82,10 +82,12 @@ namespace xoroshiro256plus {
 
 HWY_EXPORT(uniformf32);
 HWY_EXPORT(uniformf64);
+HWY_EXPORT(randomu64);
 
 namespace static_dispatch {
 float uniform(float) { return HWY_STATIC_DISPATCH(uniformf32)(); }
 double uniform(double) { return HWY_STATIC_DISPATCH(uniformf64)(); }
+std::uint64_t random() { return HWY_STATIC_DISPATCH(randomu64)(); }
 
 } // namespace static_dispatch
 
@@ -96,6 +98,10 @@ HWY_DLLEXPORT float uniform(float) {
 }
 HWY_DLLEXPORT double uniform(double) {
   return HWY_DYNAMIC_DISPATCH(uniformf64)();
+}
+
+HWY_DLLEXPORT std::uint64_t random() {
+  return HWY_DYNAMIC_DISPATCH(randomu64)();
 }
 
 } // namespace dynamic_dispatch

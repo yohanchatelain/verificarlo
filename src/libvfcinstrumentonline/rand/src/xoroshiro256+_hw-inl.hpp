@@ -51,6 +51,7 @@ extern RNGInitializer rng;
 
 HWY_API float uniformf32() { return rng.get()->Uniform(); }
 HWY_API double uniformf64() { return rng.get()->Uniform(); }
+HWY_API std::uint64_t randomu64() { return rng.get()->operator()(); }
 
 } // namespace HWY_NAMESPACE
 } // namespace xoroshiro256plus
@@ -81,6 +82,7 @@ private:
     return std::make_unique<hn::VectorXoshiro>(seed, thread_id);
   }
 };
+
 extern RNGInitializer rng;
 
 template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
@@ -100,6 +102,27 @@ template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
     auto z = rng.get()->Uniform(T{}, size_rng);
     auto z_load = hn::Load(d, z.data());
     sv::debug_msg("[uniform] END");
+    return z_load;
+  }
+}
+
+template <class D, class V = hn::VFromD<D>> V random(const D d) {
+  sv::debug_msg("[random] START");
+  using T = hn::TFromD<D>;
+  const std::size_t lanes = hn::Lanes(d);
+  if constexpr (sizeof(lanes * sizeof(T)) <= 16) {
+    /* allocate at least 128bits */
+    /* since VectorXoshiro returns 128bits elements */
+    const std::size_t size_rng = std::max(lanes, std::size_t{8});
+    auto z = rng.get()->operator()(T{}, size_rng);
+    auto z_load = hn::Load(d, z.data());
+    sv::debug_msg("[random] END");
+    return z_load;
+  } else {
+    const std::size_t size_rng = lanes;
+    auto z = rng.get()->operator()(T{}, size_rng);
+    auto z_load = hn::Load(d, z.data());
+    sv::debug_msg("[random] END");
     return z_load;
   }
 }

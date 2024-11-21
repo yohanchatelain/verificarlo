@@ -242,7 +242,9 @@ void check_distribution_match(T a, T b,
   // do the test only if the operation is not exact (probability is not zero)
   bool is_exact = probability_down == 1 and probability_up == 1;
 
-  // do
+  // do the test only if the operation is not exact (probability is not zero)
+  // do the test if the distance between the reference and the estimated value
+  // is greater than the minimum subnormal
   // do not the test if the probability is lower than 1/repetitions
   bool compare_down_values = not is_exact and down != 0 and
                              probability_down > (1.0 / repetitions) and
@@ -251,8 +253,7 @@ void check_distribution_match(T a, T b,
                            probability_up > (1.0 / repetitions) and
                            distance_error > helper::IEEE754<T>::min_subnormal;
 
-  if (not is_exact and down != 0 and probability_down > (1.0 / repetitions) and
-      distance_error > helper::IEEE754<T>::min_subnormal)
+  if (compare_down_values)
     EXPECT_THAT(counter.down(), Eq(static_cast<T>(down)))
         << "Value ↓ is not equal to reference\n"
         << "            type: " << ftype << "\n"
@@ -277,8 +278,7 @@ void check_distribution_match(T a, T b,
         << distance_error_msg << std::defaultfloat << flush();
 
   // do not the test if the probability is lower than 1/repetitions
-  if (not is_exact and up != 0 and probability_up > (1.0 / repetitions) and
-      distance_error > helper::IEEE754<T>::min_subnormal)
+  if (compare_up_values)
     EXPECT_THAT(counter.up(), Eq(static_cast<T>(up)))
         << "Value ↑ is not equal to reference\n"
         << "            type: " << ftype << "\n"

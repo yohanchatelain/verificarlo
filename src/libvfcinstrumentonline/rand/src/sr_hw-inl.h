@@ -49,15 +49,18 @@ void twosum(V a, V b, V &sigma, V &tau) {
 }
 
 /*
+"Emulation of the FMA in rounded-to-nearest loating-point arithmetic"
+Stef Graillat, Jean-Michel Muller
+---
 Algorithm 3 – Split(x, s). Veltkamp’s splitting algorithm. Returns a pair
 (xh, xℓ) of FP numbers such that the significand of xh fits in s − p bits, the
 significand of xℓ fits in s − 1 bits, and xh + xℓ = x.
-Require: K = 2s + 1
+Require: K = 2^s + 1
 Require: 2 ≤ s ≤ p − 2
 γ ← RN(K · x)
 δ ← RN(x − γ)
-ah ← RN(γ + δ)
-aℓ ← RN(x − ah)
+xh ← RN(γ + δ)
+xℓ ← RN(x − xh)
 return (xh, xℓ)
 */
 template <class D, class V = hn::TFromD<D>, typename T = hn::TFromD<D>>
@@ -80,6 +83,9 @@ void Split(V x, V &xh, V &xl) {
 }
 
 /*
+"Emulation of the FMA in rounded-to-nearest loating-point arithmetic"
+Stef Graillat, Jean-Michel Muller
+---
 Algorithm 4 – DekkerProd(a, b). Dekker’s product. Returns a pair (πh, πℓ)
 of FP numbers such that πh = RN(ab) and πh + πℓ = ab.
 Require: s = ⌈p/2⌉
@@ -115,6 +121,9 @@ void DekkerProd(V a, V b, V &pi_h, V &pi_l) {
 }
 
 /*
+"Emulation of the FMA in rounded-to-nearest loating-point arithmetic"
+Stef Graillat, Jean-Michel Muller
+---
 Algorithm 7 EmulFMA(a, b, c).
 Require: P = 2^(p−1) + 1
 Require: Q = 2^(p−1)
@@ -192,11 +201,12 @@ V fma(V a, V b, V c) {
   auto g = hn::Mul(t, w);
   auto mask3 = hn::Lt(g, hn::Zero(d)); // if g < 0 then
 
-  auto res = hn::IfThenElse(
-      mask, d_temp_1,
-      hn::IfThenElse(mask1, z_h,
-                     hn::IfThenElse(mask2, d_temp_2,
-                                    hn::IfThenElse(mask3, z_h, d_temp_2))));
+  auto ret3 = hn::IfThenElse(mask3, z_h, d_temp_2);
+  auto ret2 = hn::IfThenElse(mask2, d_temp_2, ret3);
+  auto ret1 = hn::IfThenElse(mask1, z_h, ret2);
+  auto ret = hn::IfThenElse(mask, d_temp_1, ret1);
+
+  auto res = ret;
 
   debug_vec<D>("[fma] res", res);
   debug_msg("[fma] END\n");
@@ -276,7 +286,7 @@ HWY_INLINE hn::Vec<D> FastPow2I(D d, VI x) {
   const hn::Rebind<hwy::MakeSigned<D>, D> di;
   const auto kOffset = Set(di, kOffsetS);
   const auto offset = Add(x, kOffset);
-  const auto shift = ShiftLeft<mantissa>(offset);
+  const auto shift = hn::ShiftLeft<mantissa>(offset);
   return BitCast(d, shift);
 }
 
@@ -329,7 +339,7 @@ hn::Vec<D> pow2(D d, V n) {
   return hn::BitCast(d, res);
 }
 
-template <class D, class V, typename T = hn::TFromD<D>>
+template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
 V sr_round(V sigma, V tau) {
   debug_msg("\n[sr_round] START");
   debug_vec<D>("[sr_round] sigma", sigma);
@@ -362,14 +372,17 @@ V sr_round(V sigma, V tau) {
 
   auto exp = hn::Sub(eta, hn::Set(di, mantissa));
   auto abs_ulp = pow2(d, exp);
-  debug_vec<D>("[sr_round] abs_ulp", abs_ulp);
+  debug_vec<D>("[sr_round] |ulp|", abs_ulp);
+
   auto ulp = hn::CopySign(abs_ulp, tau);
   debug_vec<D>("[sr_round] ulp", ulp);
 
   auto pi = hn::Mul(ulp, z);
   debug_vec<D>("[sr_round] pi", pi);
+
   auto abs_tau_plus_pi = hn::Abs(hn::Add(tau, pi));
-  debug_vec<D>("[sr_round] abs_tau_plus_pi", abs_tau_plus_pi);
+  debug_vec<D>("[sr_round] |tau|+pi", abs_tau_plus_pi);
+
   auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
   debug_vec<D>("[sr_round] round", round);
 

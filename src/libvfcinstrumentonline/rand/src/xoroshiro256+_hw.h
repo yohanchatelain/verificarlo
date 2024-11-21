@@ -44,11 +44,13 @@ namespace xoroshiro256plus {
 namespace static_dispatch {
 HWY_DLLEXPORT float uniform(float);
 HWY_DLLEXPORT double uniform(double);
+HWY_DLLEXPORT std::uint64_t random();
 } // namespace static_dispatch
 
 namespace dynamic_dispatch {
 HWY_DLLEXPORT float uniform(float);
 HWY_DLLEXPORT double uniform(double);
+HWY_DLLEXPORT std::uint64_t random();
 } // namespace dynamic_dispatch
 
 } // namespace xoroshiro256plus

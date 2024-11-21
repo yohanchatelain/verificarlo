@@ -3,6 +3,8 @@
 #include <iostream>
 #include <map>
 
+const std::size_t N = 1'000'000;
+
 #ifndef REAL
 #define REAL double
 #warning "REAL not defined, using double"
@@ -49,10 +51,10 @@ int main(int argc, char *argv[]) {
 
   std::map<REAL, int> visited;
 
-  for (int i = 0; i < 1000; i++)
+  for (int i = 0; i < N; i++)
     visited[apply_op(argv[1][0], a, b)]++;
 
-  compute_proba(visited, 1000);
+  compute_proba(visited, N);
 
   return 0;
 }

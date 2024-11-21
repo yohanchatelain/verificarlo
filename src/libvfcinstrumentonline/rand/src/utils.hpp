@@ -70,7 +70,7 @@ template <> struct IEEE754<double> {
 // Uses the FP constant 𝜓 = 1 − 2^{−𝑝} .
 // 𝑧 ← RN𝑒 (𝜓𝑎) (= pred(|a|))
 // 𝛿 ← RN𝑒 (𝑎 − 𝑧)
-// return 𝛿
+// return (z,𝛿)
 template <typename T> T get_predecessor_abs(T a) {
   T phi = std::is_same<T, float>::value ? 1.0f - 0x1.0p-24f : 1.0 - 0x1.0p-53;
   T z = a * phi;
