@@ -600,7 +600,12 @@ struct VfclibInst : public ModulePass {
 
   bool isFMAOperation(Instruction &I) {
     CallInst *CI = static_cast<CallInst *>(&I);
-    const std::string &name = CI->getCalledFunction()->getName().str();
+    if (CI->getCalledFunction() == nullptr)
+      return false;
+
+    const auto name = CI->getCalledFunction()->getName();
+    if (name.empty())
+      return false;
     if (name == "llvm.fmuladd.f32")
       return true;
     if (name == "llvm.fmuladd.f64")
