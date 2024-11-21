@@ -20,6 +20,7 @@ template <typename T> struct FTypeName {
 template <> struct FTypeName<float> {
   static constexpr auto name = "float";
 };
+
 template <> struct FTypeName<double> {
   static constexpr auto name = "double";
 };
@@ -31,11 +32,34 @@ public:
   static constexpr auto ftype = FTypeName<T>::name;
 };
 
+template <typename T> struct UnaryOperator : Operator<T> {
+public:
+  enum operator_type { SQRT, ABS, PREDECESSOR, SUCCESSOR };
+  using function = std::function<T(T)>;
+  using function_ptr = std::function<T (*)(T)>;
+};
+
 template <typename T> struct BinaryOperator : Operator<T> {
 public:
   enum operator_type { ADD, SUB, MUL, DIV };
   using function = std::function<T(T, T)>;
   using function_ptr = std::function<T (*)(T, T)>;
+};
+
+template <typename T> struct TernaryOperator : Operator<T> {
+public:
+  enum operator_type { FMA };
+  using function = std::function<T(T, T, T)>;
+  using function_ptr = std::function<T (*)(T, T, T)>;
+};
+
+template <typename T> struct SqrtOp : public UnaryOperator<T> {
+  using function = typename UnaryOperator<T>::function;
+  using function_ptr = typename UnaryOperator<T>::function_ptr;
+  using operator_type = typename UnaryOperator<T>::operator_type;
+  static constexpr auto type = operator_type::SQRT;
+  static constexpr auto name = "sqrt";
+  static constexpr auto symbol = "√";
 };
 
 template <typename T> struct AddOp : public BinaryOperator<T> {
@@ -53,6 +77,7 @@ template <typename T> struct SubOp : BinaryOperator<T> {
   using operator_type = typename BinaryOperator<T>::operator_type;
   static constexpr auto type = operator_type::SUB;
   static constexpr auto name = "sub";
+  static constexpr auto symbol = "-";
 };
 
 template <typename T> struct MulOp : BinaryOperator<T> {
@@ -61,6 +86,7 @@ template <typename T> struct MulOp : BinaryOperator<T> {
   using operator_type = typename BinaryOperator<T>::operator_type;
   static constexpr auto type = operator_type::MUL;
   static constexpr auto name = "mul";
+  static constexpr auto symbol = "*";
 };
 template <typename T> struct DivOp : BinaryOperator<T> {
   using function = typename BinaryOperator<T>::function;
@@ -68,6 +94,16 @@ template <typename T> struct DivOp : BinaryOperator<T> {
   using operator_type = typename BinaryOperator<T>::operator_type;
   static constexpr auto type = operator_type::DIV;
   static constexpr auto name = "div";
+  static constexpr auto symbol = "/";
+};
+
+template <typename T> struct FmaOp : TernaryOperator<T> {
+  using function = typename TernaryOperator<T>::function;
+  using function_ptr = typename TernaryOperator<T>::function_ptr;
+  using operator_type = typename TernaryOperator<T>::operator_type;
+  static constexpr auto type = operator_type::FMA;
+  static constexpr auto name = "fma";
+  static constexpr auto symbol = "fma";
 };
 
 using Float128_boost = boost::multiprecision::cpp_bin_float_quad;
@@ -166,6 +202,22 @@ template <typename T> T abs(const T &a) {
     return boost::multiprecision::abs(a);
   } else {
     return std::abs(a);
+  }
+}
+
+template <typename T> T sqrt(const T &a) {
+  if constexpr (std::is_same<T, Float128_boost>::value) {
+    return boost::multiprecision::sqrt(a);
+  } else {
+    return std::sqrt(a);
+  }
+}
+
+template <typename T> T fma(const T &a, const T &b, const T &c) {
+  if constexpr (std::is_same<T, Float128_boost>::value) {
+    return boost::multiprecision::fma(a, b, c);
+  } else {
+    return std::fma(a, b, c);
   }
 }
 
@@ -318,8 +370,6 @@ BinomialTest binomial_test(const int n, const int k, const double p) {
 
   return BinomialTest{lower, upper, pvalue};
 }
-
-
 
 }; // namespace helper
 

@@ -1,6 +1,7 @@
 load("//tests:macros.bzl", "cc_test_gen", "cc_test_lib_gen")
 
 HWY_OPTS = [
+    "-std=c++17",
     "-O2",
 ]
 

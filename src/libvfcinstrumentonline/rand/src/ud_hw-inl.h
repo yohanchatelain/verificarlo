@@ -130,6 +130,22 @@ V sqrt(V a) {
   return res;
 }
 
+template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
+V fma(V a, V b, V c) {
+  debug_start();
+  dbg::debug_vec<D>("[fma] a", a);
+  dbg::debug_vec<D>("[fma] b", b);
+  dbg::debug_vec<D>("[fma] c", c);
+
+  V d = hn::MulAdd(a, b, c);
+  auto res = round<D>(d);
+
+  dbg::debug_vec<D>("[fma] res", res);
+  debug_end();
+
+  return res;
+}
+
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
 } // namespace vector

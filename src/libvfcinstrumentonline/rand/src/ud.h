@@ -33,6 +33,9 @@ template <typename T> T sub(T a, T b) { return udround(a - b); }
 template <typename T> T mul(T a, T b) { return udround(a * b); }
 template <typename T> T div(T a, T b) { return udround(a / b); }
 template <typename T> T sqrt(T a) { return udround(std::sqrt(a)); }
+template <typename T> T fma(T a, T b, T c) {
+  return udround(std::fma(a, b, c));
+}
 
 } // namespace scalar
 } // namespace ud

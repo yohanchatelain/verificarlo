@@ -31,27 +31,49 @@ namespace reference {
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H add(T a, T b) {
+H add(const std::vector<T> &args) {
+  auto a = args[0];
+  auto b = args[1];
   return static_cast<H>(a) + static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sub(T a, T b) {
+H sub(const std::vector<T> &args) {
+  auto a = args[0];
+  auto b = args[1];
   return static_cast<H>(a) - static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H mul(T a, T b) {
+H mul(const std::vector<T> &args) {
+  auto a = args[0];
+  auto b = args[1];
   return static_cast<H>(a) * static_cast<H>(b);
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H div(T a, T b) {
+H div(const std::vector<T> &args) {
+  auto a = args[0];
+  auto b = args[1];
   return static_cast<H>(a) / static_cast<H>(b);
 }
 
+template <typename T, typename H = typename helper::IEEE754<T>::H>
+H sqrt(const std::vector<T> &args) {
+  auto a = args[0];
+  return helper::sqrt<H>(a);
+}
+
+template <typename T, typename H = typename helper::IEEE754<T>::H>
+H fma(const std::vector<T> &args) {
+  auto a = args[0];
+  auto b = args[1];
+  auto c = args[2];
+  return helper::fma<H>(a, b, c);
+}
+
 template <typename T, typename Op, typename H = typename helper::IEEE754<T>::H>
-std::function<H(T, T)> get_operator() {
+std::function<H(const std::vector<T> &args)> get_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
   if constexpr (std::is_same_v<helper::AddOp<T>, Op>) {
     return add<T>;
@@ -64,6 +86,12 @@ std::function<H(T, T)> get_operator() {
   }
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
     return div<T>;
+  }
+  if constexpr (std::is_same_v<Op, helper::SqrtOp<T>>) {
+    return sqrt<T>;
+  }
+  if constexpr (std::is_same_v<Op, helper::FmaOp<T>>) {
+    return fma<T>;
   }
 }
 
@@ -84,16 +112,31 @@ template <typename T, typename Op> typename Op::function get_target_operator() {
   if constexpr (std::is_same_v<Op, helper::DivOp<T>>) {
     return ud::scalar::div<T>;
   }
+  if constexpr (std::is_same_v<Op, helper::SqrtOp<T>>) {
+    return ud::scalar::sqrt<T>;
+  }
+  if constexpr (std::is_same_v<Op, helper::FmaOp<T>>) {
+    return ud::scalar::fma<T>;
+  }
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
-                                                              H reference) {
+std::tuple<H, H, H, H, H, std::string>
+compute_distance_error(const std::vector<T> &args, H reference) {
   T ref_cast = static_cast<T>(reference);
 
-  if (helper::isnan(a) or helper::isnan(b) or helper::isnan(reference) or
-      helper::isinf(a) or helper::isinf(b) or helper::isinf(reference) or
-      helper::isinf(ref_cast)) {
+  bool is_exact = false;
+  for (const auto &a : args) {
+    if (helper::isnan(a) or helper::isinf(a)) {
+      is_exact = true;
+      break;
+    }
+  }
+
+  bool is_nan = helper::isnan(reference) or helper::isnan(ref_cast);
+  bool is_inf = helper::isinf(reference) or helper::isinf(ref_cast);
+
+  if (is_exact or is_inf or is_nan) {
     return {0, 0, reference, reference, 0, ""};
   }
 
@@ -164,13 +207,25 @@ std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
 }
 
 template <typename T, typename Op>
-helper::Counter<T> eval_op(T a, T b, const int repetitions) {
+T decurry(const typename Op::function &f, const std::vector<T> &args) {
+  // decurry the function
+  if constexpr (std::is_base_of_v<helper::BinaryOperator<T>, Op>) {
+    return f(args[0], args[1]);
+  } else if constexpr (std::is_base_of_v<helper::UnaryOperator<T>, Op>) {
+    return f(args[0]);
+  } else if constexpr (std::is_base_of_v<helper::TernaryOperator<T>, Op>) {
+    return f(args[0], args[1], args[2]);
+  }
+}
+
+template <typename T, typename Op>
+helper::Counter<T> eval_op(const std::vector<T> &args, const int repetitions) {
 
   auto op = get_target_operator<T, Op>();
   helper::Counter<T> c;
   for (int i = 0; i < repetitions; i++) {
     debug_print("*** repetition %d ***\n", i);
-    T v = op(a, b);
+    T v = decurry<T, Op>(op, args);
     c[v]++;
   }
 
@@ -189,20 +244,22 @@ std::string flush() {
 }
 
 template <typename T, typename Op>
-void check_distribution_match(T a, T b,
+void check_distribution_match(const std::vector<T> &args,
                               const long repetitions = default_repetitions,
                               const float alpha = default_alpha) {
   using H = typename helper::IEEE754<T>::H;
 
   const auto op_name = Op::name;
   const auto ftype = Op::ftype;
+  const auto symbol = std::string(Op::symbol);
 
   auto reference_op = reference::get_operator<T, Op>();
-  H reference = reference_op(a, b);
-  auto [probability_down, probability_up, down, up, distance_error,
-        distance_error_msg] = compute_distance_error(a, b, reference);
+  H reference = reference_op(args);
 
-  auto counter = eval_op<T, Op>(a, b, repetitions);
+  auto [probability_down, probability_up, down, up, distance_error,
+        distance_error_msg] = compute_distance_error(args, reference);
+
+  auto counter = eval_op<T, Op>(args, repetitions);
   auto count_down = counter.down_count();
   auto count_up = counter.up_count();
   auto probability_down_estimated = count_down / (double)repetitions;
@@ -255,6 +312,31 @@ void check_distribution_match(T a, T b,
   // binomial test
   auto test = helper::binomial_test(repetitions, count_down, 0.5);
 
+  std::string symbol_op = "";
+  std::string args_str = "";
+  if constexpr (std::is_base_of_v<helper::BinaryOperator<T>, Op>) {
+    auto a = args[0];
+    auto b = args[1];
+    symbol_op = "             a" + symbol + "b: ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" +
+               "               b: " + helper::hexfloat(b) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  } else if constexpr (std::is_base_of_v<helper::UnaryOperator<T>, Op>) {
+    auto a = args[0];
+    symbol_op = "     " + symbol + "a: ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  } else if constexpr (std::is_base_of_v<helper::TernaryOperator<T>, Op>) {
+    auto a = args[0];
+    auto b = args[1];
+    auto c = args[2];
+    symbol_op = "     " + symbol + "(a, b, c): ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" +
+               "               b: " + helper::hexfloat(b) + "\n" +
+               "               c: " + helper::hexfloat(c) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  }
+
   // check probability if we compare the values
   if (compare_down_values and compare_up_values)
     EXPECT_THAT(alpha / 2, Lt(test.pvalue))
@@ -262,10 +344,7 @@ void check_distribution_match(T a, T b,
         << "            type: " << ftype << "\n"
         << "              op: " << op_name << "\n"
         << "           alpha: " << alpha << "\n"
-        << std::hexfloat << std::setprecision(13) << ""
-        << "               a: " << helper::hexfloat(a) << "\n"
-        << "               b: " << helper::hexfloat(b) << "\n"
-        << "             a+b: " << helper::hexfloat(reference) << "\n"
+        << std::hexfloat << std::setprecision(13) << args_str
         << std::defaultfloat << "" << "-- theoretical -\n"
         << "   probability ↓: " << fmt_proba(probability_down) << "\n"
         << "   probability ↑: " << fmt_proba(probability_up) << "\n"
@@ -281,6 +360,13 @@ void check_distribution_match(T a, T b,
         << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
         << distance_error_msg << std::defaultfloat << flush();
   debug_reset();
+}
+
+template <typename T, typename Op>
+void check_distribution_match(std::initializer_list<T> args,
+                              const long repetitions = default_repetitions,
+                              const float alpha = default_alpha) {
+  check_distribution_match<T, Op>(std::vector<T>(args), repetitions, alpha);
 }
 
 template <typename T> std::vector<T> get_simple_case() {
@@ -309,18 +395,41 @@ template <typename T> void do_run_test_exact_add() {
   for (int i = 0; i <= 5; i++) {
     b = std::ldexp(1.0, -(mantissa + i));
     p = 1 - (1.0 / (1 << i));
-    check_distribution_match<T, helper::AddOp<T>>(a, b);
+    check_distribution_match<T, helper::AddOp<T>>({a, b});
   }
 }
 
 template <typename T, typename Op> void do_run_test_simple_case() {
   auto simple_case = get_simple_case<T>();
-  for (auto a : simple_case) {
-    for (auto b : simple_case) {
-      check_distribution_match<T, Op>(a, b);
-      check_distribution_match<T, Op>(a, -b);
-      check_distribution_match<T, Op>(-a, b);
-      check_distribution_match<T, Op>(-a, -b);
+
+  if constexpr (std::is_base_of_v<helper::UnaryOperator<T>, Op>) {
+    for (auto a : simple_case) {
+      check_distribution_match<T, Op>({a});
+      check_distribution_match<T, Op>({-a});
+    }
+  } else if constexpr (std::is_base_of_v<helper::BinaryOperator<T>, Op>) {
+    for (auto a : simple_case) {
+      for (auto b : simple_case) {
+        check_distribution_match<T, Op>({a, b});
+        check_distribution_match<T, Op>({a, -b});
+        check_distribution_match<T, Op>({-a, b});
+        check_distribution_match<T, Op>({-a, -b});
+      }
+    }
+  } else if constexpr (std::is_base_of_v<helper::TernaryOperator<T>, Op>) {
+    for (auto a : simple_case) {
+      for (auto b : simple_case) {
+        for (auto c : simple_case) {
+          check_distribution_match<T, Op>({a, b, c});
+          check_distribution_match<T, Op>({a, -b, c});
+          check_distribution_match<T, Op>({a, b, -c});
+          check_distribution_match<T, Op>({a, -b, -c});
+          check_distribution_match<T, Op>({-a, b, c});
+          check_distribution_match<T, Op>({-a, -b, c});
+          check_distribution_match<T, Op>({-a, b, -c});
+          check_distribution_match<T, Op>({-a, -b, -c});
+        }
+      }
     }
   }
 }
@@ -329,17 +438,43 @@ template <typename T, typename Op>
 void do_run_test_random(const double start_range_1st = 0.0,
                         const double end_range_1st = 1.0,
                         const double start_range_2nd = 0.0,
-                        const double end_range_2nd = 1.0) {
+                        const double end_range_2nd = 1.0,
+                        const double start_range_3rd = 0.0,
+                        const double end_range_3rd = 1.0) {
   helper::RNG rng1(start_range_1st, end_range_1st);
   helper::RNG rng2(start_range_2nd, end_range_2nd);
+  helper::RNG rng3(start_range_3rd, end_range_3rd);
 
-  for (int i = 0; i < 100; i++) {
-    T a = rng1();
-    T b = rng2();
-    check_distribution_match<T, Op>(a, b);
-    check_distribution_match<T, Op>(a, -b);
-    check_distribution_match<T, Op>(-a, b);
-    check_distribution_match<T, Op>(-a, -b);
+  if constexpr (std::is_base_of_v<helper::UnaryOperator<T>, Op>) {
+    for (int i = 0; i < 100; i++) {
+      T a = rng1();
+      check_distribution_match<T, Op>({a});
+      check_distribution_match<T, Op>({-a});
+    }
+  } else if constexpr (std::is_base_of_v<helper::BinaryOperator<T>, Op>) {
+
+    for (int i = 0; i < 100; i++) {
+      T a = rng1();
+      T b = rng2();
+      check_distribution_match<T, Op>({a, b});
+      check_distribution_match<T, Op>({a, -b});
+      check_distribution_match<T, Op>({-a, b});
+      check_distribution_match<T, Op>({-a, -b});
+    }
+  } else if constexpr (std::is_base_of_v<helper::TernaryOperator<T>, Op>) {
+    for (int i = 0; i < 100; i++) {
+      T a = rng1();
+      T b = rng2();
+      T c = rng3();
+      check_distribution_match<T, Op>({a, b, c});
+      check_distribution_match<T, Op>({a, -b, c});
+      check_distribution_match<T, Op>({a, b, -c});
+      check_distribution_match<T, Op>({a, -b, -c});
+      check_distribution_match<T, Op>({-a, b, c});
+      check_distribution_match<T, Op>({-a, -b, c});
+      check_distribution_match<T, Op>({-a, b, -c});
+      check_distribution_match<T, Op>({-a, -b, -c});
+    }
   }
 }
 
@@ -368,6 +503,16 @@ TEST(SRRoundTest, BasicAssertionsDiv) {
   do_run_test_simple_case<double, helper::DivOp<double>>();
 }
 
+TEST(SRRoundTest, BasicAssertionsSqrt) {
+  do_run_test_simple_case<float, helper::SqrtOp<float>>();
+  do_run_test_simple_case<double, helper::SqrtOp<double>>();
+}
+
+TEST(SRRoundTest, BasicAssertionsFma) {
+  do_run_test_simple_case<float, helper::FmaOp<float>>();
+  do_run_test_simple_case<double, helper::FmaOp<double>>();
+}
+
 TEST(SRRoundTest, Random01AssertionsAdd) {
   do_run_test_random<float, helper::AddOp<float>>();
   do_run_test_random<double, helper::AddOp<double>>();
@@ -388,6 +533,16 @@ TEST(SRRoundTest, Random01AssertionsDiv) {
   do_run_test_random<double, helper::DivOp<double>>();
 }
 
+TEST(SRRoundTest, Random01AssertionsSqrt) {
+  do_run_test_random<float, helper::SqrtOp<float>>();
+  do_run_test_random<double, helper::SqrtOp<double>>();
+}
+
+TEST(SRRoundTest, Random01AssertionsFma) {
+  do_run_test_random<float, helper::FmaOp<float>>();
+  do_run_test_random<double, helper::FmaOp<double>>();
+}
+
 template <typename T, typename Op> void do_random_no_overlap_test() {
   double start_range_1st = 0.0;
   double end_range_1st = 1.0;
@@ -399,8 +554,10 @@ template <typename T, typename Op> void do_random_no_overlap_test() {
   };
   double start_range_2nd = std::ldexp(1.0, s2 + 1);
   double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  double start_range_3rd = std::ldexp(1.0, s2 + 1);
+  double end_range_3rd = std::ldexp(1.0, s2 + 1);
   do_run_test_random<T, Op>(start_range_1st, end_range_1st, start_range_2nd,
-                            end_range_2nd);
+                            end_range_2nd, start_range_3rd, end_range_3rd);
 }
 
 //
@@ -432,6 +589,20 @@ TEST(SRRoundTest, RandomNoOverlapAssertionsDiv) {
   do_random_no_overlap_test<double, opd>();
 }
 
+TEST(SRRoundTest, RandomNoOverlapAssertionsSqrt) {
+  using opf = helper::SqrtOp<float>;
+  using opd = helper::SqrtOp<double>;
+  do_random_no_overlap_test<float, opf>();
+  do_random_no_overlap_test<double, opd>();
+}
+
+TEST(SRRoundTest, RandomNoOverlapAssertionsFma) {
+  using opf = helper::FmaOp<float>;
+  using opd = helper::FmaOp<double>;
+  do_random_no_overlap_test<float, opf>();
+  do_random_no_overlap_test<double, opd>();
+}
+
 template <typename T, typename Op> void do_random_last_bit_overlap() {
   double start_range_1st = 1.0;
   double end_range_1st = 2.0;
@@ -443,8 +614,10 @@ template <typename T, typename Op> void do_random_last_bit_overlap() {
   }
   double start_range_2nd = std::ldexp(1.0, s2 + 1);
   double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  double start_range_3rd = std::ldexp(1.0, s2 + 1);
+  double end_range_3rd = std::ldexp(1.0, s2 + 1);
   do_run_test_random<T, Op>(start_range_1st, end_range_1st, start_range_2nd,
-                            end_range_2nd);
+                            end_range_2nd, start_range_3rd, end_range_3rd);
 }
 
 TEST(SRRoundTest, RandomLastBitOverlapAddAssertions) {
@@ -475,6 +648,20 @@ TEST(SRRoundTest, RandomLastBitOverlapDivAssertions) {
   do_random_last_bit_overlap<double, opd>();
 }
 
+TEST(SRRoundTest, RandomLastBitOverlapSqrtAssertions) {
+  using opf = helper::SqrtOp<float>;
+  using opd = helper::SqrtOp<double>;
+  do_random_last_bit_overlap<float, opf>();
+  do_random_last_bit_overlap<double, opd>();
+}
+
+TEST(SRRoundTest, RandomLastBitOverlapFmaAssertions) {
+  using opf = helper::FmaOp<float>;
+  using opd = helper::FmaOp<double>;
+  do_random_last_bit_overlap<float, opf>();
+  do_random_last_bit_overlap<double, opd>();
+}
+
 template <typename T, typename Op> void do_random_mid_overlap_test() {
   double start_range_1st = 1.0;
   double end_range_1st = 2.0;
@@ -486,8 +673,10 @@ template <typename T, typename Op> void do_random_mid_overlap_test() {
   };
   double start_range_2nd = std::ldexp(1.0, s2 + 1);
   double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  double start_range_3rd = std::ldexp(1.0, s2 + 1);
+  double end_range_3rd = std::ldexp(1.0, s2 + 1);
   do_run_test_random<T, Op>(start_range_1st, end_range_1st, start_range_2nd,
-                            end_range_2nd);
+                            end_range_2nd, start_range_3rd, end_range_3rd);
 }
 
 TEST(SRRoundTest, RandomMidOverlapAddAssertions) {
@@ -514,6 +703,20 @@ TEST(SRRoundTest, RandomMidOverlapMulAssertions) {
 TEST(SRRoundTest, RandomMidOverlapDivAssertions) {
   using opf = helper::DivOp<float>;
   using opd = helper::DivOp<double>;
+  do_random_mid_overlap_test<float, opf>();
+  do_random_mid_overlap_test<double, opd>();
+}
+
+TEST(SRRoundTest, RandomMidOverlapSqrtAssertions) {
+  using opf = helper::SqrtOp<float>;
+  using opd = helper::SqrtOp<double>;
+  do_random_mid_overlap_test<float, opf>();
+  do_random_mid_overlap_test<double, opd>();
+}
+
+TEST(SRRoundTest, RandomMidOverlapFmaAssertions) {
+  using opf = helper::FmaOp<float>;
+  using opd = helper::FmaOp<double>;
   do_random_mid_overlap_test<float, opf>();
   do_random_mid_overlap_test<double, opd>();
 }

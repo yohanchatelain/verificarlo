@@ -52,7 +52,6 @@ static auto distribution_failed_tests_counter = 0;
 static auto distribution_tests_counter = 0;
 
 namespace reference {
-// return pred(|s|)
 
 // twosum reference
 // compute in double precision if the input type is float
