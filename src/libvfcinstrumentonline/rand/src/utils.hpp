@@ -102,14 +102,14 @@ template <typename T, typename I = typename IEEE754<T>::I> I get_exponent(T a) {
   debug_print("bias = %d\n", bias);
   debug_print("mantissa = %d\n", mantissa);
   debug_print("exponent_mask = %d\n", exponent_mask);
-  I *exp = reinterpret_cast<I *>(&a);
-  debug_print("a = 0x%016x\n", exp);
-  const auto raw_exp = ((*exp) >> mantissa) & exponent_mask;
+  I *a_bits = reinterpret_cast<I *>(&a);
+  debug_print("a = 0x%016x\n", a_bits);
+  const auto raw_exp = ((*a_bits) >> mantissa) & exponent_mask;
   debug_print("raw exponent = %d\n", raw_exp);
-  *exp = raw_exp - bias;
-  debug_print("get_exponent(%.13a) = %d\n", a, *exp);
+  const I exp = raw_exp - bias;
+  debug_print("get_exponent(%.13a) = %d\n", a, exp);
   debug_end();
-  return *exp;
+  return exp;
 }
 
 template <typename T> T pow2(int n) {

@@ -41,14 +41,20 @@ cc_test_gen(
 cc_test_lib_gen(
     name = "sr-scalar-accuracy",
     size = "small",
-    src = ["//tests:test_sr_accuracy.cpp"],
+    src = [
+        "//tests:test_sr_accuracy.cpp",
+        "//src:srcs-sr",
+    ],
     copts = HWY_OPTS,
 )
 
 cc_test_lib_gen(
     name = "sr-scalar-accuracy-dbg",
     size = "small",
-    src = ["//tests:test_sr_accuracy.cpp"],
+    src = [
+        "//tests:test_sr_accuracy.cpp",
+        "//src:srcs-sr",
+    ],
     copts = HWY_OPTS,
     dbg = True,
 )

@@ -1,6 +1,7 @@
 #ifndef __VERIFICARLO_SRLIB_TEST_HELPER_HPP_
 #define __VERIFICARLO_SRLIB_TEST_HELPER_HPP_
 
+#include <cstdio>
 #include <functional>
 #include <map>
 
@@ -12,6 +13,8 @@
 namespace helper {
 
 constexpr auto pi = boost::math::constants::pi<double>();
+
+/* Operators */
 
 template <typename T> struct FTypeName {
   static constexpr auto name = "unknown";
@@ -133,10 +136,17 @@ template <> struct IEEE754<Float128_boost> {
 template <typename T> std::string hexfloat(const T &a) {
   if constexpr (std::is_same<T, Float128_boost>::value) {
     return hexfloat(a);
+  } else if constexpr (std::is_same<T, float>::value) {
+    char *__restrict fmt = new char[50];
+    sprintf(fmt, "%.6a", a);
+    std::string s(fmt);
+    return s;
+  } else {
+    char *__restrict fmt = new char[50];
+    sprintf(fmt, "%.13a", a);
+    std::string s(fmt);
+    return s;
   }
-  std::stringstream ss;
-  ss << std::hexfloat << std::showpos << a << std::defaultfloat;
-  return ss.str();
 }
 
 std::string hexfloat(const Float128_boost &a) {
@@ -214,7 +224,7 @@ template <typename T> T sqrt(const T &a) {
 }
 
 template <typename T> T fma(const T &a, const T &b, const T &c) {
-  if constexpr (std::is_same<T, Float128_boost>::value) {
+  if constexpr (std::is_same_v<T, Float128_boost>) {
     return boost::multiprecision::fma(a, b, c);
   } else {
     return std::fma(a, b, c);
@@ -231,11 +241,8 @@ template <typename T> int get_exponent(T a) {
   if (a == 0)
     return 0;
   if constexpr (std::is_same_v<T, Float128_boost>) {
-    __uint128_t u = reinterpret_cast<__uint128_t &>(a);
-    __uint128_t mask = 0x7fff;
-    u >>= 112;
-    exp = (int)(u & mask);
-    exp -= 0x3FFF;
+    return (int)boost::multiprecision::floor(
+        boost::multiprecision::log2(abs(a)));
   } else {
     using U = typename IEEE754<T>::U;
     U u = reinterpret_cast<U &>(a);
@@ -246,13 +253,32 @@ template <typename T> int get_exponent(T a) {
   return exp;
 }
 
+template <typename T> bool is_power_of_2(T a) {
+  if (a == 0)
+    return false;
+  if constexpr (std::is_same_v<T, Float128_boost>) {
+    return boost::multiprecision::log2(a) ==
+           boost::multiprecision::floor(boost::multiprecision::log2(a));
+  } else {
+    return std::log2(a) == std::floor(std::log2(a));
+  }
+}
+
 // compute ulp(a)
 template <typename T, typename H = typename IEEE754<T>::H> H get_ulp(T a) {
-  if (is_subnormal(a))
-    return static_cast<H>(IEEE754<T>::min_subnormal);
-  int exponent = get_exponent(a);
-  H ulp = std::ldexp(1.0, exponent - IEEE754<T>::mantissa);
-  return ulp;
+  if constexpr (std::is_same_v<T, Float128_boost>) {
+    constexpr int mantissa = static_cast<int>(IEEE754<T>::mantissa);
+    const int exponent = get_exponent(a);
+    H one = 1.0;
+    H ulp = boost::multiprecision::ldexp(one, exponent - mantissa);
+    return ulp;
+  } else {
+    if (is_subnormal(a))
+      return static_cast<H>(IEEE754<T>::min_subnormal);
+    int exponent = get_exponent(a);
+    H ulp = std::ldexp(1.0, exponent - IEEE754<T>::mantissa);
+    return ulp;
+  }
 }
 
 struct RNG {

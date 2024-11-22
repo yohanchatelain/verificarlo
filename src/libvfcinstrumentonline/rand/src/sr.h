@@ -111,10 +111,6 @@ template <typename T> inline T div(T a, T b) {
 }
 
 template <typename T> inline T sqrt(T a) {
-  if (not isnumber(a, a)) {
-    return a;
-  }
-
   T sigma;
 #if defined(__SSE2__)
   if constexpr (std::is_same<T, float>::value) {
@@ -133,9 +129,44 @@ template <typename T> inline T sqrt(T a) {
 #else
   T sigma = std::sqrt(a);
 #endif
-  T tau = std::fma(-sigma, sigma, a) / (2 * sigma);
+  if (not std::isfinite(a)) {
+    return sigma;
+  }
+  T tau_p = std::fma(-sigma, sigma, a);
+  T tau = tau_p / (2 * sigma);
   T round = sround(sigma, tau);
   return sigma + round;
+}
+
+/*
+"Exact and Approximated error of the FMA"
+Sylvie Boldo, Jean-Michel Muller
+---
+Algorithm 5 (ErrFmaNearest):
+  r1 = ◦(ax + y)
+  (u1, u2) = Fast2Mult(a, x)
+  (α1, α2) = 2Sum(y, u2)
+  (β1, β2) = 2Sum(u1, α1)
+  γ = ◦(◦(β1 − r1) + β2)
+  r2 = ◦(γ + α2)
+*/
+template <typename T> inline T fma(T a, T b, T c) {
+  if (not std::isfinite(a) or not std::isfinite(b) or not std::isfinite(c)) {
+    return std::fma(a, b, c);
+  }
+  debug_start();
+  T u1, u2, alpha1, alpha2, beta1, beta2, gamma, r1, r2;
+  r1 = std::fma(a, b, c);
+  twoprodfma(a, b, u1, u2);
+  twosum(c, u2, alpha1, alpha2);
+  twosum(u1, alpha1, beta1, beta2);
+  gamma = (beta1 - r1) + beta2;
+  r2 = gamma + alpha2;
+  T round = sround(r1, r2);
+  debug_print("sr_fma(%+.13a, %+.13a, %+.13a) = %+.13a + %+.13a\n", a, b, c, r1,
+              r2);
+  debug_end();
+  return r1 + round;
 }
 
 } // namespace scalar

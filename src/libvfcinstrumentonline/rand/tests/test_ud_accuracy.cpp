@@ -73,7 +73,7 @@ H fma(const std::vector<T> &args) {
 }
 
 template <typename T, typename Op, typename H = typename helper::IEEE754<T>::H>
-std::function<H(const std::vector<T> &args)> get_operator() {
+std::function<H(const std::vector<T> &)> get_operator() {
   static_assert(std::is_base_of_v<helper::Operator<T>, Op>);
   if constexpr (std::is_same_v<helper::AddOp<T>, Op>) {
     return add<T>;
@@ -243,6 +243,37 @@ std::string flush() {
   return "";
 }
 
+template <typename T, typename Op, typename H = typename helper::IEEE754<T>::H>
+std::string get_args_str(const std::vector<T> &args, H reference) {
+  const auto symbol = std::string(Op::symbol);
+
+  std::string symbol_op = "";
+  std::string args_str = "";
+  if constexpr (std::is_base_of_v<helper::BinaryOperator<T>, Op>) {
+    auto a = args[0];
+    auto b = args[1];
+    symbol_op = "             a" + symbol + "b: ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" +
+               "               b: " + helper::hexfloat(b) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  } else if constexpr (std::is_base_of_v<helper::UnaryOperator<T>, Op>) {
+    auto a = args[0];
+    symbol_op = "     " + symbol + "a: ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  } else if constexpr (std::is_base_of_v<helper::TernaryOperator<T>, Op>) {
+    auto a = args[0];
+    auto b = args[1];
+    auto c = args[2];
+    symbol_op = "     " + symbol + "(a, b, c): ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" +
+               "               b: " + helper::hexfloat(b) + "\n" +
+               "               c: " + helper::hexfloat(c) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  }
+  return args_str;
+}
+
 template <typename T, typename Op>
 void check_distribution_match(const std::vector<T> &args,
                               const long repetitions = default_repetitions,
@@ -251,7 +282,6 @@ void check_distribution_match(const std::vector<T> &args,
 
   const auto op_name = Op::name;
   const auto ftype = Op::ftype;
-  const auto symbol = std::string(Op::symbol);
 
   auto reference_op = reference::get_operator<T, Op>();
   H reference = reference_op(args);
@@ -312,30 +342,7 @@ void check_distribution_match(const std::vector<T> &args,
   // binomial test
   auto test = helper::binomial_test(repetitions, count_down, 0.5);
 
-  std::string symbol_op = "";
-  std::string args_str = "";
-  if constexpr (std::is_base_of_v<helper::BinaryOperator<T>, Op>) {
-    auto a = args[0];
-    auto b = args[1];
-    symbol_op = "             a" + symbol + "b: ";
-    args_str = "               a: " + helper::hexfloat(a) + "\n" +
-               "               b: " + helper::hexfloat(b) + "\n" + symbol_op +
-               helper::hexfloat(reference) + "\n";
-  } else if constexpr (std::is_base_of_v<helper::UnaryOperator<T>, Op>) {
-    auto a = args[0];
-    symbol_op = "     " + symbol + "a: ";
-    args_str = "               a: " + helper::hexfloat(a) + "\n" + symbol_op +
-               helper::hexfloat(reference) + "\n";
-  } else if constexpr (std::is_base_of_v<helper::TernaryOperator<T>, Op>) {
-    auto a = args[0];
-    auto b = args[1];
-    auto c = args[2];
-    symbol_op = "     " + symbol + "(a, b, c): ";
-    args_str = "               a: " + helper::hexfloat(a) + "\n" +
-               "               b: " + helper::hexfloat(b) + "\n" +
-               "               c: " + helper::hexfloat(c) + "\n" + symbol_op +
-               helper::hexfloat(reference) + "\n";
-  }
+  auto args_str = get_args_str<T, Op>(args, reference);
 
   // check probability if we compare the values
   if (compare_down_values and compare_up_values)
