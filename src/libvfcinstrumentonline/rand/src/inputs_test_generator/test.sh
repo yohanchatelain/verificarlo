@@ -1,10 +1,5 @@
 #!/bin/bash
 
-if [ $# -ne 2 ]; then
-    echo "Usage: $0 <num1> <num2>"
-    exit 1
-fi
-
 export VFC_BACKENDS="libinterflop_mca_int.so -m rr"
 export VFC_BACKENDS_SILENT_LOAD=True
 export VFC_BACKENDS_LOGGER=False
@@ -18,6 +13,24 @@ fi
 if [ ! -f test_double ]; then
     echo "test_double executable not found"
     echo "Please compile with 'make'"
+    exit 1
+fi
+
+if [ $# -eq 3 ]; then
+    echo "float"
+    echo "Operation: fma"
+    ./test_float fma $1 $2 $3
+    echo ""
+
+    echo "double"
+    echo "Operation: fma"
+    ./test_double fma $1 $2 $3
+    echo ""
+
+    exit 0
+
+elif [ $# -ne 2 ]; then
+    echo "Usage: $0 <num1> <num2> [num3]"
     exit 1
 fi
 
