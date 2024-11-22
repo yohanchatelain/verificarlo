@@ -386,11 +386,8 @@ V sr_round(V sigma, V tau) {
   auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
   debug_vec<D>("[sr_round] round", round);
 
-  auto res = hn::IfThenElse(hn::Eq(tau, zero), sigma, round);
-  debug_vec<D>("[sr_round] res", res);
-
   debug_msg("[sr_round] END\n");
-  return res;
+  return round;
 }
 
 template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
@@ -477,6 +474,47 @@ template <class D, class V, typename T = hn::TFromD<D>> V sr_sqrt(V a) {
   debug_msg("[sr_sqrt] END\n");
 
   return ret;
+}
+
+/*
+"Exact and Approximated error of the FMA"
+Sylvie Boldo, Jean-Michel Muller
+---
+Algorithm 5 (ErrFmaNearest):
+  r1 = ◦(ax + y)
+  (u1, u2) = Fast2Mult(a, x)
+  (α1, α2) = 2Sum(y, u2)
+  (β1, β2) = 2Sum(u1, α1)
+  γ = ◦(◦(β1 − r1) + β2)
+  r2 = ◦(γ + α2)
+*/
+template <class D, class V, typename T = hn::TFromD<D>>
+V sr_fma(V a, V b, V c) {
+  debug_msg("\n[sr_fma] START");
+  debug_vec<D>("[sr_fma] a", a);
+  debug_vec<D>("[sr_fma] b", b);
+  debug_vec<D>("[sr_fma] c", c);
+
+#if HWY_NATIVE_FMA
+  auto r1 = hn::MulAdd(a, b, c);
+#else
+#ifdef HWY_COMPILE_ONLY_STATIC
+#warning "FMA not supported, using emulation (slow)"
+#endif
+  auto r1 = fma<D>(a, b, c);
+#endif
+  V u1, u2, alpha1, alpha2, beta1, beta2, gamma, r2;
+  twoprodfma<D>(a, b, u1, u2);
+  twosum<D>(c, u2, alpha1, alpha2);
+  twosum<D>(u1, alpha1, beta1, beta2);
+  gamma = hn::Add(hn::Sub(beta1, r1), beta2);
+  r2 = hn::Add(gamma, alpha2);
+  auto round = sr_round<D>(r1, r2);
+  auto res = hn::Add(r1, round);
+  debug_vec<D>("[sr_fma] res", res);
+  debug_msg("[sr_fma] END\n");
+
+  return res;
 }
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)

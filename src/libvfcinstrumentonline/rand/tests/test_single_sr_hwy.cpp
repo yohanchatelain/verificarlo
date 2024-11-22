@@ -2,7 +2,7 @@
 
 // clang-format off
 #undef HWY_TARGET_INCLUDE
-#define HWY_TARGET_INCLUDE "tests/test_sr_hw-API.cpp"
+#define HWY_TARGET_INCLUDE "tests/test_single_sr_hwy.cpp"
 #include "hwy/foreach_target.h"
 
 #include "hwy/highway.h"
@@ -22,7 +22,7 @@ namespace hn = hwy::HWY_NAMESPACE;
 
 namespace {
 
-struct TestAdd {
+struct TestOp {
   template <typename T, typename D>
   HWY_NOINLINE void operator()(T /*unused*/, D d) {
 
@@ -43,12 +43,9 @@ struct TestAdd {
   }
 
   template <typename T> T get_user_input(int id) throw() {
-    static bool initialized = false;
-    static double value = 0;
 
-    if (initialized) {
-      return value;
-    }
+    T value;
+    bool initialized = false;
 
     const std::string env_name = "SR_INPUT_TEST" + std::to_string(id);
 
@@ -58,9 +55,9 @@ struct TestAdd {
       try {
         value = std::strtod(env, nullptr);
       } catch (const std::exception &e) {
-        std::cerr << "Error parsing " << env_name << ": ";
-        std::cerr << e.what() << '\n';
-        std::cerr << "setting value to random\n";
+        // std::cerr << "Error parsing " << env_name << ": ";
+        // std::cerr << e.what() << '\n';
+        // std::cerr << "setting value to random\n";
       }
       initialized = true;
     }
@@ -68,7 +65,6 @@ struct TestAdd {
     if (not initialized) {
       std::random_device rd;
       value = (double)rd();
-      initialized = true;
     }
 
     return value;
@@ -104,58 +100,73 @@ struct TestAdd {
       std::cout << "Lanes: " << elts << std::endl;
     }
 
+    auto op = get_user_operation();
+
     const T ai = (debug) ? get_user_input<T>(0) : 1.0;
     const T bi = (debug) ? get_user_input<T>(1) : ulp;
+    T ci = 0;
+    if (op == "fma") {
+      ci = (debug) ? get_user_input<T>(2) : 1.0;
+    }
 
     T aa[elts];
     T bb[elts];
+    T cc[elts];
 
     for (size_t i = 0; i < elts; i++) {
       aa[i] = ai;
       bb[i] = bi;
+      cc[i] = ci;
     }
 
     auto a = hn::Load(d, aa);
     auto b = hn::Load(d, bb);
+    auto c = hn::Load(d, cc);
 
     if (debug) {
       hn::Print(d, "a", a, 0, 7, fmt);
       hn::Print(d, "b", b, 0, 7, fmt);
-    }
-
-    hn::Vec<D> c;
-
-    auto op = get_user_operation();
-
-    if (op == "add") {
-      c = sr::vector::HWY_NAMESPACE::sr_add<D>(a, b);
-    } else if (op == "sub") {
-      c = sr::vector::HWY_NAMESPACE::sr_sub<D>(a, b);
-    } else if (op == "mul") {
-      c = sr::vector::HWY_NAMESPACE::sr_mul<D>(a, b);
-    } else if (op == "div") {
-      c = sr::vector::HWY_NAMESPACE::sr_div<D>(a, b);
-    }
-
-    if (debug) {
       hn::Print(d, "c", c, 0, 7, fmt);
     }
 
-    auto c_min = hn::ReduceMin(d, c);
-    auto c_max = hn::ReduceMax(d, c);
+    hn::Vec<D> r;
+
+    if (op == "add") {
+      r = sr::vector::HWY_NAMESPACE::sr_add<D>(a, b);
+    } else if (op == "sub") {
+      r = sr::vector::HWY_NAMESPACE::sr_sub<D>(a, b);
+    } else if (op == "mul") {
+      r = sr::vector::HWY_NAMESPACE::sr_mul<D>(a, b);
+    } else if (op == "div") {
+      r = sr::vector::HWY_NAMESPACE::sr_div<D>(a, b);
+    } else if (op == "sqrt") {
+      r = sr::vector::HWY_NAMESPACE::sr_sqrt<D>(a);
+    } else if (op == "fma") {
+      r = sr::vector::HWY_NAMESPACE::sr_fma<D>(a, b, c);
+    } else {
+      std::cerr << "Unknown operation: " << op << std::endl;
+      std::exit(1);
+    }
+
+    if (debug) {
+      hn::Print(d, "c", r, 0, 7, fmt);
+    }
+
+    auto r_min = hn::ReduceMin(d, r);
+    auto r_max = hn::ReduceMax(d, r);
 
     if (debug) {
       std::cout << std::hexfloat;
-      std::cout << "Min: " << c_min << std::endl;
-      std::cout << "Max: " << c_max << std::endl;
+      std::cout << "Min: " << r_min << std::endl;
+      std::cout << "Max: " << r_max << std::endl;
     }
 
-    return {c_min, c_max};
+    return {r_min, r_max};
   }
 };
 
-HWY_NOINLINE void TestAllAdd() {
-  hn::ForFloat3264Types(hn::ForPartialVectors<TestAdd>());
+HWY_NOINLINE void TestAllOp() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestOp>());
 }
 
 } // namespace
@@ -169,7 +180,7 @@ HWY_AFTER_NAMESPACE();
 namespace sr {
 namespace {
 HWY_BEFORE_TEST(SRTest);
-HWY_EXPORT_AND_TEST_P(SRTest, TestAllAdd);
+HWY_EXPORT_AND_TEST_P(SRTest, TestAllOp);
 HWY_AFTER_TEST();
 } // namespace
 } // namespace sr

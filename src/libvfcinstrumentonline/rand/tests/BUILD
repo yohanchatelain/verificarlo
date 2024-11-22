@@ -3,6 +3,7 @@ load("//tests:macros.bzl", "cc_test_gen", "cc_test_lib_gen")
 HWY_OPTS = [
     "-std=c++17",
     "-O2",
+    "-Wfatal-errors",
 ]
 
 cc_test_gen(
@@ -98,14 +99,26 @@ cc_test_lib_gen(
 
 cc_binary(
     name = "sr-vector-single-test",
-    srcs = ["//tests:test_single_sr_hwy.cpp"],
+    srcs = [
+        "//src:srcs-sr",
+        "//tests:test_single_sr_hwy.cpp",
+    ],
     copts = HWY_OPTS + ["-DSR_DEBUG"],
+    deps = [
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "@hwy",
+        "@hwy//:hwy_test_util",
+    ],
 )
 
 cc_test_lib_gen(
     name = "sr-vector-accuracy",
     size = "medium",
-    src = ["//tests:test_sr_hwy_accuracy.cpp"],
+    src = [
+        "//tests:test_sr_hwy_accuracy.cpp",
+        "//src:srcs-sr",
+    ],
     copts = HWY_OPTS,
 )
 
@@ -122,7 +135,10 @@ cc_test_lib_gen(
 cc_test_lib_gen(
     name = "sr-vector-accuracy-dbg",
     size = "medium",
-    src = ["//tests:test_sr_hwy_accuracy.cpp"],
+    src = [
+        "//tests:test_sr_hwy_accuracy.cpp",
+        "//src:srcs-sr",
+    ],
     copts = HWY_OPTS,
     dbg = True,
 )

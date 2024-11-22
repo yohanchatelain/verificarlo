@@ -12,7 +12,7 @@
 
 // clang-format off
 #undef HWY_TARGET_INCLUDE
-#define HWY_TARGET_INCLUDE "tests/srround_test_hw-inl.cpp"
+#define HWY_TARGET_INCLUDE "tests/test_sr_hwy_accuracy.cpp"
 #include "hwy/foreach_target.h"
 
 #include "hwy/highway.h"
@@ -58,23 +58,45 @@ namespace reference {
 // compute in double precision if the input type is float
 // compute in quad precision if the input type is double
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H add(T a, T b) {
-  return static_cast<H>(a) + static_cast<H>(b);
+H add(const std::vector<T> &args) {
+  auto a = static_cast<H>(args[0]);
+  auto b = static_cast<H>(args[1]);
+  return a + b;
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H sub(T a, T b) {
-  return static_cast<H>(a) - static_cast<H>(b);
+H sub(const std::vector<T> &args) {
+  auto a = static_cast<H>(args[0]);
+  auto b = static_cast<H>(args[1]);
+  return a - b;
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H mul(T a, T b) {
-  return static_cast<H>(a) * static_cast<H>(b);
+H mul(const std::vector<T> &args) {
+  auto a = static_cast<H>(args[0]);
+  auto b = static_cast<H>(args[1]);
+  return a * b;
 }
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-H div(T a, T b) {
-  return static_cast<H>(a) / static_cast<H>(b);
+H div(const std::vector<T> &args) {
+  auto a = static_cast<H>(args[0]);
+  auto b = static_cast<H>(args[1]);
+  return a / b;
+}
+
+template <typename T, typename H = typename helper::IEEE754<T>::H>
+H sqrt(const std::vector<T> &args) {
+  auto a = static_cast<H>(args[0]);
+  return helper::sqrt<H>(a);
+}
+
+template <typename T, typename H = typename helper::IEEE754<T>::H>
+H fma(const std::vector<T> &args) {
+  auto a = static_cast<H>(args[0]);
+  auto b = static_cast<H>(args[1]);
+  auto c = static_cast<H>(args[2]);
+  return helper::fma<H>(a, b, c);
 }
 
 }; // namespace reference
@@ -84,6 +106,7 @@ namespace srvh = sr::vector::HWY_NAMESPACE;
 struct SRAdd {
   static constexpr char name[] = "add";
   static constexpr char symbol[] = "+";
+  static constexpr int arity = 2;
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
@@ -91,14 +114,15 @@ struct SRAdd {
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
-  static H reference(T a, T b) {
-    return reference::add<T>(a, b);
+  static H reference(const std::vector<T> &args) {
+    return reference::add<T>(args);
   }
 };
 
 struct SRSub {
   static constexpr char name[] = "sub";
   static constexpr char symbol[] = "-";
+  static constexpr int arity = 2;
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
@@ -106,14 +130,15 @@ struct SRSub {
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
-  static H reference(T a, T b) {
-    return reference::sub<T>(a, b);
+  static H reference(const std::vector<T> &args) {
+    return reference::sub<T>(args);
   }
 };
 
 struct SRMul {
   static constexpr char name[] = "mul";
   static constexpr char symbol[] = "*";
+  static constexpr int arity = 2;
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
@@ -121,14 +146,15 @@ struct SRMul {
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
-  static H reference(T a, T b) {
-    return reference::mul<T>(a, b);
+  static H reference(const std::vector<T> &args) {
+    return reference::mul<T>(args);
   }
 };
 
 struct SRDiv {
   static constexpr char name[] = "div";
   static constexpr char symbol[] = "/";
+  static constexpr int arity = 2;
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
@@ -136,35 +162,78 @@ struct SRDiv {
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
-  static H reference(T a, T b) {
-    return reference::div<T>(a, b);
+  static H reference(const std::vector<T> &args) {
+    return reference::div<T>(args);
+  }
+};
+
+struct SRSqrt {
+  static constexpr char name[] = "sqrt";
+  static constexpr char symbol[] = "√";
+  static constexpr int arity = 1;
+
+  template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
+  V operator()(D d, V a) {
+    return srvh::sr_sqrt<D>(a);
+  }
+
+  template <typename T, typename H = typename helper::IEEE754<T>::H>
+  static H reference(const std::vector<T> &args) {
+    return reference::sqrt<T>(args);
+  }
+};
+
+struct SRFma {
+  static constexpr char name[] = "fma";
+  static constexpr char symbol[] = "fma";
+  static constexpr int arity = 3;
+
+  template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
+  V operator()(D d, V a, V b, V c) {
+    return srvh::sr_fma<D>(a, b, c);
+  }
+
+  template <typename T, typename H = typename helper::IEEE754<T>::H>
+  static H reference(const std::vector<T> &args) {
+    return reference::fma<T>(args);
   }
 };
 
 template <typename T, typename H = typename helper::IEEE754<T>::H>
-std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
-                                                              H reference) {
+std::tuple<H, H, H, H, H, std::string>
+compute_distance_error(const std::vector<T> &args, H reference) {
   T ref_cast = static_cast<T>(reference);
 
-  if (helper::isnan(a) or helper::isnan(b) or helper::isnan(reference) or
-      helper::isinf(a) or helper::isinf(b) or helper::isinf(reference) or
-      helper::isinf(ref_cast)) {
+  bool is_finite = true;
+  for (const auto &a : args) {
+    if (helper::isnan(a) or helper::isinf(a)) {
+      is_finite = false;
+      break;
+    }
+  }
+
+  bool is_nan = helper::isnan(reference) or helper::isnan(ref_cast);
+  bool is_inf = helper::isinf(reference) or helper::isinf(ref_cast);
+
+  if (not is_finite or is_inf or is_nan) {
     return {0, 0, reference, reference, 0, ""};
   }
 
-  H error = 0, error_c = 0;
+  H error = 0, error_c = 0, rel_error = 0;
   H probability_down = 0, probability_up = 0;
   H next = 0, prev = 0;
   H ulp = helper::get_ulp(ref_cast);
 
   if (ref_cast == reference) {
     error = 0;
+    rel_error = 0;
     probability_down = 1;
     probability_up = 1;
     prev = reference;
     next = reference;
   } else {
     error = helper::absolute_distance(reference, static_cast<H>(ref_cast));
+    rel_error = helper::relative_distance(reference, static_cast<H>(ref_cast));
     error_c = helper::absolute_distance(static_cast<H>(ulp), error);
     prev = (ref_cast < reference) ? ref_cast : (ref_cast - ulp);
     next = (ref_cast < reference) ? (ref_cast + ulp) : ref_cast;
@@ -194,6 +263,30 @@ std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
     }
   }
 
+  int exponent_next = helper::get_exponent(next);
+  int exponent_prev = helper::get_exponent(prev);
+
+  if (rel_error < helper::IEEE754<T>::ulp) {
+    probability_down = 1;
+    probability_up = 1;
+    prev = reference;
+    next = reference;
+  } else if (exponent_next != exponent_prev and
+             probability_down != probability_up) {
+    // if the distance between the reference and the casted reference is
+    // exactly
+    // a power of 2, and the reference and the casted reference does not
+    // belong
+    // to the same binade, then the probability of the casted reference
+    // being the next representable value is equal to 0.5, not .75/.25
+    probability_down = 0.5;
+    probability_up = 0.5;
+    H ulp_prev = (exponent_next < exponent_prev) ? ulp : (ulp / 2);
+    H ulp_next = (exponent_next < exponent_prev) ? (ulp / 2) : ulp;
+    prev = (ref_cast < reference) ? ref_cast : (ref_cast - ulp_prev);
+    next = (ref_cast < reference) ? (ref_cast + ulp_next) : ref_cast;
+  }
+
   std::ostringstream os;
   os << std::hexfloat << std::setprecision(13);
   os << "-- compute_distance_error --" << std::endl;
@@ -207,6 +300,7 @@ std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
     os << " |ref-(double)ref|: " << helper::hexfloat(error) << std::endl;
   }
   os << "           error_c: " << helper::hexfloat(error_c) << std::endl;
+  os << "         rel_error: " << helper::hexfloat(rel_error) << std::endl;
   os << "               ulp: " << helper::hexfloat(ulp) << std::endl;
   os << "       reference ↓: " << helper::hexfloat(prev) << std::endl;
   os << "       reference ↑: " << helper::hexfloat(next) << std::endl;
@@ -220,14 +314,26 @@ std::tuple<H, H, H, H, H, std::string> compute_distance_error(T a, T b,
 
 template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
-std::vector<helper::Counter<T>> eval_op(D d, V a, V b, const int repetitions) {
+std::vector<helper::Counter<T>> eval_op(D d, V a, V x, V y,
+                                        const int repetitions) {
 
+#ifdef SR_DEBUG
+  const size_t lanes = 1;
+#else
   const size_t lanes = hn::Lanes(d);
+#endif
   auto op = Op();
 
   std::vector<helper::Counter<T>> c(lanes);
+  V v;
   for (int i = 0; i < repetitions; i++) {
-    auto v = op(d, a, b);
+    if constexpr (Op::arity == 1) {
+      v = op(d, a);
+    } else if constexpr (Op::arity == 2) {
+      v = op(d, a, x);
+    } else if constexpr (Op::arity == 3) {
+      v = op(d, a, x, y);
+    }
     for (size_t j = 0; j < lanes; j++) {
       auto vj = hn::ExtractLane(v, j);
       c[j][vj]++;
@@ -265,25 +371,61 @@ void assert_equal_inputs(D d, V a) {
 #endif
 }
 
+template <typename T, typename Op, typename H = typename helper::IEEE754<T>::H>
+std::string get_args_str(const std::vector<T> &args, H reference) {
+  const auto symbol = std::string(Op::symbol);
+
+  std::string symbol_op = "";
+  std::string args_str = "";
+  if constexpr (Op::arity == 2) {
+    auto a = args[0];
+    auto b = args[1];
+    symbol_op = "             a" + symbol + "b: ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" +
+               "               b: " + helper::hexfloat(b) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  } else if constexpr (Op::arity == 1) {
+    auto a = args[0];
+    symbol_op = "     " + symbol + "a: ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  } else if constexpr (Op::arity == 3) {
+    auto a = args[0];
+    auto b = args[1];
+    auto c = args[2];
+    symbol_op = "     " + symbol + "(a, b, c): ";
+    args_str = "               a: " + helper::hexfloat(a) + "\n" +
+               "               b: " + helper::hexfloat(b) + "\n" +
+               "               c: " + helper::hexfloat(c) + "\n" + symbol_op +
+               helper::hexfloat(reference) + "\n";
+  }
+  return args_str;
+}
+
 template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
-void check_distribution_match(D d, V va, V vb,
+void check_distribution_match(D d, V va, V vb = hn::Zero(D{}),
+                              V vc = hn::Zero(D{}),
                               const long repetitions = default_repetitions,
                               const float alpha = default_alpha) {
   using H = typename helper::IEEE754<T>::H;
 
   auto a = hn::GetLane(va);
   auto b = hn::GetLane(vb);
+  auto c = hn::GetLane(vc);
+
+  const std::vector<T> args = {a, b, c};
 
   // ensure that we have vector of same value
   assert_equal_inputs(d, va);
   assert_equal_inputs(d, vb);
+  assert_equal_inputs(d, vc);
 
-  auto counters = eval_op<Op>(d, va, vb, repetitions);
+  auto counters = eval_op<Op>(d, va, vb, vc, repetitions);
 
-  H reference = Op::reference(a, b);
+  H reference = Op::reference(args);
   auto [probability_down, probability_up, down, up, distance_error,
-        distance_error_msg] = compute_distance_error(a, b, reference);
+        distance_error_msg] = compute_distance_error(args, reference);
 
   size_t lane = 0;
   for (auto &counter : counters) {
@@ -355,10 +497,7 @@ void check_distribution_match(D d, V va, V vb,
     bool compare_up_values = not is_exact and up != 0 and
                              probability_up > (1.0 / repetitions) and
                              distance_error > helper::IEEE754<T>::min_subnormal;
-
-    // 95% relative error
-    auto error_down = (probability_down_estimated / probability_down);
-    auto error_up = (probability_up_estimated / probability_up);
+    const auto args_str = get_args_str<T, Op>(args, reference);
 
     // binomial test
     auto test = helper::binomial_test(repetitions, count_down,
@@ -372,60 +511,96 @@ void check_distribution_match(D d, V va, V vb,
     const auto lanes = hn::Lanes(d);
     const auto alpha_bon = (alpha / 2) / lanes;
 
-    if (compare_down_values and static_cast<T>(down) != counter.down()) {
-      std::cerr << "Value ↓ is not equal to reference\n"
-                << "     Lane/#Lanes: " << lane + 1 << "/" << lanes << "\n"
-                << "            type: " << ftype << "\n"
-                << "              op: " << op_name << "\n"
-                << "           alpha: " << alpha_bon << "\n"
-                << std::hexfloat << std::setprecision(13) << ""
-                << "               a: " << helper::hexfloat(a) << "\n"
-                << "               b: " << helper::hexfloat(b) << "\n"
-                << "             a" << op_symbol
-                << "b: " << helper::hexfloat(reference) << "\n"
-                << std::defaultfloat << "" << "-- theoretical -\n"
-                << "   probability ↓: " << fmt_proba(probability_down) << "\n"
-                << "   probability ↑: " << fmt_proba(probability_up) << "\n"
-                << "--- estimated --\n"
-                << "     sample size: " << repetitions << "\n"
-                << "              #↓: " << count_down << " ("
-                << fmt_proba(probability_down_estimated) << ")\n"
-                << "              #↑: " << count_up << " ("
-                << fmt_proba(probability_up_estimated) << ")\n"
-                << std::hexfloat
-                << "              ↓: " << helper::hexfloat(counter.down())
-                << "\n"
-                << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
-                << distance_error_msg << std::defaultfloat << flush();
-      HWY_ASSERT(0);
-    }
+    // do the test only if the operation is not exact (probability is not zero)
+    // do the test if the distance between the reference and the estimated value
+    // is greater than the minimum subnormal
+    // do not the test if the probability is lower than 1/repetitions
+    bool estimate_unique_value =
+        ((probability_down_estimated == 1) and (probability_down != 1)) or
+        ((probability_up_estimated == 1) and (probability_up != 1)) and
+            distance_error > helper::IEEE754<T>::min_subnormal;
 
-    if (compare_up_values and static_cast<T>(up) != counter.up()) {
-      std::cerr << "Value ↑ is not equal to reference\n"
-                << "     Lane/#Lanes: " << lane + 1 << "/" << lanes << "\n"
-                << "            type: " << ftype << "\n"
-                << "              op: " << op_name << "\n"
-                << "           alpha: " << alpha_bon << "\n"
-                << std::hexfloat << std::setprecision(13) << ""
-                << "               a: " << helper::hexfloat(a) << "\n"
-                << "               b: " << helper::hexfloat(b) << "\n"
-                << "             a" << op_symbol
-                << "b: " << helper::hexfloat(reference) << "\n"
-                << std::defaultfloat << "" << "-- theoretical -\n"
-                << "   probability ↓: " << fmt_proba(probability_down) << "\n"
-                << "   probability ↑: " << fmt_proba(probability_up) << "\n"
-                << "--- estimated --\n"
-                << "     sample size: " << repetitions << "\n"
-                << "              #↓: " << count_down << " ("
-                << fmt_proba(probability_down_estimated) << ")\n"
-                << "              #↑: " << count_up << " ("
-                << fmt_proba(probability_up_estimated) << ")\n"
-                << std::hexfloat
-                << "              ↓: " << helper::hexfloat(counter.down())
-                << "\n"
-                << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
-                << distance_error_msg << std::defaultfloat << flush();
-      HWY_ASSERT(0);
+    if (estimate_unique_value) {
+      const auto cond1 =
+          (counter.down() != 0 and (counter.down() != static_cast<T>(down)) and
+           (counter.down() != static_cast<T>(up)));
+      const auto cond2 =
+          (counter.up() != 0 and (counter.up() != static_cast<T>(down)) and
+           (counter.up() != static_cast<T>(up)));
+      const auto conditions = cond1 or cond2;
+      if (conditions) {
+        std::cerr << "Value ↓ is not equal to reference\n"
+                  << "            type: " << ftype << "\n"
+                  << "              op: " << op_name << "\n"
+                  << "           alpha: " << alpha << "\n"
+                  << std::hexfloat << std::setprecision(13) << args_str
+                  << std::defaultfloat << "" << "-- theoretical -\n"
+                  << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+                  << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+                  << "--- estimated --\n"
+                  << "     sample size: " << repetitions << "\n"
+                  << "              #↓: " << count_down << " ("
+                  << fmt_proba(probability_down_estimated) << ")\n"
+                  << "              #↑: " << count_up << " ("
+                  << fmt_proba(probability_up_estimated) << ")\n"
+                  << std::hexfloat << ""
+                  << "              ↓: " << helper::hexfloat(counter.down())
+                  << "\n"
+                  << "              ↑: " << helper::hexfloat(counter.up())
+                  << "\n"
+                  << distance_error_msg << std::defaultfloat << flush();
+        HWY_ASSERT(false);
+      }
+    } else {
+      if (compare_down_values and static_cast<T>(down) != counter.down()) {
+        std::cerr << "Value ↓ is not equal to reference\n"
+                  << "     Lane/#Lanes: " << lane + 1 << "/" << lanes << "\n"
+                  << "            type: " << ftype << "\n"
+                  << "              op: " << op_name << "\n"
+                  << "           alpha: " << alpha_bon << "\n"
+                  << std::hexfloat << std::setprecision(13) << args_str
+                  << std::defaultfloat << "" << "-- theoretical -\n"
+                  << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+                  << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+                  << "--- estimated --\n"
+                  << "     sample size: " << repetitions << "\n"
+                  << "              #↓: " << count_down << " ("
+                  << fmt_proba(probability_down_estimated) << ")\n"
+                  << "              #↑: " << count_up << " ("
+                  << fmt_proba(probability_up_estimated) << ")\n"
+                  << std::hexfloat
+                  << "              ↓: " << helper::hexfloat(counter.down())
+                  << "\n"
+                  << "              ↑: " << helper::hexfloat(counter.up())
+                  << "\n"
+                  << distance_error_msg << std::defaultfloat << flush();
+        HWY_ASSERT(0);
+      }
+
+      if (compare_up_values and static_cast<T>(up) != counter.up()) {
+        std::cerr << "Value ↑ is not equal to reference\n"
+                  << "     Lane/#Lanes: " << lane + 1 << "/" << lanes << "\n"
+                  << "            type: " << ftype << "\n"
+                  << "              op: " << op_name << "\n"
+                  << "           alpha: " << alpha_bon << "\n"
+                  << std::hexfloat << std::setprecision(13) << args_str
+                  << std::defaultfloat << "" << "-- theoretical -\n"
+                  << "   probability ↓: " << fmt_proba(probability_down) << "\n"
+                  << "   probability ↑: " << fmt_proba(probability_up) << "\n"
+                  << "--- estimated --\n"
+                  << "     sample size: " << repetitions << "\n"
+                  << "              #↓: " << count_down << " ("
+                  << fmt_proba(probability_down_estimated) << ")\n"
+                  << "              #↑: " << count_up << " ("
+                  << fmt_proba(probability_up_estimated) << ")\n"
+                  << std::hexfloat
+                  << "              ↓: " << helper::hexfloat(counter.down())
+                  << "\n"
+                  << "              ↑: " << helper::hexfloat(counter.up())
+                  << "\n"
+                  << distance_error_msg << std::defaultfloat << flush();
+        HWY_ASSERT(0);
+      }
     }
 
     // if (test.pvalue == 0)
@@ -437,11 +612,7 @@ void check_distribution_match(D d, V va, V vb,
                 << "            type: " << ftype << "\n"
                 << "              op: " << op_name << "\n"
                 << "           alpha: " << alpha_bon << "\n"
-                << std::hexfloat << std::setprecision(13) << ""
-                << "               a: " << helper::hexfloat(a) << "\n"
-                << "               b: " << helper::hexfloat(b) << "\n"
-                << "             a" << op_symbol
-                << "b: " << helper::hexfloat(reference) << "\n"
+                << std::hexfloat << std::setprecision(13) << args_str
                 << std::defaultfloat << "" << "-- theoretical -\n"
                 << "   probability ↓: " << fmt_proba(probability_down) << "\n"
                 << "   probability ↑: " << fmt_proba(probability_up) << "\n"
@@ -452,8 +623,6 @@ void check_distribution_match(D d, V va, V vb,
                 << "              #↑: " << count_up << " ("
                 << fmt_proba(probability_up_estimated) << ")\n"
                 << "         p-value: " << test.pvalue << "\n"
-                << "            ↓ %: " << error_down * 100 << "\n"
-                << "            ↑ %: " << error_up * 100 << "\n"
                 << std::hexfloat
                 << "              ↓: " << helper::hexfloat(counter.down())
                 << "\n"
@@ -497,16 +666,33 @@ template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
 void do_run_test_simple_case(D d) {
   auto simple_case = get_simple_case<T>();
-  for (auto a : simple_case) {
-    for (auto b : simple_case) {
+
+  if constexpr (Op::arity == 1) {
+    for (auto a : simple_case) {
       auto va = hn::Set(d, a);
-      auto vb = hn::Set(d, b);
-      auto va_neg = hn::Neg(va);
-      auto vb_neg = hn::Neg(vb);
-      check_distribution_match<Op>(d, va, vb);
-      check_distribution_match<Op>(d, va, vb_neg);
-      check_distribution_match<Op>(d, va_neg, vb);
-      check_distribution_match<Op>(d, va_neg, vb_neg);
+      check_distribution_match<Op>(d, va);
+    }
+  } else if constexpr (Op::arity == 2) {
+    for (auto a : simple_case) {
+      for (auto b : simple_case) {
+        auto va = hn::Set(d, a);
+        auto vb = hn::Set(d, b);
+        check_distribution_match<Op>(d, va, vb);
+        check_distribution_match<Op>(d, va, hn::Neg(vb));
+      }
+    }
+  } else if constexpr (Op::arity == 3) {
+    for (auto a : simple_case) {
+      for (auto b : simple_case) {
+        for (auto c : simple_case) {
+          auto va = hn::Set(d, a);
+          auto vb = hn::Set(d, b);
+          auto vc = hn::Set(d, c);
+          check_distribution_match<Op>(d, va, vb, vc);
+          check_distribution_match<Op>(d, va, vb, hn::Neg(vc));
+          check_distribution_match<Op>(d, va, hn::Neg(vb), vc);
+        }
+      }
     }
   }
 }
@@ -516,21 +702,38 @@ template <class Op, class D, class V = hn::VFromD<D>,
 void do_run_test_random(D d, const double start_range_1st = 0.0,
                         const double end_range_1st = 1.0,
                         const double start_range_2nd = 0.0,
-                        const double end_range_2nd = 1.0) {
+                        const double end_range_2nd = 1.0,
+                        const double start_range_3rd = 0.0,
+                        const double end_range_3rd = 1.0) {
   helper::RNG rng1(start_range_1st, end_range_1st);
   helper::RNG rng2(start_range_2nd, end_range_2nd);
+  helper::RNG rng3(start_range_3rd, end_range_3rd);
 
-  for (int i = 0; i < 100; i++) {
-    T a = rng1();
-    T b = rng2();
-    auto va = hn::Set(d, a);
-    auto vb = hn::Set(d, b);
-    auto va_neg = hn::Neg(va);
-    auto vb_neg = hn::Neg(vb);
-    check_distribution_match<Op>(d, va, vb);
-    check_distribution_match<Op>(d, va, vb_neg);
-    check_distribution_match<Op>(d, va_neg, vb);
-    check_distribution_match<Op>(d, va_neg, vb_neg);
+  if constexpr (Op::arity == 1) {
+    for (int i = 0; i < 100; i++) {
+      T a = rng1();
+      auto va = hn::Set(d, a);
+      check_distribution_match<Op>(d, va);
+    }
+  } else if constexpr (Op::arity == 2) {
+    for (int i = 0; i < 100; i++) {
+      T a = rng1();
+      T b = rng2();
+      auto va = hn::Set(d, a);
+      auto vb = hn::Set(d, b);
+      check_distribution_match<Op>(d, va, vb);
+    }
+  } else if constexpr (Op::arity == 3) {
+    for (int i = 0; i < 100; i++) {
+      T a = rng1();
+      T b = rng2();
+      T c = rng3();
+      auto va = hn::Set(d, a);
+      auto vb = hn::Set(d, b);
+      auto vc = hn::Set(d, c);
+      check_distribution_match<Op>(d, va, vb, vc);
+      check_distribution_match<Op>(d, va, vb, hn::Neg(vc));
+    }
   }
 }
 
@@ -571,6 +774,8 @@ using TestBasicAssertionsAdd = TestBasicAssertions<SRAdd>;
 using TestBasicAssertionsSub = TestBasicAssertions<SRSub>;
 using TestBasicAssertionsMul = TestBasicAssertions<SRMul>;
 using TestBasicAssertionsDiv = TestBasicAssertions<SRDiv>;
+using TestBasicAssertionsSqrt = TestBasicAssertions<SRSqrt>;
+using TestBasicAssertionsFma = TestBasicAssertions<SRFma>;
 
 HWY_NOINLINE void TestAllExactOperationsAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestExactOperationsAdd>());
@@ -592,6 +797,14 @@ HWY_NOINLINE void TestAllBasicAssertionsDiv() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestBasicAssertionsDiv>());
 }
 
+HWY_NOINLINE void TestAllBasicAssertionsSqrt() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestBasicAssertionsSqrt>());
+}
+
+HWY_NOINLINE void TestAllBasicAssertionsFma() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestBasicAssertionsFma>());
+}
+
 template <class Op> struct TestRandom01Assertions {
   template <typename T, class D> void operator()(T /*unused*/, D d) {
     do_run_test_random<Op>(d);
@@ -602,6 +815,8 @@ using TestRandom01AssertionsAdd = TestRandom01Assertions<SRAdd>;
 using TestRandom01AssertionsSub = TestRandom01Assertions<SRSub>;
 using TestRandom01AssertionsMul = TestRandom01Assertions<SRMul>;
 using TestRandom01AssertionsDiv = TestRandom01Assertions<SRDiv>;
+using TestRandom01AssertionsSqrt = TestRandom01Assertions<SRSqrt>;
+using TestRandom01AssertionsFma = TestRandom01Assertions<SRFma>;
 
 HWY_NOINLINE void TestAllRandom01AssertionsAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsAdd>());
@@ -619,6 +834,14 @@ HWY_NOINLINE void TestAllRandom01AssertionsDiv() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsDiv>());
 }
 
+HWY_NOINLINE void TestAllRandom01AssertionsSqrt() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsSqrt>());
+}
+
+HWY_NOINLINE void TestAllRandom01AssertionsFma() {
+  hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsFma>());
+}
+
 template <class Op, class D, class V = hn::VFromD<D>,
           typename T = hn::TFromD<D>>
 void do_random_no_overlap_test(D d) {
@@ -632,8 +855,10 @@ void do_random_no_overlap_test(D d) {
   };
   double start_range_2nd = std::ldexp(1.0, s2 + 1);
   double end_range_2nd = std::ldexp(1.0, s2 + 1);
+  double start_range_3rd = std::ldexp(1.0, s2 + 1);
+  double end_range_3rd = std::ldexp(1.0, s2 + 1);
   do_run_test_random<Op>(d, start_range_1st, end_range_1st, start_range_2nd,
-                         end_range_2nd);
+                         end_range_2nd, start_range_3rd, end_range_3rd);
 }
 
 template <class Op> struct TestRandomNoOverlapAssertions {
@@ -646,6 +871,8 @@ using TestRandomNoOverlapAssertionsAdd = TestRandomNoOverlapAssertions<SRAdd>;
 using TestRandomNoOverlapAssertionsSub = TestRandomNoOverlapAssertions<SRSub>;
 using TestRandomNoOverlapAssertionsMul = TestRandomNoOverlapAssertions<SRMul>;
 using TestRandomNoOverlapAssertionsDiv = TestRandomNoOverlapAssertions<SRDiv>;
+using TestRandomNoOverlapAssertionsSqrt = TestRandomNoOverlapAssertions<SRSqrt>;
+using TestRandomNoOverlapAssertionsFma = TestRandomNoOverlapAssertions<SRFma>;
 
 HWY_NOINLINE void TestAllRandomNoOverlapAssertionsAdd() {
   hn::ForFloat3264Types(
@@ -765,11 +992,13 @@ namespace sr {
 namespace HWY_NAMESPACE {
 
 HWY_BEFORE_TEST(SRRoundTest);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllExactOperationsAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSub);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsMul);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsDiv);
+// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllExactOperationsAdd);
+// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsAdd);
+// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSub);
+// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsMul);
+// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsDiv);
+// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSqrt);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsFma);
 HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsAdd);
 HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsSub);
 HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsMul);
@@ -794,9 +1023,3 @@ HWY_AFTER_TEST();
 HWY_TEST_MAIN();
 
 #endif // HWY_ONCE
-
-// int main(int argc, char **argv) {
-//   testing::InitGoogleTest(&argc, argv);
-//   init();
-//   return RUN_ALL_TESTS();
-// }

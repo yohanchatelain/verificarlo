@@ -348,12 +348,13 @@ void check_distribution_match(const std::vector<T> &args,
       ((probability_down_estimated == 1) and (probability_down != 1)) or
       ((probability_up_estimated == 1) and (probability_up != 1));
 
-  bool compare_down_values = not is_exact and (down != 0) and
-                             (probability_down > (1.0 / repetitions)) and
-                             (distance_error > helper::IEEE754<T>::ulp);
+  bool compare_down_values =
+      not is_exact and (down != 0) and
+      (probability_down > (1.0 / repetitions)) and
+      (distance_error > helper::IEEE754<T>::min_subnormal);
   bool compare_up_values = not is_exact and (up != 0) and
                            (probability_up > (1.0 / repetitions)) and
-                           (distance_error > helper::IEEE754<T>::ulp);
+                           (distance_error > helper::IEEE754<T>::min_subnormal);
 
   const auto args_str = get_args_str<T, Op>(args, reference);
 
@@ -387,6 +388,7 @@ void check_distribution_match(const std::vector<T> &args,
                 << "\n"
                 << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
                 << distance_error_msg << std::defaultfloat << flush();
+      ADD_FAILURE();
     }
   } else {
     if (compare_down_values and not is_special_case)
@@ -477,6 +479,7 @@ void check_distribution_match(const std::vector<T> &args,
     ASSERT_THAT(alpha / 2, Lt(test.pvalue))
 #else
     EXPECT_THAT(alpha / 2, Lt(test.pvalue))
+#endif
         << "Null hypotheis rejected!\n"
         << "            type: " << ftype << "\n"
         << "              op: " << op_name << "\n"
@@ -496,7 +499,6 @@ void check_distribution_match(const std::vector<T> &args,
         << "              ↓: " << helper::hexfloat(counter.down()) << "\n"
         << "              ↑: " << helper::hexfloat(counter.up()) << "\n"
         << distance_error_msg << std::defaultfloat << flush();
-#endif
   debug_reset();
 }
 

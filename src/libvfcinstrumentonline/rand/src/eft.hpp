@@ -17,8 +17,7 @@ template <typename T> void fasttwosum(T a, T b, T &sigma, T &tau) {
 }
 
 // twosum
-template <typename T>
-__attribute__((optnone)) inline void twosum(T a, T b, T &sigma, T &tau) {
+template <typename T> inline void twosum(T a, T b, T &sigma, T &tau) {
   sigma = a + b;
   T ap = sigma - b;
   T bp = sigma - ap;
@@ -28,8 +27,7 @@ __attribute__((optnone)) inline void twosum(T a, T b, T &sigma, T &tau) {
   debug_print("twosum(%.13a, %.13a) = %.13a, %.13a\n", a, b, sigma, tau);
 }
 
-template <typename T>
-__attribute__((optnone)) inline void twoprodfma(T a, T b, T &sigma, T &tau) {
+template <typename T> inline void twoprodfma(T a, T b, T &sigma, T &tau) {
   sigma = a * b;
   tau = std::fma(a, b, -sigma);
   debug_print("twoprodfma(%.13a, %.13a) = %.13a, %.13a\n", a, b, sigma, tau);
