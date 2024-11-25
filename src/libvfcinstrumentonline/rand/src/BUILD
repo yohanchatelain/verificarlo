@@ -90,6 +90,20 @@ cc_library(
 )
 
 cc_library(
+    name = "sr-native",
+    srcs = [":srcs-sr"],
+    hdrs = ["//src:sr_hw.h"],
+    copts = COPTS + [
+        "-O2",
+        "-Wall",
+        "-Wno-psabi",
+        "-march=native",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@hwy"],
+)
+
+cc_library(
     name = "ud",
     srcs = [":srcs-ud"],
     hdrs = ["//src:ud_hw.h"],
@@ -97,6 +111,20 @@ cc_library(
         "-O2",
         "-Wall",
         "-Wno-psabi",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@hwy"],
+)
+
+cc_library(
+    name = "ud-native",
+    srcs = [":srcs-ud"],
+    hdrs = ["//src:ud_hw.h"],
+    copts = COPTS + [
+        "-O2",
+        "-Wall",
+        "-Wno-psabi",
+        "-march=native",
     ],
     visibility = ["//visibility:public"],
     deps = ["@hwy"],

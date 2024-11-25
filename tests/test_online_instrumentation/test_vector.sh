@@ -23,7 +23,11 @@ optimizations=('-O0' '-O1' '-O2')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} size={size} rng={rng}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div ::: size 2 4 8 16 ::: rng xoroshiro shishua
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} size={size}" \
+    ::: type float double \
+    ::: optimization "${optimizations[@]}" \
+    ::: operator add sub mul div \
+    ::: size 2 4 8 16
 
 run_test() {
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
@@ -44,13 +48,12 @@ run_test() {
     local optimization="$2"
     local op="$3"
     local size="$4"
-    local rng="$5"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}_${op_name}_${size}_${rng}
-    local file=tmp.$type.x$size.$op_name.$optimization.$rng.txt
+    local bin=test_${type}_${optimization}_${op_name}_${size}
+    local file=tmp.$type.x$size.$op_name.$optimization.txt
 
-    echo "Running test $type x$size $op $optimization $op_name $rng on ${args["$type$op"]}..."
+    echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
 
     rm -f $file
 
@@ -72,31 +75,18 @@ run_test() {
     fi
 }
 
-# Check if RNG is exported to xoroshiro or shishua
-if [[ $RNG == "" ]]; then
-    export RNG_LIST="xoroshiro shishua"
-elif [[ $RNG == "xoroshiro" ]]; then
-    export RNG_LIST="xoroshiro"
-elif [[ $RNG == "shishua" ]]; then
-    export RNG_LIST="shishua"
-fi
-
 export -f run_test
 
-for rng in $RNG_LIST; do
-    echo "Running tests with rng: $rng"
-    parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size} {rng}" \
-        ::: type double float \
-        ::: op "+" "-" "x" "/" \
-        ::: optimization "${optimizations[@]}" \
-        ::: size 2 4 8 16 \
-        ::: rng $rng
+parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
+    ::: type double float \
+    ::: op "+" "-" "x" "/" \
+    ::: optimization "${optimizations[@]}" \
+    ::: size 2 4 8 16
 
-    if [[ $? != 0 ]]; then
-        echo "Failed!"
-        exit 1
-    fi
-done
+if [[ $? != 0 ]]; then
+    echo "Failed!"
+    exit 1
+fi
 
 echo "Success!"
 exit 0

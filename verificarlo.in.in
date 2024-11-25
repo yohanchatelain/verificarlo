@@ -163,7 +163,7 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 def linker_mode(sources, options, libraries, output, args):
     if args.online_instrumentation:
         vfcwrapper_o = ""
-        libraries += " -lsr -lhwy -lstdc++ "
+        libraries += " -lud -lsr -lhwy -lstdc++ "
         
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
@@ -457,6 +457,7 @@ def main():
         fail("Cannot use --function and --include-file/--exclude-file together")
 
     output = "-o " + args.o if args.o else ""
+
 
     if args.E:
         llvm_options += " -E "

@@ -240,7 +240,7 @@ define_array_test_vector_ter(fma, f64, 2);
 
 /* 256-bits */
 #if HWY_MAX_BYTES >= 32
-define_array_test_vector_un(sqrt, f64, 8);
+define_array_test_vector_un(sqrt, f32, 8);
 define_array_test_vector_bin(add, f32, 8);
 define_array_test_vector_bin(sub, f32, 8);
 define_array_test_vector_bin(mul, f32, 8);
@@ -468,13 +468,13 @@ TEST(SRArrayBenchmark, SRDivF32) {
 TEST(SRArrayBenchmark, SRSqrtF32) {
   constexpr size_t N = 10;
   std::cout << "Measure function sr::sqrtf32 with " << N << " repetitions\n";
-  callMeasureFunctions<1, 1024, float, 1>(&test_sqrtf32);
+  callMeasureFunctions<2, 1024, float, 1>(&test_sqrtf32);
 }
 
 TEST(SRArrayBenchmark, SRFmaF32) {
   constexpr size_t N = 10;
   std::cout << "Measure function sr::fmaf32 with " << N << " repetitions\n";
-  callMeasureFunctions<3, 1024, float, 3>(&test_fmaf32);
+  callMeasureFunctions<2, 1024, float, 3>(&test_fmaf32);
 }
 
 /* IEEE-754 binary64 */
@@ -506,13 +506,13 @@ TEST(SRArrayBenchmark, SRDivF64) {
 TEST(SRArrayBenchmark, SRSqrtF64) {
   constexpr size_t N = 10;
   std::cout << "Measure function sr::sqrtf64 with " << N << " repetitions\n";
-  callMeasureFunctions<1, 1024, double, 1>(&test_sqrtf64);
+  callMeasureFunctions<2, 1024, double, 1>(&test_sqrtf64);
 }
 
 TEST(SRArrayBenchmark, SRFmaF64) {
   constexpr size_t N = 10;
   std::cout << "Measure function sr::fmaf64 with " << N << " repetitions\n";
-  callMeasureFunctions<3, 1024, double, 3>(&test_fmaf64);
+  callMeasureFunctions<2, 1024, double, 3>(&test_fmaf64);
 }
 
 /* Test on single vector passed by pointer */
@@ -1408,7 +1408,7 @@ TEST(SRVectorDynamicBenchmark, SRDivF32x2D) {
   MeasureFunctionX<2, float, f32x2_v>(&test_divf32x2_d, 2, kVerbose);
 }
 
-TEST(SRVectoDynamicBenchmark, SRSqrtF32x2D) {
+TEST(SRVectorDynamicBenchmark, SRSqrtF32x2D) {
   constexpr size_t N = 10;
   std::cout << "Measure function sr::sqrtf32x2_d with " << N
             << " repetitions\n";
@@ -1658,7 +1658,7 @@ TEST(SRVectorDynamicBenchmark, SRDivF32x16D) {
   MeasureFunctionX<16, float, f32x16_v>(&test_divf32x16_d, 16, kVerbose);
 }
 
-TEST(SRVectoDynamicBenchmark, SRSqrtF32x16D) {
+TEST(SRVectorDynamicBenchmark, SRSqrtF32x16D) {
   constexpr size_t N = 10;
   std::cout << "Measure function sr::sqrtf32x16_d with " << N
             << " repetitions\n";

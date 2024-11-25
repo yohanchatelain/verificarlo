@@ -22,7 +22,10 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} rng={rng}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div ::: rng xoroshiro shishua
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator}" \
+    ::: type float double \
+    ::: optimization "${optimizations[@]}" \
+    ::: operator add sub mul div
 
 run_test() {
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
@@ -33,10 +36,10 @@ run_test() {
     local rng="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}_${op_name}_${rng}
-    local file=tmp.$type.$op_name.$optimization.$rng.txt
+    local bin=test_${type}_${optimization}_${op_name}
+    local file=tmp.$type.$op_name.$optimization.txt
 
-    echo "Running test $type $op $optimization $op_name $rng"
+    echo "Running test $type $op $optimization $op_name"
 
     rm -f $file
 
@@ -58,30 +61,17 @@ run_test() {
     fi
 }
 
-# Check if RNG is exported to xoroshiro or shishua
-if [[ $RNG == "" ]]; then
-    export RNG_LIST="xoroshiro shishua"
-elif [[ $RNG == "xoroshiro" ]]; then
-    export RNG_LIST="xoroshiro"
-elif [[ $RNG == "shishua" ]]; then
-    export RNG_LIST="shishua"
-fi
-
 export -f run_test
 
-for rng in $RNG_LIST; do
-    echo "Running tests with rng: $rng"
-    parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {rng}" \
-        ::: type float double \
-        ::: op "+" "-" "x" "/" \
-        ::: optimization "${optimizations[@]}" \
-        ::: rng $rng
+parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op}" \
+    ::: type float double \
+    ::: op "+" "-" "x" "/" \
+    ::: optimization "${optimizations[@]}"
 
-    if [[ $? != 0 ]]; then
-        echo "Failed!"
-        exit 1
-    fi
-done
+if [[ $? != 0 ]]; then
+    echo "Failed!"
+    exit 1
+fi
 
 echo "Success!"
 exit 0

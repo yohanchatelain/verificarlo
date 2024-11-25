@@ -147,9 +147,9 @@ cc_test_lib_gen(
     name = "sr-perf",
     size = "medium",
     src = ["//tests:test_sr_hwy_performance.cpp"],
-    copts = HWY_OPTS,
+    copts = HWY_OPTS + ["-march=native"],
     deps = [
-        "@//src:sr",
+        "@//src:sr-native",
         "@hwy//:nanobenchmark",
     ],
 )

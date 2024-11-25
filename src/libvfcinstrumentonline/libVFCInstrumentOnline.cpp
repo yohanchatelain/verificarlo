@@ -587,7 +587,9 @@ struct VfclibInst : public ModulePass {
 
     if (function == nullptr) {
       errs() << "Function not found: " << functionName << "\n";
-      report_fatal_error("libVFCInstrument fatal error");
+      errs() << "Skipping instruction: " << *I << "\n";
+      return nullptr;
+      // report_fatal_error("libVFCInstrument fatal error");
     } else if (VfclibInstDebug) {
       errs() << "Function found: " << functionName << "\n";
     }
@@ -638,9 +640,26 @@ struct VfclibInst : public ModulePass {
     return newOperands;
   }
 
+  std::size_t getArity(Instruction *I) {
+    switch (getOpCode(*I)) {
+    case FOP_ADD:
+    case FOP_SUB:
+    case FOP_MUL:
+    case FOP_DIV:
+      return 2;
+    case FOP_FMA:
+      return 3;
+    default:
+      return 0;
+    }
+  }
+
   /* Replace arithmetic instructions with PR */
   Value *replaceArithmeticWithPRCall(IRBuilder<> &Builder, Instruction *I) {
     Function *F = getPRFunction(I);
+    if (F == nullptr) {
+      return nullptr;
+    }
 
     // check if operands of F are pointers, and skip if so
     for (auto &arg : F->args()) {
@@ -661,9 +680,16 @@ struct VfclibInst : public ModulePass {
       auto bitcast = Builder.CreateBitCast(call, I->getType());
       return bitcast;
     }
-
     // get arguments of the instruction
-    std::vector<Value *> operands(I->op_begin(), I->op_end());
+    // take only the n first arguments, where n is the arity of the function
+    // if the instruction has more arguments, they are not used
+    // i.e. for fma instruction, we take only the first 3 arguments
+    // the 4th argument is ignored
+    std::vector<Value *> operands;
+    std::size_t arity = getArity(I);
+    for (unsigned i = 0; i < arity; i++) {
+      operands.push_back(I->getOperand(i));
+    }
     return Builder.CreateCall(F, operands);
   }
 
