@@ -169,7 +169,7 @@ fi
 
 # Checks if clang support -march=native
 AC_MSG_CHECKING([if $CLANG supports -march=native])
-doit='$CLANG -march=native -E - </dev/null'
+doit='$CLANG -march=native -E - </dev/null >/dev/null 2>&1'
 if AC_TRY_EVAL(doit); then
   AC_DEFINE_UNQUOTED([MARCH_FLAG], ["-march=native"], [The -march=native flag])
   AC_SUBST(MARCH_FLAG, "-march=native")
