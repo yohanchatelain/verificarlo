@@ -241,7 +241,7 @@ public:
 
   AlignedVector<std::uint32_t> operator()(std::uint32_t, const std::size_t n) {
     const auto u32_tag = ScalableTag<std::uint32_t>{};
-    AlignedVector<std::uint32_t> result(n);
+    AlignedVector<std::uint32_t> result(2 * n);
     const ScalableTag<std::uint64_t> tag{};
     auto s0 = Load(tag, state_[{0}].data());
     auto s1 = Load(tag, state_[{1}].data());
@@ -260,7 +260,7 @@ public:
   }
 
   AlignedVector<std::uint64_t> operator()(std::uint64_t, const std::size_t n) {
-    AlignedVector<std::uint64_t> result(n);
+    AlignedVector<std::uint64_t> result(2 * n);
     const ScalableTag<std::uint64_t> tag{};
     auto s0 = Load(tag, state_[{0}].data());
     auto s1 = Load(tag, state_[{1}].data());
@@ -340,7 +340,7 @@ public:
   }
 
   HWY_INLINE AlignedVector<float> Uniform(float, const std::size_t n) {
-    AlignedVector<float> result(n);
+    AlignedVector<float> result(2 * n);
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<float> real_tag{};
@@ -367,7 +367,7 @@ public:
   }
 
   template <std::uint64_t N> std::array<float, N> Uniform(float) noexcept {
-    alignas(HWY_ALIGNMENT) std::array<float, N> result;
+    alignas(HWY_ALIGNMENT) std::array<float, 2 * N> result;
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<float> real_tag{};
