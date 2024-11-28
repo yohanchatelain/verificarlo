@@ -28,7 +28,7 @@ COPTS = [
 ]
 
 filegroup(
-    name = "xoroshiro",
+    name = "srcs-xoroshiro",
     srcs = [
         "debug_hwy-inl.h",
         "random-inl.h",
@@ -38,6 +38,19 @@ filegroup(
         "xoroshiro256+_hw-inl.hpp",
     ],
     visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "xoroshiro",
+    srcs = [":srcs-xoroshiro"],
+    hdrs = ["//src:xoroshiro256+_hw.h"],
+    copts = COPTS + [
+        "-O2",
+        "-Wall",
+        "-Wno-psabi",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@hwy"],
 )
 
 filegroup(

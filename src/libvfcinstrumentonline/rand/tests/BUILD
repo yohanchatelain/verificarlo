@@ -165,6 +165,19 @@ cc_test_lib_gen(
     ],
 )
 
+cc_test_lib_gen(
+    name = "thread",
+    size = "medium",
+    src = [
+        "//tests:test_threads.cpp",
+    ],
+    copts = HWY_OPTS + ["-DHWY_DISABLED_TARGETS=(HWY_EMU128)"],
+    deps = [
+        "//src:xoroshiro",
+        "@//src:sr-native",
+    ],
+)
+
 test_suite(
     name = "all",
     tests = [

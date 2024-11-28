@@ -36,18 +36,18 @@ public:
   hn::CachedXoshiro<> *get();
 
 private:
-  std::unique_ptr<hn::CachedXoshiro<>> rng;
-  static std::unique_ptr<hn::CachedXoshiro<>> rng_constructor() {
+  hn::CachedXoshiro<> *rng;
+  static hn::CachedXoshiro<> *rng_constructor() {
     if (not sn::isCurrentTargetSupported())
       return nullptr;
 
     const auto seed = get_user_seed();
     const auto thread_id = syscall(__NR_gettid) % syscall(__NR_getpid);
-    return std::make_unique<hn::CachedXoshiro<>>(seed, thread_id);
+    return new hn::CachedXoshiro<>(seed, thread_id);
   }
 };
 
-extern RNGInitializer rng;
+extern thread_local RNGInitializer rng;
 
 HWY_API float uniformf32() { return rng.get()->Uniform(); }
 HWY_API double uniformf64() { return rng.get()->Uniform(); }
@@ -72,18 +72,18 @@ public:
   hn::VectorXoshiro *get();
 
 private:
-  std::unique_ptr<hn::VectorXoshiro> rng;
-  static std::unique_ptr<hn::VectorXoshiro> rng_constructor() {
+  hn::VectorXoshiro *rng;
+  static hn::VectorXoshiro *rng_constructor() {
     if (not sn::isCurrentTargetSupported())
       return nullptr;
 
     const auto seed = get_user_seed();
     const auto thread_id = syscall(__NR_gettid) % syscall(__NR_getpid);
-    return std::make_unique<hn::VectorXoshiro>(seed, thread_id);
+    return new hn::VectorXoshiro(seed, thread_id);
   }
 };
 
-extern RNGInitializer rng;
+extern thread_local RNGInitializer rng;
 
 template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
   sv::debug_msg("[uniform] START");

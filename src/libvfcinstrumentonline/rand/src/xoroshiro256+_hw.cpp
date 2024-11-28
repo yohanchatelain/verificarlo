@@ -27,17 +27,17 @@ RNGInitializer::RNGInitializer() : rng(RNGInitializer::rng_constructor()) {}
 hn::CachedXoshiro<> *RNGInitializer::get() {
 #ifdef SR_DEBUG
   // check if the pointer is not null
-  if (this->rng.get() == nullptr) {
+  if (this->rng == nullptr) {
     std::cerr << "Error srlib: ";
     std::cerr << "RNGInitializer::get() returned a null pointer\n";
     std::cerr << "Means that the current target is not supported\n";
     std::abort();
   }
 #endif
-  return this->rng.get();
+  return this->rng;
 }
 
-RNGInitializer rng;
+thread_local RNGInitializer rng;
 
 } // namespace HWY_NAMESPACE
 
@@ -55,17 +55,17 @@ RNGInitializer::RNGInitializer() : rng(RNGInitializer::rng_constructor()) {}
 hn::VectorXoshiro *RNGInitializer::get() {
 #ifdef SR_DEBUG
   // check if the pointer is not null
-  if (this->rng.get() == nullptr) {
+  if (this->rng == nullptr) {
     std::cerr << "Error srlib: ";
     std::cerr << "RNGInitializer::get() returned a null pointer\n";
     std::cerr << "Means that the current target is not supported\n";
     std::abort();
   }
 #endif
-  return this->rng.get();
+  return this->rng;
 }
 
-RNGInitializer rng;
+thread_local RNGInitializer rng;
 
 } // namespace HWY_NAMESPACE
 } // namespace xoroshiro256plus
