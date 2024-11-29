@@ -1115,7 +1115,7 @@ void fmaf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
 f32x2_v addf32x2_v(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  // float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  // alignas(8) float result_ptr[2];
   alignas(8) float result[2];
   HWY_STATIC_DISPATCH(_addx2_f32)(a_ptr, b_ptr, result);
   f32x2_v result_v;
@@ -1126,7 +1126,7 @@ f32x2_v addf32x2_v(const f32x2_v a, const f32x2_v b) {
 f32x2_v subf32x2_v(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   HWY_STATIC_DISPATCH(_subx2_f32)(a_ptr, b_ptr, result_ptr);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1136,7 +1136,7 @@ f32x2_v subf32x2_v(const f32x2_v a, const f32x2_v b) {
 f32x2_v mulf32x2_v(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   HWY_STATIC_DISPATCH(_mulx2_f32)(a_ptr, b_ptr, result_ptr);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1146,7 +1146,7 @@ f32x2_v mulf32x2_v(const f32x2_v a, const f32x2_v b) {
 f32x2_v divf32x2_v(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   HWY_STATIC_DISPATCH(_divx2_f32)(a_ptr, b_ptr, result_ptr);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1155,7 +1155,7 @@ f32x2_v divf32x2_v(const f32x2_v a, const f32x2_v b) {
 
 f32x2_v sqrtf32x2_v(const f32x2_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   HWY_STATIC_DISPATCH(_sqrtx2_f32)(a_ptr, result_ptr);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1166,7 +1166,7 @@ f32x2_v fmaf32x2_v(const f32x2_v a, const f32x2_v b, const f32x2_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   HWY_STATIC_DISPATCH(_fmax2_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1184,7 +1184,7 @@ f32x2_v fmaf32x2_v(const f32x2_v a, const f32x2_v b, const f32x2_v c) {
 f64x2_v addf64x2_v(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   HWY_STATIC_DISPATCH(_addx2_f64)(a_ptr, b_ptr, result_ptr);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1194,7 +1194,7 @@ f64x2_v addf64x2_v(const f64x2_v a, const f64x2_v b) {
 f64x2_v subf64x2_v(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   HWY_STATIC_DISPATCH(_subx2_f64)(a_ptr, b_ptr, result_ptr);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1204,7 +1204,7 @@ f64x2_v subf64x2_v(const f64x2_v a, const f64x2_v b) {
 f64x2_v mulf64x2_v(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   HWY_STATIC_DISPATCH(_mulx2_f64)(a_ptr, b_ptr, result_ptr);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1214,7 +1214,7 @@ f64x2_v mulf64x2_v(const f64x2_v a, const f64x2_v b) {
 f64x2_v divf64x2_v(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   HWY_STATIC_DISPATCH(_divx2_f64)(a_ptr, b_ptr, result_ptr);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1223,7 +1223,7 @@ f64x2_v divf64x2_v(const f64x2_v a, const f64x2_v b) {
 
 f64x2_v sqrtf64x2_v(const f64x2_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   HWY_STATIC_DISPATCH(_sqrtx2_f64)(a_ptr, result_ptr);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1234,7 +1234,7 @@ f64x2_v fmaf64x2_v(const f64x2_v a, const f64x2_v b, const f64x2_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   HWY_STATIC_DISPATCH(_fmax2_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1246,7 +1246,7 @@ f64x2_v fmaf64x2_v(const f64x2_v a, const f64x2_v b, const f64x2_v c) {
 f32x4_v addf32x4_v(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   HWY_STATIC_DISPATCH(_addx4_f32)(a_ptr, b_ptr, result_ptr);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1256,7 +1256,7 @@ f32x4_v addf32x4_v(const f32x4_v a, const f32x4_v b) {
 f32x4_v subf32x4_v(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   HWY_STATIC_DISPATCH(_subx4_f32)(a_ptr, b_ptr, result_ptr);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1266,7 +1266,7 @@ f32x4_v subf32x4_v(const f32x4_v a, const f32x4_v b) {
 f32x4_v mulf32x4_v(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   HWY_STATIC_DISPATCH(_mulx4_f32)(a_ptr, b_ptr, result_ptr);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1276,7 +1276,7 @@ f32x4_v mulf32x4_v(const f32x4_v a, const f32x4_v b) {
 f32x4_v divf32x4_v(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   HWY_STATIC_DISPATCH(_divx4_f32)(a_ptr, b_ptr, result_ptr);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1285,7 +1285,7 @@ f32x4_v divf32x4_v(const f32x4_v a, const f32x4_v b) {
 
 f32x4_v sqrtf32x4_v(const f32x4_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   HWY_STATIC_DISPATCH(_sqrtx4_f32)(a_ptr, result_ptr);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1296,7 +1296,7 @@ f32x4_v fmaf32x4_v(const f32x4_v a, const f32x4_v b, const f32x4_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   HWY_STATIC_DISPATCH(_fmax4_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1314,7 +1314,7 @@ f32x4_v fmaf32x4_v(const f32x4_v a, const f32x4_v b, const f32x4_v c) {
 f64x4_v addf64x4_v(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   HWY_STATIC_DISPATCH(_addx4_f64)(a_ptr, b_ptr, result_ptr);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1324,7 +1324,7 @@ f64x4_v addf64x4_v(const f64x4_v a, const f64x4_v b) {
 f64x4_v subf64x4_v(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   HWY_STATIC_DISPATCH(_subx4_f64)(a_ptr, b_ptr, result_ptr);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1334,7 +1334,7 @@ f64x4_v subf64x4_v(const f64x4_v a, const f64x4_v b) {
 f64x4_v mulf64x4_v(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   HWY_STATIC_DISPATCH(_mulx4_f64)(a_ptr, b_ptr, result_ptr);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1344,7 +1344,7 @@ f64x4_v mulf64x4_v(const f64x4_v a, const f64x4_v b) {
 f64x4_v divf64x4_v(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   HWY_STATIC_DISPATCH(_divx4_f64)(a_ptr, b_ptr, result_ptr);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1353,7 +1353,7 @@ f64x4_v divf64x4_v(const f64x4_v a, const f64x4_v b) {
 
 f64x4_v sqrtf64x4_v(const f64x4_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   HWY_STATIC_DISPATCH(_sqrtx4_f64)(a_ptr, result_ptr);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1364,7 +1364,7 @@ f64x4_v fmaf64x4_v(const f64x4_v a, const f64x4_v b, const f64x4_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   HWY_STATIC_DISPATCH(_fmax4_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1376,7 +1376,7 @@ f64x4_v fmaf64x4_v(const f64x4_v a, const f64x4_v b, const f64x4_v c) {
 f32x8_v addf32x8_v(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   HWY_STATIC_DISPATCH(_addx8_f32)(a_ptr, b_ptr, result_ptr);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1386,7 +1386,7 @@ f32x8_v addf32x8_v(const f32x8_v a, const f32x8_v b) {
 f32x8_v subf32x8_v(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   HWY_STATIC_DISPATCH(_subx8_f32)(a_ptr, b_ptr, result_ptr);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1396,7 +1396,7 @@ f32x8_v subf32x8_v(const f32x8_v a, const f32x8_v b) {
 f32x8_v mulf32x8_v(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   HWY_STATIC_DISPATCH(_mulx8_f32)(a_ptr, b_ptr, result_ptr);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1406,7 +1406,7 @@ f32x8_v mulf32x8_v(const f32x8_v a, const f32x8_v b) {
 f32x8_v divf32x8_v(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   HWY_STATIC_DISPATCH(_divx8_f32)(a_ptr, b_ptr, result_ptr);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1415,7 +1415,7 @@ f32x8_v divf32x8_v(const f32x8_v a, const f32x8_v b) {
 
 f32x8_v sqrtf32x8_v(const f32x8_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   HWY_STATIC_DISPATCH(_sqrtx8_f32)(a_ptr, result_ptr);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1426,7 +1426,7 @@ f32x8_v fmaf32x8_v(const f32x8_v a, const f32x8_v b, const f32x8_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   HWY_STATIC_DISPATCH(_fmax8_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1444,7 +1444,7 @@ f32x8_v fmaf32x8_v(const f32x8_v a, const f32x8_v b, const f32x8_v c) {
 f64x8_v addf64x8_v(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   HWY_STATIC_DISPATCH(_addx8_f64)(a_ptr, b_ptr, result_ptr);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1454,7 +1454,7 @@ f64x8_v addf64x8_v(const f64x8_v a, const f64x8_v b) {
 f64x8_v subf64x8_v(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   HWY_STATIC_DISPATCH(_subx8_f64)(a_ptr, b_ptr, result_ptr);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1464,7 +1464,7 @@ f64x8_v subf64x8_v(const f64x8_v a, const f64x8_v b) {
 f64x8_v mulf64x8_v(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   HWY_STATIC_DISPATCH(_mulx8_f64)(a_ptr, b_ptr, result_ptr);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1474,7 +1474,7 @@ f64x8_v mulf64x8_v(const f64x8_v a, const f64x8_v b) {
 f64x8_v divf64x8_v(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   HWY_STATIC_DISPATCH(_divx8_f64)(a_ptr, b_ptr, result_ptr);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1483,7 +1483,7 @@ f64x8_v divf64x8_v(const f64x8_v a, const f64x8_v b) {
 
 f64x8_v sqrtf64x8_v(const f64x8_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   HWY_STATIC_DISPATCH(_sqrtx8_f64)(a_ptr, result_ptr);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1494,7 +1494,7 @@ f64x8_v fmaf64x8_v(const f64x8_v a, const f64x8_v b, const f64x8_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   HWY_STATIC_DISPATCH(_fmax8_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1506,7 +1506,7 @@ f64x8_v fmaf64x8_v(const f64x8_v a, const f64x8_v b, const f64x8_v c) {
 f32x16_v addf32x16_v(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   HWY_STATIC_DISPATCH(_addx16_f32)(a_ptr, b_ptr, result_ptr);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -1516,7 +1516,7 @@ f32x16_v addf32x16_v(const f32x16_v a, const f32x16_v b) {
 f32x16_v subf32x16_v(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   HWY_STATIC_DISPATCH(_subx16_f32)(a_ptr, b_ptr, result_ptr);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -1526,7 +1526,7 @@ f32x16_v subf32x16_v(const f32x16_v a, const f32x16_v b) {
 f32x16_v mulf32x16_v(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   HWY_STATIC_DISPATCH(_mulx16_f32)(a_ptr, b_ptr, result_ptr);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -1536,7 +1536,7 @@ f32x16_v mulf32x16_v(const f32x16_v a, const f32x16_v b) {
 f32x16_v divf32x16_v(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   HWY_STATIC_DISPATCH(_divx16_f32)(a_ptr, b_ptr, result_ptr);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -1545,7 +1545,7 @@ f32x16_v divf32x16_v(const f32x16_v a, const f32x16_v b) {
 
 f32x16_v sqrtf32x16_v(const f32x16_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   HWY_STATIC_DISPATCH(_sqrtx16_f32)(a_ptr, result_ptr);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -1556,7 +1556,7 @@ f32x16_v fmaf32x16_v(const f32x16_v a, const f32x16_v b, const f32x16_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   HWY_STATIC_DISPATCH(_fmax16_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -1573,7 +1573,7 @@ f32x16_v fmaf32x16_v(const f32x16_v a, const f32x16_v b, const f32x16_v c) {
 f64x16_v addf64x16_v(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   HWY_STATIC_DISPATCH(_addx16_f64)(a_ptr, b_ptr, result_ptr);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -1583,7 +1583,7 @@ f64x16_v addf64x16_v(const f64x16_v a, const f64x16_v b) {
 f64x16_v subf64x16_v(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   HWY_STATIC_DISPATCH(_subx16_f64)(a_ptr, b_ptr, result_ptr);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -1593,7 +1593,7 @@ f64x16_v subf64x16_v(const f64x16_v a, const f64x16_v b) {
 f64x16_v mulf64x16_v(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   HWY_STATIC_DISPATCH(_mulx16_f64)(a_ptr, b_ptr, result_ptr);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -1603,7 +1603,7 @@ f64x16_v mulf64x16_v(const f64x16_v a, const f64x16_v b) {
 f64x16_v divf64x16_v(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   HWY_STATIC_DISPATCH(_divx16_f64)(a_ptr, b_ptr, result_ptr);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -1612,7 +1612,7 @@ f64x16_v divf64x16_v(const f64x16_v a, const f64x16_v b) {
 
 f64x16_v sqrtf64x16_v(const f64x16_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   HWY_STATIC_DISPATCH(_sqrtx16_f64)(a_ptr, result_ptr);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -1623,7 +1623,7 @@ f64x16_v fmaf64x16_v(const f64x16_v a, const f64x16_v b, const f64x16_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   HWY_STATIC_DISPATCH(_fmax16_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -1639,7 +1639,6 @@ f64x16_v fmaf64x16_v(const f64x16_v a, const f64x16_v b, const f64x16_v c) {
 f32x2_v addf32x2_d(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  // float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
   alignas(8) float result_ptr[2];
   addf32(a_ptr, b_ptr, result_ptr, 2);
   f32x2_v result;
@@ -1650,7 +1649,7 @@ f32x2_v addf32x2_d(const f32x2_v a, const f32x2_v b) {
 f32x2_v subf32x2_d(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   subf32(a_ptr, b_ptr, result_ptr, 2);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1660,7 +1659,7 @@ f32x2_v subf32x2_d(const f32x2_v a, const f32x2_v b) {
 f32x2_v mulf32x2_d(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   mulf32(a_ptr, b_ptr, result_ptr, 2);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1670,7 +1669,7 @@ f32x2_v mulf32x2_d(const f32x2_v a, const f32x2_v b) {
 f32x2_v divf32x2_d(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   divf32(a_ptr, b_ptr, result_ptr, 2);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1679,7 +1678,7 @@ f32x2_v divf32x2_d(const f32x2_v a, const f32x2_v b) {
 
 f32x2_v sqrtf32x2_d(const f32x2_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   sqrtf32(a_ptr, result_ptr, 2);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1690,7 +1689,7 @@ f32x2_v fmaf32x2_d(const f32x2_v a, const f32x2_v b, const f32x2_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   fmaf32(a_ptr, b_ptr, c_ptr, result_ptr, 2);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -1702,7 +1701,7 @@ f32x2_v fmaf32x2_d(const f32x2_v a, const f32x2_v b, const f32x2_v c) {
 f64x2_v addf64x2_d(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   addf64(a_ptr, b_ptr, result_ptr, 2);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1712,7 +1711,7 @@ f64x2_v addf64x2_d(const f64x2_v a, const f64x2_v b) {
 f64x2_v subf64x2_d(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   subf64(a_ptr, b_ptr, result_ptr, 2);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1722,7 +1721,7 @@ f64x2_v subf64x2_d(const f64x2_v a, const f64x2_v b) {
 f64x2_v mulf64x2_d(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   mulf64(a_ptr, b_ptr, result_ptr, 2);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1732,7 +1731,7 @@ f64x2_v mulf64x2_d(const f64x2_v a, const f64x2_v b) {
 f64x2_v divf64x2_d(const f64x2_v a, const f64x2_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   divf64(a_ptr, b_ptr, result_ptr, 2);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1741,7 +1740,7 @@ f64x2_v divf64x2_d(const f64x2_v a, const f64x2_v b) {
 
 f64x2_v sqrtf64x2_d(const f64x2_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   sqrtf64(a_ptr, result_ptr, 2);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1752,7 +1751,7 @@ f64x2_v fmaf64x2_d(const f64x2_v a, const f64x2_v b, const f64x2_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(16, sizeof(f64x2_v));
+  alignas(16) double result_ptr[2];
   fmaf64(a_ptr, b_ptr, c_ptr, result_ptr, 2);
   f64x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x2_v));
@@ -1763,7 +1762,7 @@ f64x2_v fmaf64x2_d(const f64x2_v a, const f64x2_v b, const f64x2_v c) {
 f32x4_v addf32x4_d(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   addf32(a_ptr, b_ptr, result_ptr, 4);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1773,7 +1772,7 @@ f32x4_v addf32x4_d(const f32x4_v a, const f32x4_v b) {
 f32x4_v subf32x4_d(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   subf32(a_ptr, b_ptr, result_ptr, 4);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1783,7 +1782,7 @@ f32x4_v subf32x4_d(const f32x4_v a, const f32x4_v b) {
 f32x4_v mulf32x4_d(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   mulf32(a_ptr, b_ptr, result_ptr, 4);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1793,7 +1792,7 @@ f32x4_v mulf32x4_d(const f32x4_v a, const f32x4_v b) {
 f32x4_v divf32x4_d(const f32x4_v a, const f32x4_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   divf32(a_ptr, b_ptr, result_ptr, 4);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1802,7 +1801,7 @@ f32x4_v divf32x4_d(const f32x4_v a, const f32x4_v b) {
 
 f32x4_v sqrtf32x4_d(const f32x4_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   sqrtf32(a_ptr, result_ptr, 4);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1813,7 +1812,7 @@ f32x4_v fmaf32x4_d(const f32x4_v a, const f32x4_v b, const f32x4_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(16, sizeof(f32x4_v));
+  alignas(16) float result_ptr[4];
   fmaf32(a_ptr, b_ptr, c_ptr, result_ptr, 4);
   f32x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x4_v));
@@ -1825,7 +1824,7 @@ f32x4_v fmaf32x4_d(const f32x4_v a, const f32x4_v b, const f32x4_v c) {
 f64x4_v addf64x4_d(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   addf64(a_ptr, b_ptr, result_ptr, 4);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1835,7 +1834,7 @@ f64x4_v addf64x4_d(const f64x4_v a, const f64x4_v b) {
 f64x4_v subf64x4_d(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   subf64(a_ptr, b_ptr, result_ptr, 4);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1845,7 +1844,7 @@ f64x4_v subf64x4_d(const f64x4_v a, const f64x4_v b) {
 f64x4_v mulf64x4_d(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   mulf64(a_ptr, b_ptr, result_ptr, 4);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1855,7 +1854,7 @@ f64x4_v mulf64x4_d(const f64x4_v a, const f64x4_v b) {
 f64x4_v divf64x4_d(const f64x4_v a, const f64x4_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   divf64(a_ptr, b_ptr, result_ptr, 4);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1864,7 +1863,7 @@ f64x4_v divf64x4_d(const f64x4_v a, const f64x4_v b) {
 
 f64x4_v sqrtf64x4_d(const f64x4_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   sqrtf64(a_ptr, result_ptr, 4);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1875,7 +1874,7 @@ f64x4_v fmaf64x4_d(const f64x4_v a, const f64x4_v b, const f64x4_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(32, sizeof(f64x4_v));
+  alignas(32) double result_ptr[4];
   fmaf64(a_ptr, b_ptr, c_ptr, result_ptr, 4);
   f64x4_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x4_v));
@@ -1887,7 +1886,7 @@ f64x4_v fmaf64x4_d(const f64x4_v a, const f64x4_v b, const f64x4_v c) {
 f32x8_v addf32x8_d(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   addf32(a_ptr, b_ptr, result_ptr, 8);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1898,7 +1897,7 @@ f32x8_v subf32x8_d(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
 
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   subf32(a_ptr, b_ptr, result_ptr, 8);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1908,7 +1907,7 @@ f32x8_v subf32x8_d(const f32x8_v a, const f32x8_v b) {
 f32x8_v mulf32x8_d(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   mulf32(a_ptr, b_ptr, result_ptr, 8);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1918,7 +1917,7 @@ f32x8_v mulf32x8_d(const f32x8_v a, const f32x8_v b) {
 f32x8_v divf32x8_d(const f32x8_v a, const f32x8_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   divf32(a_ptr, b_ptr, result_ptr, 8);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1927,7 +1926,7 @@ f32x8_v divf32x8_d(const f32x8_v a, const f32x8_v b) {
 
 f32x8_v sqrtf32x8_d(const f32x8_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   sqrtf32(a_ptr, result_ptr, 8);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1938,7 +1937,7 @@ f32x8_v fmaf32x8_d(const f32x8_v a, const f32x8_v b, const f32x8_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(32, sizeof(f32x8_v));
+  alignas(32) float result_ptr[8];
   fmaf32(a_ptr, b_ptr, c_ptr, result_ptr, 8);
   f32x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x8_v));
@@ -1950,7 +1949,7 @@ f32x8_v fmaf32x8_d(const f32x8_v a, const f32x8_v b, const f32x8_v c) {
 f64x8_v addf64x8_d(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   addf64(a_ptr, b_ptr, result_ptr, 8);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1960,7 +1959,7 @@ f64x8_v addf64x8_d(const f64x8_v a, const f64x8_v b) {
 f64x8_v subf64x8_d(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   subf64(a_ptr, b_ptr, result_ptr, 8);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1970,7 +1969,7 @@ f64x8_v subf64x8_d(const f64x8_v a, const f64x8_v b) {
 f64x8_v mulf64x8_d(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   mulf64(a_ptr, b_ptr, result_ptr, 8);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1980,7 +1979,7 @@ f64x8_v mulf64x8_d(const f64x8_v a, const f64x8_v b) {
 f64x8_v divf64x8_d(const f64x8_v a, const f64x8_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   divf64(a_ptr, b_ptr, result_ptr, 8);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -1989,7 +1988,7 @@ f64x8_v divf64x8_d(const f64x8_v a, const f64x8_v b) {
 
 f64x8_v sqrtf64x8_d(const f64x8_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   sqrtf64(a_ptr, result_ptr, 8);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -2000,7 +1999,7 @@ f64x8_v fmaf64x8_d(const f64x8_v a, const f64x8_v b, const f64x8_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(64, sizeof(f64x8_v));
+  alignas(64) double result_ptr[8];
   fmaf64(a_ptr, b_ptr, c_ptr, result_ptr, 8);
   f64x8_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x8_v));
@@ -2012,7 +2011,7 @@ f64x8_v fmaf64x8_d(const f64x8_v a, const f64x8_v b, const f64x8_v c) {
 f32x16_v addf32x16_d(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   addf32(a_ptr, b_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -2022,7 +2021,7 @@ f32x16_v addf32x16_d(const f32x16_v a, const f32x16_v b) {
 f32x16_v subf32x16_d(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   subf32(a_ptr, b_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -2032,7 +2031,7 @@ f32x16_v subf32x16_d(const f32x16_v a, const f32x16_v b) {
 f32x16_v mulf32x16_d(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   mulf32(a_ptr, b_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -2042,7 +2041,7 @@ f32x16_v mulf32x16_d(const f32x16_v a, const f32x16_v b) {
 f32x16_v divf32x16_d(const f32x16_v a, const f32x16_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   divf32(a_ptr, b_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -2051,7 +2050,7 @@ f32x16_v divf32x16_d(const f32x16_v a, const f32x16_v b) {
 
 f32x16_v sqrtf32x16_d(const f32x16_v a) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   sqrtf32(a_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -2062,7 +2061,7 @@ f32x16_v fmaf32x16_d(const f32x16_v a, const f32x16_v b, const f32x16_v c) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
   const float *c_ptr = reinterpret_cast<const float *>(&c);
-  float *result_ptr = (float *)aligned_alloc(64, sizeof(f32x16_v));
+  alignas(64) float result_ptr[16];
   fmaf32(a_ptr, b_ptr, c_ptr, result_ptr, 16);
   f32x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x16_v));
@@ -2074,7 +2073,7 @@ f32x16_v fmaf32x16_d(const f32x16_v a, const f32x16_v b, const f32x16_v c) {
 f64x16_v addf64x16_d(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   addf64(a_ptr, b_ptr, result_ptr, 16);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -2084,7 +2083,7 @@ f64x16_v addf64x16_d(const f64x16_v a, const f64x16_v b) {
 f64x16_v subf64x16_d(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   subf64(a_ptr, b_ptr, result_ptr, 16);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -2094,7 +2093,7 @@ f64x16_v subf64x16_d(const f64x16_v a, const f64x16_v b) {
 f64x16_v mulf64x16_d(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   mulf64(a_ptr, b_ptr, result_ptr, 16);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -2104,7 +2103,7 @@ f64x16_v mulf64x16_d(const f64x16_v a, const f64x16_v b) {
 f64x16_v divf64x16_d(const f64x16_v a, const f64x16_v b) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   divf64(a_ptr, b_ptr, result_ptr, 16);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -2113,7 +2112,7 @@ f64x16_v divf64x16_d(const f64x16_v a, const f64x16_v b) {
 
 f64x16_v sqrtf64x16_d(const f64x16_v a) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   sqrtf64(a_ptr, result_ptr, 16);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));
@@ -2124,7 +2123,7 @@ f64x16_v fmaf64x16_d(const f64x16_v a, const f64x16_v b, const f64x16_v c) {
   const double *a_ptr = reinterpret_cast<const double *>(&a);
   const double *b_ptr = reinterpret_cast<const double *>(&b);
   const double *c_ptr = reinterpret_cast<const double *>(&c);
-  double *result_ptr = (double *)aligned_alloc(128, sizeof(f64x16_v));
+  alignas(128) double result_ptr[16];
   fmaf64(a_ptr, b_ptr, c_ptr, result_ptr, 16);
   f64x16_v result;
   std::memcpy(&result, result_ptr, sizeof(f64x16_v));

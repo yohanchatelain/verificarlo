@@ -48,7 +48,7 @@ const int get_repetitions() {
   if (env_repetitions) {
     return std::stoi(env_repetitions);
   }
-#ifdef SR_DEBUG
+#ifdef UD_DEBUG
   return 100;
 #else
   return 10'000;
@@ -112,7 +112,7 @@ H fma(const std::vector<T> &args) {
 
 namespace pn = prism::ud::vector::HWY_NAMESPACE;
 
-struct SRAdd {
+struct UDAdd {
   static constexpr char name[] = "add";
   static constexpr char symbol[] = "+";
   static constexpr int arity = 2;
@@ -128,7 +128,7 @@ struct SRAdd {
   }
 };
 
-struct SRSub {
+struct UDSub {
   static constexpr char name[] = "sub";
   static constexpr char symbol[] = "-";
   static constexpr int arity = 2;
@@ -144,7 +144,7 @@ struct SRSub {
   }
 };
 
-struct SRMul {
+struct UDMul {
   static constexpr char name[] = "mul";
   static constexpr char symbol[] = "*";
   static constexpr int arity = 2;
@@ -160,7 +160,7 @@ struct SRMul {
   }
 };
 
-struct SRDiv {
+struct UDDiv {
   static constexpr char name[] = "div";
   static constexpr char symbol[] = "/";
   static constexpr int arity = 2;
@@ -176,7 +176,7 @@ struct SRDiv {
   }
 };
 
-struct SRSqrt {
+struct UDSqrt {
   static constexpr char name[] = "sqrt";
   static constexpr char symbol[] = "√";
   static constexpr int arity = 1;
@@ -192,7 +192,7 @@ struct SRSqrt {
   }
 };
 
-struct SRFma {
+struct UDFma {
   static constexpr char name[] = "fma";
   static constexpr char symbol[] = "fma";
   static constexpr int arity = 3;
@@ -326,7 +326,7 @@ template <class Op, class D, class V = hn::VFromD<D>,
 std::vector<helper::Counter<T>> eval_op(D d, V a, V x, V y,
                                         const int repetitions) {
 
-#ifdef SR_DEBUG
+#ifdef UD_DEBUG
   const size_t lanes = 1;
   std::cerr << "rep: " << repetitions << std::endl;
 #else
@@ -581,7 +581,7 @@ template <class D, typename T = hn::TFromD<D>> void do_run_test_exact_add(D d) {
   for (int i = 0; i <= 5; i++) {
     auto va = hn::Set(d, 1.25);
     auto vb = hn::Set(d, std::ldexp(1.0, -(mantissa + i)));
-    check_distribution_match<SRAdd>(d, va, vb);
+    check_distribution_match<UDAdd>(d, va, vb);
   }
 }
 
@@ -693,12 +693,12 @@ template <class Op> struct TestBasicAssertions {
   }
 };
 
-using TestBasicAssertionsAdd = TestBasicAssertions<SRAdd>;
-using TestBasicAssertionsSub = TestBasicAssertions<SRSub>;
-using TestBasicAssertionsMul = TestBasicAssertions<SRMul>;
-using TestBasicAssertionsDiv = TestBasicAssertions<SRDiv>;
-using TestBasicAssertionsSqrt = TestBasicAssertions<SRSqrt>;
-using TestBasicAssertionsFma = TestBasicAssertions<SRFma>;
+using TestBasicAssertionsAdd = TestBasicAssertions<UDAdd>;
+using TestBasicAssertionsSub = TestBasicAssertions<UDSub>;
+using TestBasicAssertionsMul = TestBasicAssertions<UDMul>;
+using TestBasicAssertionsDiv = TestBasicAssertions<UDDiv>;
+using TestBasicAssertionsSqrt = TestBasicAssertions<UDSqrt>;
+using TestBasicAssertionsFma = TestBasicAssertions<UDFma>;
 
 HWY_NOINLINE void TestAllExactOperationsAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestExactOperationsAdd>());
@@ -734,12 +734,12 @@ template <class Op> struct TestRandom01Assertions {
   }
 };
 
-using TestRandom01AssertionsAdd = TestRandom01Assertions<SRAdd>;
-using TestRandom01AssertionsSub = TestRandom01Assertions<SRSub>;
-using TestRandom01AssertionsMul = TestRandom01Assertions<SRMul>;
-using TestRandom01AssertionsDiv = TestRandom01Assertions<SRDiv>;
-using TestRandom01AssertionsSqrt = TestRandom01Assertions<SRSqrt>;
-using TestRandom01AssertionsFma = TestRandom01Assertions<SRFma>;
+using TestRandom01AssertionsAdd = TestRandom01Assertions<UDAdd>;
+using TestRandom01AssertionsSub = TestRandom01Assertions<UDSub>;
+using TestRandom01AssertionsMul = TestRandom01Assertions<UDMul>;
+using TestRandom01AssertionsDiv = TestRandom01Assertions<UDDiv>;
+using TestRandom01AssertionsSqrt = TestRandom01Assertions<UDSqrt>;
+using TestRandom01AssertionsFma = TestRandom01Assertions<UDFma>;
 
 HWY_NOINLINE void TestAllRandom01AssertionsAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandom01AssertionsAdd>());
@@ -790,12 +790,12 @@ template <class Op> struct TestRandomNoOverlapAssertions {
   }
 };
 
-using TestRandomNoOverlapAssertionsAdd = TestRandomNoOverlapAssertions<SRAdd>;
-using TestRandomNoOverlapAssertionsSub = TestRandomNoOverlapAssertions<SRSub>;
-using TestRandomNoOverlapAssertionsMul = TestRandomNoOverlapAssertions<SRMul>;
-using TestRandomNoOverlapAssertionsDiv = TestRandomNoOverlapAssertions<SRDiv>;
-using TestRandomNoOverlapAssertionsSqrt = TestRandomNoOverlapAssertions<SRSqrt>;
-using TestRandomNoOverlapAssertionsFma = TestRandomNoOverlapAssertions<SRFma>;
+using TestRandomNoOverlapAssertionsAdd = TestRandomNoOverlapAssertions<UDAdd>;
+using TestRandomNoOverlapAssertionsSub = TestRandomNoOverlapAssertions<UDSub>;
+using TestRandomNoOverlapAssertionsMul = TestRandomNoOverlapAssertions<UDMul>;
+using TestRandomNoOverlapAssertionsDiv = TestRandomNoOverlapAssertions<UDDiv>;
+using TestRandomNoOverlapAssertionsSqrt = TestRandomNoOverlapAssertions<UDSqrt>;
+using TestRandomNoOverlapAssertionsFma = TestRandomNoOverlapAssertions<UDFma>;
 
 HWY_NOINLINE void TestAllRandomNoOverlapAssertionsAdd() {
   hn::ForFloat3264Types(
@@ -840,10 +840,10 @@ template <class Op> struct TestRandomLastBitOverlap {
   }
 };
 
-using TestRandomLastBitOverlapAdd = TestRandomLastBitOverlap<SRAdd>;
-using TestRandomLastBitOverlapSub = TestRandomLastBitOverlap<SRSub>;
-using TestRandomLastBitOverlapMul = TestRandomLastBitOverlap<SRMul>;
-using TestRandomLastBitOverlapDiv = TestRandomLastBitOverlap<SRDiv>;
+using TestRandomLastBitOverlapAdd = TestRandomLastBitOverlap<UDAdd>;
+using TestRandomLastBitOverlapSub = TestRandomLastBitOverlap<UDSub>;
+using TestRandomLastBitOverlapMul = TestRandomLastBitOverlap<UDMul>;
+using TestRandomLastBitOverlapDiv = TestRandomLastBitOverlap<UDDiv>;
 
 HWY_NOINLINE void TestAllRandomLastBitOverlapAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomLastBitOverlapAdd>());
@@ -884,10 +884,10 @@ template <class Op> struct TestRandomMidOverlap {
   }
 };
 
-using TestRandomMidOverlapAdd = TestRandomMidOverlap<SRAdd>;
-using TestRandomMidOverlapSub = TestRandomMidOverlap<SRSub>;
-using TestRandomMidOverlapMul = TestRandomMidOverlap<SRMul>;
-using TestRandomMidOverlapDiv = TestRandomMidOverlap<SRDiv>;
+using TestRandomMidOverlapAdd = TestRandomMidOverlap<UDAdd>;
+using TestRandomMidOverlapSub = TestRandomMidOverlap<UDSub>;
+using TestRandomMidOverlapMul = TestRandomMidOverlap<UDMul>;
+using TestRandomMidOverlapDiv = TestRandomMidOverlap<UDDiv>;
 
 HWY_NOINLINE void TestAllRandomMidOverlapAdd() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestRandomMidOverlapAdd>());
@@ -914,30 +914,30 @@ HWY_AFTER_NAMESPACE();
 namespace prism {
 namespace HWY_NAMESPACE {
 
-HWY_BEFORE_TEST(SRRoundTest);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllExactOperationsAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSub);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsMul);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsDiv);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSqrt);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsFma);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsSub);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsMul);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsDiv);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomNoOverlapAssertionsAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomNoOverlapAssertionsSub);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomNoOverlapAssertionsMul);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomNoOverlapAssertionsDiv);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomLastBitOverlapAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomLastBitOverlapSub);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomLastBitOverlapMul);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomLastBitOverlapDiv);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomMidOverlapAdd);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomMidOverlapSub);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomMidOverlapMul);
-HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomMidOverlapDiv);
+HWY_BEFORE_TEST(UDRoundTest);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllExactOperationsAdd);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllBasicAssertionsAdd);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllBasicAssertionsSub);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllBasicAssertionsMul);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllBasicAssertionsDiv);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllBasicAssertionsSqrt);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllBasicAssertionsFma);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandom01AssertionsAdd);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandom01AssertionsSub);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandom01AssertionsMul);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandom01AssertionsDiv);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomNoOverlapAssertionsAdd);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomNoOverlapAssertionsSub);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomNoOverlapAssertionsMul);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomNoOverlapAssertionsDiv);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomLastBitOverlapAdd);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomLastBitOverlapSub);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomLastBitOverlapMul);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomLastBitOverlapDiv);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomMidOverlapAdd);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomMidOverlapSub);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomMidOverlapMul);
+HWY_EXPORT_AND_TEST_P(UDRoundTest, TestAllRandomMidOverlapDiv);
 HWY_AFTER_TEST();
 
 } // namespace HWY_NAMESPACE
