@@ -3,8 +3,7 @@
 
 #include "hwy/highway.h"
 
-namespace ud {
-namespace vector {
+namespace prism::ud::vector {
 /* Array functions */
 
 /* IEEE-754 binary32 */
@@ -252,7 +251,6 @@ f64x16_v subf64x16_d(const f64x16_v a, const f64x16_v b);
 f64x16_v mulf64x16_d(const f64x16_v a, const f64x16_v b);
 f64x16_v divf64x16_d(const f64x16_v a, const f64x16_v b);
 
-} // namespace vector
-} // namespace ud
+} // namespace prism::ud::vector
 
 #endif // _INTERFLOP_UD_LIB_H_

@@ -6,7 +6,7 @@
 
 #include "hwy/base.h"
 
-namespace sr {
+namespace prism {
 
 HWY_API uint64_t get_user_seed() throw() {
   static bool initialized = false;
@@ -56,6 +56,6 @@ HWY_DLLEXPORT std::uint64_t random();
 } // namespace xoroshiro256plus
 } // namespace scalar
 
-} // namespace sr
+} // namespace prism
 
 #endif // __XOROSHIRO256PLUS_HW_H__

@@ -16,8 +16,8 @@
 
 // Optional, can instead add HWY_ATTR to all functions.
 HWY_BEFORE_NAMESPACE();
-namespace ud {
-namespace vector {
+namespace prism::ud::vector {
+
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
@@ -586,14 +586,12 @@ void _fma_f64(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
-} // namespace vector
-} // namespace ud
+} // namespace prism::ud::vector
 HWY_AFTER_NAMESPACE();
 
 #if HWY_ONCE
 
-namespace ud {
-namespace vector {
+namespace prism::ud::vector {
 
 HWY_EXPORT(_round_f32);
 HWY_EXPORT(_add_f32);
@@ -656,7 +654,7 @@ HWY_EXPORT(_fmax4_f32);
 #endif
 
 /* 256-bits */
-#if HWY_MAX_BYTES >= 32
+#if (HWY_MAX_BYTES >= 32) && (HWY_TARGET != HWY_SSE4)
 HWY_EXPORT(_addx4_f64);
 HWY_EXPORT(_subx4_f64);
 HWY_EXPORT(_mulx4_f64);
@@ -1117,11 +1115,12 @@ void fmaf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
 f32x2_v addf32x2_v(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
-  HWY_STATIC_DISPATCH(_addx2_f32)(a_ptr, b_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  // float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result[2];
+  HWY_STATIC_DISPATCH(_addx2_f32)(a_ptr, b_ptr, result);
+  f32x2_v result_v;
+  std::memcpy(&result_v, result, sizeof(f32x2_v));
+  return result_v;
 }
 
 f32x2_v subf32x2_v(const f32x2_v a, const f32x2_v b) {
@@ -1640,7 +1639,8 @@ f64x16_v fmaf64x16_v(const f64x16_v a, const f64x16_v b, const f64x16_v c) {
 f32x2_v addf32x2_d(const f32x2_v a, const f32x2_v b) {
   const float *a_ptr = reinterpret_cast<const float *>(&a);
   const float *b_ptr = reinterpret_cast<const float *>(&b);
-  float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  // float *result_ptr = (float *)aligned_alloc(8, sizeof(f32x2_v));
+  alignas(8) float result_ptr[2];
   addf32(a_ptr, b_ptr, result_ptr, 2);
   f32x2_v result;
   std::memcpy(&result, result_ptr, sizeof(f32x2_v));
@@ -2131,14 +2131,12 @@ f64x16_v fmaf64x16_d(const f64x16_v a, const f64x16_v b, const f64x16_v c) {
   return result;
 }
 
-} // namespace vector
-} // namespace ud
+} // namespace prism::ud::vector
 
 #endif // HWY_ONCE
 
 #if HWY_ONCE
-namespace ud {
-namespace scalar {
+namespace prism::ud::scalar {
 
 float addf32(float a, float b) { return ud::scalar::add<float>(a, b); }
 float subf32(float a, float b) { return ud::scalar::sub<float>(a, b); }
@@ -2158,6 +2156,5 @@ double fmaf64(double a, double b, double c) {
   return ud::scalar::fma<double>(a, b, c);
 }
 
-} // namespace scalar
-} // namespace ud
+} // namespace prism::ud::scalar
 #endif // HWY_ONCE

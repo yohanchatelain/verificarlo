@@ -13,7 +13,7 @@
 #include "hwy/print-inl.h"
 
 HWY_BEFORE_NAMESPACE(); // at file scope
-namespace sr {
+namespace prism {
 
 namespace vector {
 
@@ -88,7 +88,7 @@ HWY_API void debug_mask(const std::string &msg, const M &a) {
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
 } // namespace vector
-} // namespace sr
+} // namespace prism
 HWY_AFTER_NAMESPACE();
 
 #endif // HIGHWAY_HWY_VERIFICARLO_SR_DEBUG_INL_H_

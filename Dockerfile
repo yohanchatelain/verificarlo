@@ -11,10 +11,13 @@ ARG PYTHON_VERSION=3.8
 ARG LLVM_VERSION=7
 ARG GCC_VERSION=7
 ARG WITH_FLANG=flang
-ARG GCC_PATH=/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}
+# ARG GCC_PATH=/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV PATH /usr/local/bin:$PATH
 ENV PYTHONPATH /usr/local/lib/python${PYTHON_VERSION}/site-packages/:${PYTHONPATH}
+
+# Avoid being stuck with tzdata time zone configuration
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Retrieve dependencies
 RUN apt-get -y update && apt-get -y --no-install-recommends install tzdata
@@ -36,16 +39,17 @@ RUN export UBUNTU_VERSION=$(grep 'VERSION_ID' /etc/os-release | cut -d'=' -f2 | 
 
 WORKDIR /build/
 
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 30 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} 30 && \
+    update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-${GCC_VERSION} 30 && \
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${LLVM_VERSION} 30 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${LLVM_VERSION} 30 && \
+    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${LLVM_VERSION} 30
+
 ENV LIBRARY_PATH ${GCC_PATH}:$LIBRARY_PATH
 
-# Install other Python dependencies (not available with apt-get) via pip
-RUN ln -s /usr/bin/x86_64-linux-gnu-gcc-${GCC_VERSION} /usr/bin/x86_64-linux-gnu-gcc
 
 # Download and configure verificarlo from git master
-ENV AR=gcc-ar-${GCC_VERSION}
-ENV RANLIB=gcc-ranlib-${GCC_VERSION}
-ENV CC=gcc-${GCC_VERSION}
-ENV CXX=g++-${GCC_VERSION}
 COPY . /build/verificarlo/
 WORKDIR /build/verificarlo
 

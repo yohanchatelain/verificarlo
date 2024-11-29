@@ -44,9 +44,9 @@ cc_test_lib_gen(
     size = "small",
     src = [
         "//tests:test_sr_accuracy.cpp",
-        "//src:srcs-sr",
     ],
     copts = HWY_OPTS,
+    deps = ["//src:prism"],
 )
 
 cc_test_lib_gen(
@@ -54,10 +54,10 @@ cc_test_lib_gen(
     size = "small",
     src = [
         "//tests:test_sr_accuracy.cpp",
-        "//src:srcs-sr",
     ],
     copts = HWY_OPTS,
     dbg = True,
+    deps = ["//src:prism"],
 )
 
 cc_test_lib_gen(
@@ -65,23 +65,23 @@ cc_test_lib_gen(
     size = "small",
     src = [
         "//tests:test_ud_accuracy.cpp",
-        "//src:srcs-ud",
     ],
     copts = HWY_OPTS,
+    deps = ["//src:prism"],
 )
 
 cc_binary(
     name = "sr-scalar-single-test",
     srcs = ["//tests:test_single_sr.cpp"],
     copts = HWY_OPTS + ["-DSR_DEBUG"],
-    deps = ["@//src:sr"],
+    deps = ["//src:prism"],
 )
 
 cc_binary(
     name = "ud-scalar-single-test",
     srcs = ["//tests:test_single_ud.cpp"],
     copts = HWY_OPTS + ["-DSR_DEBUG"],
-    deps = ["@//src:ud"],
+    deps = ["//src:prism"],
 )
 
 # Vector tests
@@ -90,36 +90,32 @@ cc_test_lib_gen(
     name = "xoroshiro",
     size = "medium",
     src = [
-        "//src:xoroshiro",
+        "//src:srcs-xoroshiro",
         "//tests:test_xoroshiro.cpp",
     ],
     copts = HWY_OPTS,
     dbg = True,
 )
 
-cc_binary(
+cc_test_lib_gen(
     name = "sr-vector-single-test",
-    srcs = [
-        "//src:srcs-sr",
+    src = [
         "//tests:test_single_sr_hwy.cpp",
     ],
-    copts = HWY_OPTS + ["-DSR_DEBUG"],
+    copts = HWY_OPTS,
     deps = [
-        "@googletest//:gtest",
-        "@googletest//:gtest_main",
-        "@hwy",
-        "@hwy//:hwy_test_util",
+        "@//src:prism-dbg",
     ],
 )
 
 cc_test_lib_gen(
     name = "sr-vector-accuracy",
-    size = "medium",
+    size = "large",
     src = [
         "//tests:test_sr_hwy_accuracy.cpp",
-        "//src:srcs-sr",
     ],
     copts = HWY_OPTS,
+    deps = ["//src:prism-dbg"],
 )
 
 cc_test_lib_gen(
@@ -127,9 +123,9 @@ cc_test_lib_gen(
     size = "medium",
     src = [
         "//tests:test_ud_hwy_accuracy.cpp",
-        "//src:srcs-ud",
     ],
     copts = HWY_OPTS,
+    deps = ["//src:prism"],
 )
 
 cc_test_lib_gen(
@@ -147,9 +143,12 @@ cc_test_lib_gen(
     name = "sr-perf",
     size = "medium",
     src = ["//tests:test_sr_hwy_performance.cpp"],
-    copts = HWY_OPTS + ["-march=native"],
+    copts = HWY_OPTS + [
+        "-march=native",
+        "-Wno-psabi",
+    ],
     deps = [
-        "@//src:sr-native",
+        "@//src:prism-native",
         "@hwy//:nanobenchmark",
     ],
 )
@@ -158,9 +157,12 @@ cc_test_lib_gen(
     name = "ud-perf",
     size = "medium",
     src = ["//tests:test_ud_hwy_performance.cpp"],
-    copts = HWY_OPTS,
+    copts = HWY_OPTS + [
+        "-march=native",
+        "-Wno-psabi",
+    ],
     deps = [
-        "@//src:ud",
+        "@//src:prism-native",
         "@hwy//:nanobenchmark",
     ],
 )
@@ -171,10 +173,9 @@ cc_test_lib_gen(
     src = [
         "//tests:test_threads.cpp",
     ],
-    copts = HWY_OPTS + ["-DHWY_DISABLED_TARGETS=(HWY_EMU128)"],
+    copts = HWY_OPTS,
     deps = [
-        "//src:xoroshiro",
-        "@//src:sr-native",
+        "@//src:prism",
     ],
 )
 

@@ -6,8 +6,7 @@
 #include "utils.hpp"
 #include "xoroshiro256+_hw.h"
 
-namespace ud {
-namespace scalar {
+namespace prism::ud::scalar {
 
 template <typename T> T udround(T a) {
   debug_start();
@@ -16,9 +15,10 @@ template <typename T> T udround(T a) {
     return a;
   }
   debug_print("a        = %.13a\n", a);
-  using I = typename sr::utils::IEEE754<T>::I;
+  using I = typename prism::utils::IEEE754<T>::I;
   I a_bits = *reinterpret_cast<I *>(&a);
-  std::uint64_t rand = sr::scalar::xoroshiro256plus::static_dispatch::random();
+  std::uint64_t rand =
+      prism::scalar::xoroshiro256plus::static_dispatch::random();
   debug_print("rand     = 0x%02x\n", rand);
   // get the last bit of the random number to get -1 or 1
   a_bits += 1 - ((rand & 1) << 1);
@@ -37,7 +37,6 @@ template <typename T> T fma(T a, T b, T c) {
   return udround(std::fma(a, b, c));
 }
 
-} // namespace scalar
-} // namespace ud
+} // namespace prism::ud::scalar
 
 #endif // __UD_HPP__

@@ -12,8 +12,7 @@
 
 #include "src/ud_hw.h"
 
-namespace ud {
-namespace vector {
+namespace prism::ud::vector {
 
 using VecArgf32 = hwy::AlignedUniquePtr<float[]>;
 using VecArgf64 = hwy::AlignedUniquePtr<double[]>;
@@ -1169,7 +1168,6 @@ TEST(SRVectorDynamicBenchmark, SRDivF32x16D) {
   MeasureFunctionX<16, float, f32x16_v>(&test_divf32x16_d, 16, kVerbose);
 }
 
-} // namespace vector
-} // namespace ud
+} // namespace prism::ud::vector
 
 // HYW_TEST_MAIN();1

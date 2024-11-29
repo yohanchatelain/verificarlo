@@ -17,19 +17,21 @@
 // clang-format on
 
 HWY_BEFORE_NAMESPACE(); // at file scope
+namespace prism {
 namespace sr {
 
 namespace vector {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace rng = sr::vector::xoroshiro256plus::HWY_NAMESPACE;
+namespace rng = prism::vector::xoroshiro256plus::HWY_NAMESPACE;
+namespace dbg = prism::vector::HWY_NAMESPACE;
 
 template <class D, class V, typename T = hn::TFromD<D>>
 void twosum(V a, V b, V &sigma, V &tau) {
-  debug_msg("\n[twosum] START");
-  debug_vec<D>("[twosum] a", a);
-  debug_vec<D>("[twosum] b", b);
+  dbg::debug_msg("\n[twosum] START");
+  dbg::debug_vec<D>("[twosum] a", a);
+  dbg::debug_vec<D>("[twosum] b", b);
 
   auto abs_a = hn::Abs(a);
   auto abs_b = hn::Abs(b);
@@ -43,9 +45,9 @@ void twosum(V a, V b, V &sigma, V &tau) {
   auto z = hn::Sub(sigma, a_new);
   tau = hn::Add(hn::Sub(a_new, hn::Sub(sigma, z)), hn::Sub(b_new, z));
 
-  debug_vec<D>("[twosum] sigma", sigma);
-  debug_vec<D>("[twosum] tau", tau);
-  debug_msg("[twosum] END\n");
+  dbg::debug_vec<D>("[twosum] sigma", sigma);
+  dbg::debug_vec<D>("[twosum] tau", tau);
+  dbg::debug_msg("[twosum] END\n");
 }
 
 /*
@@ -66,10 +68,10 @@ return (xh, xℓ)
 template <class D, class V = hn::TFromD<D>, typename T = hn::TFromD<D>>
 void Split(V x, V &xh, V &xl) {
   const D d;
-  debug_msg("\n[Split] START");
-  debug_vec<D>("[Split] x", x);
+  dbg::debug_msg("\n[Split] START");
+  dbg::debug_vec<D>("[Split] x", x);
 
-  const int s = (int)std::ceil((utils::IEEE754<T>::precision) / 2.0);
+  const int s = (int)std::ceil((prism::utils::IEEE754<T>::precision) / 2.0);
   const auto K = hn::Set(d, (1 << s) + 1);
 
   auto gamma = hn::Mul(K, x);
@@ -77,9 +79,9 @@ void Split(V x, V &xh, V &xl) {
   xh = hn::Add(gamma, delta);
   xl = hn::Sub(x, xh);
 
-  debug_vec<D>("[Split] xh", xh);
-  debug_vec<D>("[Split] xl", xl);
-  debug_msg("[Split] END\n");
+  dbg::debug_vec<D>("[Split] xh", xh);
+  dbg::debug_vec<D>("[Split] xl", xl);
+  dbg::debug_msg("[Split] END\n");
 }
 
 /*
@@ -100,9 +102,9 @@ return (πh, πℓ)
 */
 template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
 void DekkerProd(V a, V b, V &pi_h, V &pi_l) {
-  debug_msg("\n[DekkerProd] START");
-  debug_vec<D>("[DekkerProd] a", a);
-  debug_vec<D>("[DekkerProd] b", b);
+  dbg::debug_msg("\n[DekkerProd] START");
+  dbg::debug_vec<D>("[DekkerProd] a", a);
+  dbg::debug_vec<D>("[DekkerProd] b", b);
 
   V ah, al;
   V bh, bl;
@@ -115,9 +117,9 @@ void DekkerProd(V a, V b, V &pi_h, V &pi_l) {
   auto t3 = hn::Add(t2, hn::Mul(al, bh));
   pi_l = hn::Add(t3, hn::Mul(al, bl));
 
-  debug_vec<D>("[DekkerProd] pi_h", pi_h);
-  debug_vec<D>("[DekkerProd] pi_l", pi_l);
-  debug_msg("[DekkerProd] END\n");
+  dbg::debug_vec<D>("[DekkerProd] pi_h", pi_h);
+  dbg::debug_vec<D>("[DekkerProd] pi_l", pi_l);
+  dbg::debug_msg("[DekkerProd] END\n");
 }
 
 /*
@@ -160,11 +162,11 @@ else
 end if
 */
 template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
-V fma(V a, V b, V c) {
-  debug_msg("\n[fma] START");
-  debug_vec<D>("[fma] a", a);
-  debug_vec<D>("[fma] b", b);
-  debug_vec<D>("[fma] c", c);
+V fma_emul(V a, V b, V c) {
+  dbg::debug_msg("\n[fma] START");
+  dbg::debug_vec<D>("[fma] a", a);
+  dbg::debug_vec<D>("[fma] b", b);
+  dbg::debug_vec<D>("[fma] c", c);
 
   const D d;
 
@@ -208,31 +210,31 @@ V fma(V a, V b, V c) {
 
   auto res = ret;
 
-  debug_vec<D>("[fma] res", res);
-  debug_msg("[fma] END\n");
+  dbg::debug_vec<D>("[fma] res", res);
+  dbg::debug_msg("[fma] END\n");
 
   return res;
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
 void twoprodfma(V a, V b, V &sigma, V &tau) {
-  debug_msg("\n[twoprodfma] START");
-  debug_vec<D>("[twoprodfma] a", a);
-  debug_vec<D>("[twoprodfma] b", b);
+  dbg::debug_msg("\n[twoprodfma] START");
+  dbg::debug_vec<D>("[twoprodfma] a", a);
+  dbg::debug_vec<D>("[twoprodfma] b", b);
 
   sigma = hn::Mul(a, b);
 #if HWY_NATIVE_FMA
   tau = hn::MulSub(a, b, sigma); // Highway's MulSub is equivalent to FMA
 #else
-#ifdef HWY_COMPILE_ONLY_STATIC
+#if defined(HWY_COMPILE_ONLY_STATIC) or defined(WARN_FMA_EMULATION)
 #warning "FMA not supported, using emulation (slow)"
 #endif
-  tau = fma<D>(a, b, hn::Neg(sigma));
+  tau = fma_emul<D>(a, b, hn::Neg(sigma));
 #endif
 
-  debug_vec<D>("[twoprodfma] sigma", sigma);
-  debug_vec<D>("[twoprodfma] tau", tau);
-  debug_msg("[twoprodfma] END\n");
+  dbg::debug_vec<D>("[twoprodfma] sigma", sigma);
+  dbg::debug_vec<D>("[twoprodfma] tau", tau);
+  dbg::debug_msg("[twoprodfma] END\n");
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
@@ -242,20 +244,20 @@ V get_predecessor_abs(D d, V a) {
 }
 
 template <class D, class V, typename T = hn::TFromD<D>,
-          typename I = typename sr::utils::IEEE754<T>::I,
+          typename I = typename prism::utils::IEEE754<T>::I,
           typename VI = hn::Vec<hn::RebindToSigned<D>>>
 VI get_exponent(D d, V a) {
-  debug_msg("\n[get_exponent] START");
+  dbg::debug_msg("\n[get_exponent] START");
 
-  using U = typename sr::utils::IEEE754<T>::U;
+  using U = typename prism::utils::IEEE754<T>::U;
   using DI = hn::RebindToSigned<D>;
   const DI di{};
 
-  debug_vec<D>("[get_exponent] a", a);
+  dbg::debug_vec<D>("[get_exponent] a", a);
 
-  constexpr I mantissa = sr::utils::IEEE754<T>::mantissa;
-  constexpr U exponent_mask = sr::utils::IEEE754<T>::exponent_mask_scaled;
-  constexpr I bias = sr::utils::IEEE754<T>::bias;
+  constexpr I mantissa = prism::utils::IEEE754<T>::mantissa;
+  constexpr U exponent_mask = prism::utils::IEEE754<T>::exponent_mask_scaled;
+  constexpr I bias = prism::utils::IEEE754<T>::bias;
 
   auto bits = hn::BitCast(di, a);
   auto is_zero = hn::Eq(bits, hn::Zero(di));
@@ -263,15 +265,15 @@ VI get_exponent(D d, V a) {
   auto exp = raw_exp >> hn::Set(di, mantissa);
   exp = hn::Sub(exp, hn::Set(di, bias));
 
-  debug_mask<DI>("[get_exponent] is_zero", is_zero);
-  debug_vec<DI>("[get_exponent] bits", bits);
-  debug_vec<DI>("[get_exponent] raw_exp", raw_exp);
-  debug_vec<DI>("[get_exponent] exp", exp, false);
+  dbg::debug_mask<DI>("[get_exponent] is_zero", is_zero);
+  dbg::debug_vec<DI>("[get_exponent] bits", bits);
+  dbg::debug_vec<DI>("[get_exponent] raw_exp", raw_exp);
+  dbg::debug_vec<DI>("[get_exponent] exp", exp, false);
 
   auto res = hn::IfThenZeroElse(is_zero, exp);
 
-  debug_vec<DI>("[get_exponent] res", res, false);
-  debug_msg("[get_exponent] END\n");
+  dbg::debug_vec<DI>("[get_exponent] res", res, false);
+  dbg::debug_msg("[get_exponent] END\n");
 
   return res;
 }
@@ -292,17 +294,17 @@ HWY_INLINE hn::Vec<D> FastPow2I(D d, VI x) {
 
 template <class D, class V, typename T = hn::TFromD<D>>
 hn::Vec<D> pow2(D d, V n) {
-  debug_msg("\n[pow2] START");
+  dbg::debug_msg("\n[pow2] START");
 
   using DI = hn::RebindToSigned<D>;
-  using I = typename sr::utils::IEEE754<T>::I;
+  using I = typename prism::utils::IEEE754<T>::I;
   const DI di;
 
-  debug_vec<DI>("[pow2] n", n, false);
+  dbg::debug_vec<DI>("[pow2] n", n, false);
 
-  constexpr I mantissa = sr::utils::IEEE754<T>::mantissa;
-  constexpr I min_exponent = sr::utils::IEEE754<T>::min_exponent;
-  // constexpr I bias = sr::utils::IEEE754<T>::bias;
+  constexpr I mantissa = prism::utils::IEEE754<T>::mantissa;
+  constexpr I min_exponent = prism::utils::IEEE754<T>::min_exponent;
+  // constexpr I bias = prism::utils::IEEE754<T>::bias;
 
   // is_subnormal = n < min_exponent
   auto is_subnormal = hn::Lt(n, hn::Set(di, min_exponent));
@@ -319,45 +321,45 @@ hn::Vec<D> pow2(D d, V n) {
   // res = is_subnormal ? 0 : 1
   auto res = hn::IfThenZeroElse(is_subnormal, hn::Set(di, one_as_int));
 
-  debug_vec<DI>("[pow2] res", res);
+  dbg::debug_vec<DI>("[pow2] res", res);
 
   // shift = mantissa - precision_loss
   auto shift = hn::Sub(hn::Set(di, mantissa), precision_loss);
 
-  debug_mask<DI>("[pow2] is_subnormal", is_subnormal);
-  debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
-  debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
-  debug_vec<DI>("[pow2] shift", shift, false);
+  dbg::debug_mask<DI>("[pow2] is_subnormal", is_subnormal);
+  dbg::debug_vec<DI>("[pow2] n_adjusted", n_adjusted, false);
+  dbg::debug_vec<DI>("[pow2] precision_loss", precision_loss, false);
+  dbg::debug_vec<DI>("[pow2] shift", shift, false);
 
   // res += res << shift
   res = res + (n_adjusted << shift);
 
-  debug_vec<DI>("[pow2] res", res);
-  debug_vec<D>("[pow2] res", hn::BitCast(d, res));
-  debug_msg("[pow2] END\n");
+  dbg::debug_vec<DI>("[pow2] res", res);
+  dbg::debug_vec<D>("[pow2] res", hn::BitCast(d, res));
+  dbg::debug_msg("[pow2] END\n");
 
   return hn::BitCast(d, res);
 }
 
 template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
-V sr_round(V sigma, V tau) {
-  debug_msg("\n[sr_round] START");
-  debug_vec<D>("[sr_round] sigma", sigma);
-  debug_vec<D>("[sr_round] tau", tau);
+V round(V sigma, V tau) {
+  dbg::debug_msg("\n[sr_round] START");
+  dbg::debug_vec<D>("[sr_round] sigma", sigma);
+  dbg::debug_vec<D>("[sr_round] tau", tau);
 
   const D d{};
   // get tag for int with same number of lanes as T
   using DI = hn::RebindToSigned<D>;
   const DI di;
 
-  constexpr int32_t mantissa = sr::utils::IEEE754<T>::mantissa;
+  constexpr int32_t mantissa = prism::utils::IEEE754<T>::mantissa;
 
   auto zero = hn::Zero(d);
   auto sign_tau = hn::Lt(tau, zero);
   auto sign_sigma = hn::Lt(sigma, zero);
 
   auto z = rng::uniform(d);
-  debug_vec<D>("[sr_round] z", z);
+  dbg::debug_vec<D>("[sr_round] z", z);
 
   auto pred_sigma = get_predecessor_abs(d, sigma);
 
@@ -368,54 +370,54 @@ V sr_round(V sigma, V tau) {
 
   auto eta = hn::IfThenElse(sign_diff_int, get_exponent(d, pred_sigma),
                             get_exponent(d, sigma));
-  debug_vec<DI>("[sr_round] eta", eta, false);
+  dbg::debug_vec<DI>("[sr_round] eta", eta, false);
 
   auto exp = hn::Sub(eta, hn::Set(di, mantissa));
   auto abs_ulp = pow2(d, exp);
-  debug_vec<D>("[sr_round] |ulp|", abs_ulp);
+  dbg::debug_vec<D>("[sr_round] |ulp|", abs_ulp);
 
   auto ulp = hn::CopySign(abs_ulp, tau);
-  debug_vec<D>("[sr_round] ulp", ulp);
+  dbg::debug_vec<D>("[sr_round] ulp", ulp);
 
   auto pi = hn::Mul(ulp, z);
-  debug_vec<D>("[sr_round] pi", pi);
+  dbg::debug_vec<D>("[sr_round] pi", pi);
 
   auto abs_tau_plus_pi = hn::Abs(hn::Add(tau, pi));
-  debug_vec<D>("[sr_round] |tau|+pi", abs_tau_plus_pi);
+  dbg::debug_vec<D>("[sr_round] |tau|+pi", abs_tau_plus_pi);
 
   auto round = hn::IfThenElse(hn::Ge(abs_tau_plus_pi, abs_ulp), ulp, zero);
-  debug_vec<D>("[sr_round] round", round);
+  dbg::debug_vec<D>("[sr_round] round", round);
 
-  debug_msg("[sr_round] END\n");
+  dbg::debug_msg("[sr_round] END\n");
   return round;
 }
 
 template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
-HWY_API V sr_add(V a, V b) {
-  debug_msg("\n[sr_add] START");
+HWY_API V add(V a, V b) {
+  dbg::debug_msg("\n[sr_add] START");
   V sigma, tau;
   twosum<D>(a, b, sigma, tau);
-  auto round = sr_round<D>(sigma, tau);
-  auto ret = hn::Add(sigma, round);
-  debug_vec<D>("[sr_add] res", ret);
-  debug_msg("[sr_add] END\n");
+  auto rounding = round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, rounding);
+  dbg::debug_vec<D>("[sr_add] res", ret);
+  dbg::debug_msg("[sr_add] END\n");
   return ret;
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
-HWY_API V sr_sub(V a, V b) {
-  return sr_add<D>(a, hn::Neg(b));
+HWY_API V sub(V a, V b) {
+  return add<D>(a, hn::Neg(b));
 }
 
 template <class D, class V, typename T = hn::TFromD<D>>
-HWY_API V sr_mul(V a, V b) {
-  debug_msg("\n[sr_add] START");
+HWY_API V mul(V a, V b) {
+  dbg::debug_msg("\n[sr_add] START");
   V sigma, tau;
   twoprodfma<D>(a, b, sigma, tau);
-  auto round = sr_round<D>(sigma, tau);
-  auto ret = hn::Add(sigma, round);
-  debug_vec<D>("[sr_mul] res", ret);
-  debug_msg("[sr_mul] END\n");
+  auto rounding = round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, rounding);
+  dbg::debug_vec<D>("[sr_mul] res", ret);
+  dbg::debug_msg("[sr_mul] END\n");
 
   return ret;
 }
@@ -435,43 +437,43 @@ the Change of the Rounding Mode
 9. return σ
 */
 template <class D, class V, typename T = hn::TFromD<D>>
-HWY_API V sr_div(V a, V b) {
-  debug_msg("\n[sr_div] START");
-  debug_vec<D>("[sr_div] a", a);
-  debug_vec<D>("[sr_div] b", b);
+HWY_API V div(V a, V b) {
+  dbg::debug_msg("\n[sr_div] START");
+  dbg::debug_vec<D>("[sr_div] a", a);
+  dbg::debug_vec<D>("[sr_div] b", b);
   auto sigma = hn::Div(a, b);
 #if HWY_NATIVE_FMA
   auto taup = hn::NegMulAdd(sigma, b, a);
 #else
-#ifdef HWY_COMPILE_ONLY_STATIC
+#if defined(HWY_COMPILE_ONLY_STATIC) or defined(WARN_FMA_EMULATION)
 #warning "FMA not supported, using emulation (slow)"
 #endif
-  auto taup = fma<D>(hn::Neg(sigma), b, a);
+  auto taup = fma_emul<D>(hn::Neg(sigma), b, a);
 #endif
   auto tau = hn::Div(taup, b);
-  auto round = sr_round<D>(sigma, tau);
-  auto ret = hn::Add(sigma, round);
-  debug_vec<D>("[sr_div] sigma", sigma);
-  debug_vec<D>("[sr_div] tau'", taup);
-  debug_vec<D>("[sr_div] tau", tau);
-  debug_vec<D>("[sr_div] round", round);
-  debug_vec<D>("[sr_div] res", ret);
-  debug_msg("[sr_div] END\n");
+  auto rounding = round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, rounding);
+  dbg::debug_vec<D>("[sr_div] sigma", sigma);
+  dbg::debug_vec<D>("[sr_div] tau'", taup);
+  dbg::debug_vec<D>("[sr_div] tau", tau);
+  dbg::debug_vec<D>("[sr_div] round", rounding);
+  dbg::debug_vec<D>("[sr_div] res", ret);
+  dbg::debug_msg("[sr_div] END\n");
 
   return ret;
 }
 
-template <class D, class V, typename T = hn::TFromD<D>> V sr_sqrt(V a) {
-  debug_msg("\n[sr_sqrt] START");
+template <class D, class V, typename T = hn::TFromD<D>> V sqrt(V a) {
+  dbg::debug_msg("\n[sr_sqrt] START");
 
   const D d{};
   auto sigma = hn::Sqrt(a);
   auto tau = hn::Div(hn::MulSub(hn::Neg(sigma), sigma, a),
                      hn::Mul(hn::Set(d, 2), sigma));
-  auto round = sr_round<D>(sigma, tau);
-  auto ret = hn::Add(sigma, round);
-  debug_vec<D>("[sr_sqrt] res", ret);
-  debug_msg("[sr_sqrt] END\n");
+  auto rounding = round<D>(sigma, tau);
+  auto ret = hn::Add(sigma, rounding);
+  dbg::debug_vec<D>("[sr_sqrt] res", ret);
+  dbg::debug_msg("[sr_sqrt] END\n");
 
   return ret;
 }
@@ -488,20 +490,19 @@ Algorithm 5 (ErrFmaNearest):
   γ = ◦(◦(β1 − r1) + β2)
   r2 = ◦(γ + α2)
 */
-template <class D, class V, typename T = hn::TFromD<D>>
-V sr_fma(V a, V b, V c) {
-  debug_msg("\n[sr_fma] START");
-  debug_vec<D>("[sr_fma] a", a);
-  debug_vec<D>("[sr_fma] b", b);
-  debug_vec<D>("[sr_fma] c", c);
+template <class D, class V, typename T = hn::TFromD<D>> V fma(V a, V b, V c) {
+  dbg::debug_msg("\n[sr_fma] START");
+  dbg::debug_vec<D>("[sr_fma] a", a);
+  dbg::debug_vec<D>("[sr_fma] b", b);
+  dbg::debug_vec<D>("[sr_fma] c", c);
 
 #if HWY_NATIVE_FMA
   auto r1 = hn::MulAdd(a, b, c);
 #else
-#ifdef HWY_COMPILE_ONLY_STATIC
+#if defined(HWY_COMPILE_ONLY_STATIC) or defined(WARN_FMA_EMULATION)
 #warning "FMA not supported, using emulation (slow)"
 #endif
-  auto r1 = fma<D>(a, b, c);
+  auto r1 = fma_emul<D>(a, b, c);
 #endif
   V u1, u2, alpha1, alpha2, beta1, beta2, gamma, r2;
   twoprodfma<D>(a, b, u1, u2);
@@ -509,10 +510,10 @@ V sr_fma(V a, V b, V c) {
   twosum<D>(u1, alpha1, beta1, beta2);
   gamma = hn::Add(hn::Sub(beta1, r1), beta2);
   r2 = hn::Add(gamma, alpha2);
-  auto round = sr_round<D>(r1, r2);
-  auto res = hn::Add(r1, round);
-  debug_vec<D>("[sr_fma] res", res);
-  debug_msg("[sr_fma] END\n");
+  auto rounding = round<D>(r1, r2);
+  auto res = hn::Add(r1, rounding);
+  dbg::debug_vec<D>("[sr_fma] res", res);
+  dbg::debug_msg("[sr_fma] END\n");
 
   return res;
 }
@@ -521,6 +522,7 @@ V sr_fma(V a, V b, V c) {
 } // namespace HWY_NAMESPACE
 } // namespace vector
 } // namespace sr
+} // namespace prism
 HWY_AFTER_NAMESPACE();
 
 #endif // HIGHWAY_HWY_VERIFICARLO_SR_INL_H_

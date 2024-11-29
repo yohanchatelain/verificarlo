@@ -3,6 +3,8 @@
 
 #include "hwy/highway.h"
 
+namespace prism {
+
 namespace sr {
 namespace vector {
 /* Array functions */
@@ -318,5 +320,6 @@ f64x16_v fmaf64x16_d(const f64x16_v a, const f64x16_v b, const f64x16_v c);
 
 } // namespace vector
 } // namespace sr
+} // namespace prism
 
 #endif // _INTERFLOP_SR_LIB_H_

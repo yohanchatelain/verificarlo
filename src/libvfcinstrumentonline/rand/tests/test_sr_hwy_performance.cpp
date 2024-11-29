@@ -11,9 +11,7 @@
 #include "hwy/tests/test_util-inl.h"
 
 #include "src/sr_hw.h"
-
-namespace sr {
-namespace vector {
+namespace prism::sr::vector {
 
 using VecArgf32 = hwy::AlignedUniquePtr<float[]>;
 using VecArgf64 = hwy::AlignedUniquePtr<double[]>;
@@ -107,24 +105,26 @@ void MeasureFunctionX(Op func, const std::size_t lanes = 0,
   constexpr T ulp = std::is_same_v<T, float> ? 0x1.0p-24 : 0x1.0p-53;
   V a = {0};
   V b = {0};
+  V c = {0};
   constexpr const char *fmt = GetFormatString<T>();
 
   for (size_t i = 0; i < inputs_size; i++) {
     a[i] = 1.0;
     b[i] = ulp;
+    c[i] = 0.1 * ulp;
   }
 
   std::vector<double> times(N);
 
   for (size_t i = 0; i < N; i++) {
     auto start = std::chrono::high_resolution_clock::now();
-    V c;
+    V r;
     if constexpr (arity == 1) {
-      c = func(a, inputs_size);
+      r = func(a, inputs_size);
     } else if constexpr (arity == 2) {
-      c = func(a, b, inputs_size);
+      r = func(a, b, inputs_size);
     } else if constexpr (arity == 3) {
-      c = func(a, b, c, inputs_size);
+      r = func(a, b, c, inputs_size);
     }
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
@@ -134,7 +134,7 @@ void MeasureFunctionX(Op func, const std::size_t lanes = 0,
 
     if (verbose) {
       for (size_t j = 0; j < inputs_size; j++) {
-        fprintf(stderr, fmt, ((T *)&c)[j]);
+        fprintf(stderr, fmt, ((T *)&r)[j]);
         if ((lanes != 0) and ((j % lanes) == (lanes - 1))) {
           fprintf(stderr, "\n");
         }
@@ -1675,7 +1675,6 @@ TEST(SRVectorDynamicBenchmark, SRFmaF32x16D) {
   MeasureFunctionX<16, float, f32x16_v, Op, 3>(&test_fmaf32x16_d, 16, kVerbose);
 }
 
-} // namespace vector
-} // namespace sr
+} // namespace prism::sr::vector
 
 // HYW_TEST_MAIN();1

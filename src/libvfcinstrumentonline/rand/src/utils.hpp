@@ -14,7 +14,7 @@ typedef _Float128 Float128;
 #error "Unsupported compiler. Please use GCC or Clang."
 #endif
 
-namespace sr::utils {
+namespace prism::utils {
 
 template <typename T> struct IEEE754 {};
 
@@ -150,6 +150,6 @@ int64_t get_exponent_double(double a);
 float pow2_float(int32_t n);
 double pow2_double(int64_t n);
 
-} // namespace sr::utils
+} // namespace prism::utils
 
 #endif // __VERIFICARLO_SRLIB_UTILS_HPP__

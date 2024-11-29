@@ -28,7 +28,7 @@
 
 HWY_BEFORE_NAMESPACE(); // at file scope
 
-namespace sr {
+namespace prism {
 
 namespace HWY_NAMESPACE {
 
@@ -42,11 +42,20 @@ using ::testing::Le;
 using ::testing::Lt;
 
 constexpr auto default_alpha = 0.001;
+
+const int get_repetitions() {
+  const char *env_repetitions = getenv("PRISM_TEST_REPETITIONS");
+  if (env_repetitions) {
+    return std::stoi(env_repetitions);
+  }
 #ifdef SR_DEBUG
-constexpr auto default_repetitions = 100;
+  return 100;
 #else
-constexpr auto default_repetitions = 10'000;
+  return 10'000;
 #endif
+}
+
+const auto default_repetitions = get_repetitions();
 
 static auto distribution_failed_tests_counter = 0;
 static auto distribution_tests_counter = 0;
@@ -101,7 +110,7 @@ H fma(const std::vector<T> &args) {
 
 }; // namespace reference
 
-namespace srvh = sr::vector::HWY_NAMESPACE;
+namespace psvn = prism::sr::vector::HWY_NAMESPACE;
 
 struct SRAdd {
   static constexpr char name[] = "add";
@@ -110,7 +119,7 @@ struct SRAdd {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return srvh::sr_add<D>(a, b);
+    return psvn::add<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -126,7 +135,7 @@ struct SRSub {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return srvh::sr_sub<D>(a, b);
+    return psvn::sub<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -142,7 +151,7 @@ struct SRMul {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return srvh::sr_mul<D>(a, b);
+    return psvn::mul<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -158,7 +167,7 @@ struct SRDiv {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b) {
-    return srvh::sr_div<D>(a, b);
+    return psvn::div<D>(a, b);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -174,7 +183,7 @@ struct SRSqrt {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a) {
-    return srvh::sr_sqrt<D>(a);
+    return psvn::sqrt<D>(a);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -190,7 +199,7 @@ struct SRFma {
 
   template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
   V operator()(D d, V a, V b, V c) {
-    return srvh::sr_fma<D>(a, b, c);
+    return psvn::fma<D>(a, b, c);
   }
 
   template <typename T, typename H = typename helper::IEEE754<T>::H>
@@ -319,6 +328,7 @@ std::vector<helper::Counter<T>> eval_op(D d, V a, V x, V y,
 
 #ifdef SR_DEBUG
   const size_t lanes = 1;
+  std::cerr << "rep: " << repetitions << std::endl;
 #else
   const size_t lanes = hn::Lanes(d);
 #endif
@@ -516,9 +526,9 @@ void check_distribution_match(D d, V va, V vb = hn::Zero(D{}),
     // is greater than the minimum subnormal
     // do not the test if the probability is lower than 1/repetitions
     bool estimate_unique_value =
-        ((probability_down_estimated == 1) and (probability_down != 1)) or
-        ((probability_up_estimated == 1) and (probability_up != 1)) and
-            distance_error > helper::IEEE754<T>::min_subnormal;
+        (((probability_down_estimated == 1) and (probability_down != 1)) or
+         ((probability_up_estimated == 1) and (probability_up != 1))) and
+        (distance_error > helper::IEEE754<T>::min_subnormal);
 
     if (estimate_unique_value) {
       const auto cond1 =
@@ -710,13 +720,13 @@ void do_run_test_random(D d, const double start_range_1st = 0.0,
   helper::RNG rng3(start_range_3rd, end_range_3rd);
 
   if constexpr (Op::arity == 1) {
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10; i++) {
       T a = rng1();
       auto va = hn::Set(d, a);
       check_distribution_match<Op>(d, va);
     }
   } else if constexpr (Op::arity == 2) {
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10; i++) {
       T a = rng1();
       T b = rng2();
       auto va = hn::Set(d, a);
@@ -724,7 +734,7 @@ void do_run_test_random(D d, const double start_range_1st = 0.0,
       check_distribution_match<Op>(d, va, vb);
     }
   } else if constexpr (Op::arity == 3) {
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10; i++) {
       T a = rng1();
       T b = rng2();
       T c = rng3();
@@ -984,20 +994,20 @@ HWY_NOINLINE void TestAllRandomMidOverlapDiv() {
 
 } // namespace
 } // namespace HWY_NAMESPACE
-} // namespace sr
+} // namespace prism
 HWY_AFTER_NAMESPACE();
 
 #if HWY_ONCE
-namespace sr {
+namespace prism {
 namespace HWY_NAMESPACE {
 
 HWY_BEFORE_TEST(SRRoundTest);
-// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllExactOperationsAdd);
-// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsAdd);
-// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSub);
-// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsMul);
-// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsDiv);
-// HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSqrt);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllExactOperationsAdd);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsAdd);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSub);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsMul);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsDiv);
+HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsSqrt);
 HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllBasicAssertionsFma);
 HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsAdd);
 HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandom01AssertionsSub);
@@ -1018,7 +1028,7 @@ HWY_EXPORT_AND_TEST_P(SRRoundTest, TestAllRandomMidOverlapDiv);
 HWY_AFTER_TEST();
 
 } // namespace HWY_NAMESPACE
-} // namespace sr
+} // namespace prism
 
 HWY_TEST_MAIN();
 

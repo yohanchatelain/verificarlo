@@ -14,13 +14,13 @@
 // clang-format on
 
 HWY_BEFORE_NAMESPACE(); // at file scope
-namespace ud {
-namespace vector {
+
+namespace prism::ud::vector {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace rng = sr::vector::xoroshiro256plus::HWY_NAMESPACE;
-namespace dbg = sr::vector::HWY_NAMESPACE;
+namespace rng = prism::vector::xoroshiro256plus::HWY_NAMESPACE;
+namespace dbg = prism::vector::HWY_NAMESPACE;
 
 template <class D, class V = hn::VFromD<D>, typename T = hn::TFromD<D>>
 V round(V a) {
@@ -148,8 +148,7 @@ V fma(V a, V b, V c) {
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
-} // namespace vector
-} // namespace ud
+} // namespace prism::ud::vector
 HWY_AFTER_NAMESPACE();
 
 #endif // HIGHWAY_HWY_VERIFICARLO_UD_HW_INL_H_

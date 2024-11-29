@@ -111,7 +111,7 @@ template <typename T> struct FmaOp : TernaryOperator<T> {
 
 using Float128_boost = boost::multiprecision::cpp_bin_float_quad;
 
-template <typename T> struct IEEE754 : sr::utils::IEEE754<T> {
+template <typename T> struct IEEE754 : prism::utils::IEEE754<T> {
   using H =
       std::conditional_t<std::is_same<T, float>::value, double, Float128_boost>;
 };

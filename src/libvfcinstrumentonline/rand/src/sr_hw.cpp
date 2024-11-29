@@ -14,12 +14,16 @@
 #include "src/xoroshiro256+_hw-inl.hpp"
 // clang-format on
 
+#define XSTR(x) STR(x)
+#define STR(x) #x
+
 // Optional, can instead add HWY_ATTR to all functions.
 HWY_BEFORE_NAMESPACE();
 
-namespace sr {
+#pragma message "HWY_TARGET_STR=" XSTR(HWY_TARGET_STR) " HWY_MAX_BYTES=" XSTR( \
+    HWY_MAX_BYTES)
 
-namespace vector {
+namespace prism::sr::vector {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
@@ -29,42 +33,42 @@ namespace internal {
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _add_fp_xN(V a, V b) {
-  auto res = sr_add<D>(a, b);
+  auto res = add<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _sub_fp_xN(V a, V b) {
-  auto res = sr_sub<D>(a, b);
+  auto res = sub<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _mul_fp_xN(V a, V b) {
-  auto res = sr_mul<D>(a, b);
+  auto res = mul<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _div_fp_xN(V a, V b) {
-  auto res = sr_div<D>(a, b);
+  auto res = div<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _sqrt_fp_xN(V a) {
-  auto res = sr_sqrt<D>(a);
+  auto res = sqrt<D>(a);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _fma_fp_xN(V a, V b, V c) {
-  auto res = sr_fma<D>(a, b, c);
+  auto res = fma<D>(a, b, c);
   return res;
 }
 
@@ -365,7 +369,7 @@ HWY_NOINLINE void _round(const T *HWY_RESTRICT sigma, const T *HWY_RESTRICT tau,
   for (; i + N <= count; i += N) {
     auto sigma_vec = hn::Load(d, sigma + i);
     auto tau_vec = hn::Load(d, tau + i);
-    auto res = sr_round<D>(sigma_vec, tau_vec);
+    auto res = round<D>(sigma_vec, tau_vec);
     hn::Store(res, d, result + i);
   }
   // using C = hn::CappedTag<T, 1>;
@@ -388,7 +392,7 @@ HWY_NOINLINE void _add(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_add<D>(a_vec, b_vec);
+    auto res = add<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
   using C = hn::CappedTag<T, 1>;
@@ -396,7 +400,7 @@ HWY_NOINLINE void _add(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i < count; ++i) {
     auto a_vec = hn::Load(c, a + i);
     auto b_vec = hn::Load(c, b + i);
-    auto res = sr_add<C>(a_vec, b_vec);
+    auto res = add<C>(a_vec, b_vec);
     hn::Store(res, c, result + i);
   }
 }
@@ -411,7 +415,7 @@ HWY_NOINLINE void _sub(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_sub<D>(a_vec, b_vec);
+    auto res = sub<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
   using C = hn::CappedTag<T, 1>;
@@ -419,7 +423,7 @@ HWY_NOINLINE void _sub(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i < count; ++i) {
     auto a_vec = hn::Load(c, a + i);
     auto b_vec = hn::Load(c, b + i);
-    auto res = sr_sub<C>(a_vec, b_vec);
+    auto res = sub<C>(a_vec, b_vec);
     hn::Store(res, c, result + i);
   }
 }
@@ -434,7 +438,7 @@ HWY_NOINLINE void _mul(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_mul<D>(a_vec, b_vec);
+    auto res = mul<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
   using C = hn::CappedTag<T, 1>;
@@ -442,7 +446,7 @@ HWY_NOINLINE void _mul(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i < count; ++i) {
     auto a_vec = hn::Load(c, a + i);
     auto b_vec = hn::Load(c, b + i);
-    auto res = sr_mul<C>(a_vec, b_vec);
+    auto res = mul<C>(a_vec, b_vec);
     hn::Store(res, c, result + i);
   }
 }
@@ -457,7 +461,7 @@ HWY_NOINLINE void _div(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
     auto b_vec = hn::Load(d, b + i);
-    auto res = sr_div<D>(a_vec, b_vec);
+    auto res = div<D>(a_vec, b_vec);
     hn::Store(res, d, result + i);
   }
   using C = hn::CappedTag<T, 1>;
@@ -465,7 +469,7 @@ HWY_NOINLINE void _div(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   for (; i < count; ++i) {
     auto a_vec = hn::Load(c, a + i);
     auto b_vec = hn::Load(c, b + i);
-    auto res = sr_div<C>(a_vec, b_vec);
+    auto res = div<C>(a_vec, b_vec);
     hn::Store(res, c, result + i);
   }
 }
@@ -479,7 +483,7 @@ HWY_NOINLINE void _sqrt(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
   size_t i = 0;
   for (; i + N <= count; i += N) {
     auto a_vec = hn::Load(d, a + i);
-    auto res = sr_sqrt<D>(a_vec);
+    auto res = sqrt<D>(a_vec);
     hn::Store(res, d, result + i);
   }
   // using C = hn::CappedTag<T, 1>;
@@ -503,7 +507,7 @@ HWY_NOINLINE void _fma(const T *HWY_RESTRICT a, const T *HWY_RESTRICT x,
     auto a_vec = hn::Load(d, a + i);
     auto x_vec = hn::Load(d, x + i);
     auto y_vec = hn::Load(d, y + i);
-    auto res = sr_fma<D>(a_vec, x_vec, y_vec);
+    auto res = fma<D>(a_vec, x_vec, y_vec);
     hn::Store(res, d, result + i);
   }
   using C = hn::CappedTag<T, 1>;
@@ -512,7 +516,7 @@ HWY_NOINLINE void _fma(const T *HWY_RESTRICT a, const T *HWY_RESTRICT x,
     auto a_vec = hn::Load(c, a + i);
     auto x_vec = hn::Load(c, x + i);
     auto y_vec = hn::Load(c, y + i);
-    auto res = sr_fma<C>(a_vec, x_vec, y_vec);
+    auto res = fma<C>(a_vec, x_vec, y_vec);
     hn::Store(res, c, result + i);
   }
 }
@@ -595,14 +599,12 @@ void _fma_f64(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace HWY_NAMESPACE
-} // namespace vector
-} // namespace sr
+} // namespace prism::sr::vector
 HWY_AFTER_NAMESPACE();
 
 #if HWY_ONCE
 
-namespace sr {
-namespace vector {
+namespace prism::sr::vector {
 
 HWY_EXPORT(_round_f32);
 HWY_EXPORT(_add_f32);
@@ -665,7 +667,7 @@ HWY_EXPORT(_fmax4_f32);
 #endif
 
 /* 256-bits */
-#if HWY_MAX_BYTES >= 32
+#if (HWY_MAX_BYTES >= 32) && (HWY_TARGET != HWY_SSE4)
 HWY_EXPORT(_addx4_f64);
 HWY_EXPORT(_subx4_f64);
 HWY_EXPORT(_mulx4_f64);
@@ -2135,14 +2137,12 @@ f64x16_v fmaf64x16_d(const f64x16_v a, const f64x16_v b, const f64x16_v c) {
   return result;
 }
 
-} // namespace vector
-} // namespace sr
+} // namespace prism::sr::vector
 
 #endif // HWY_ONCE
 
 #if HWY_ONCE
-namespace sr {
-namespace scalar {
+namespace prism::sr::scalar {
 
 float addf32(float a, float b) { return sr::scalar::add<float>(a, b); }
 float subf32(float a, float b) { return sr::scalar::sub<float>(a, b); }
@@ -2162,6 +2162,6 @@ double fmaf64(double a, double b, double c) {
   return sr::scalar::fma<double>(a, b, c);
 }
 
-} // namespace scalar
-} // namespace sr
+} // namespace prism::sr::scalar
+
 #endif // HWY_ONCE

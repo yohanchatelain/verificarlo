@@ -12,7 +12,7 @@
 #include "hwy/highway.h"
 
 HWY_BEFORE_NAMESPACE(); // at file scope
-namespace sr {
+namespace prism {
 
 namespace HWY_NAMESPACE {
 
@@ -48,7 +48,7 @@ HWY_API bool isCurrentTargetSupported() {
 
 } // namespace HWY_NAMESPACE
 
-} // namespace sr
+} // namespace prism
 HWY_AFTER_NAMESPACE();
 
 #endif // __SR_TARGET_UTILS_H__

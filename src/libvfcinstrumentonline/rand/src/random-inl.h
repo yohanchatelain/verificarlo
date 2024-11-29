@@ -39,7 +39,6 @@ namespace hwy {
 namespace HWY_NAMESPACE { // required: unique per target
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace sn = sr::vector::HWY_NAMESPACE;
 
 namespace internal {
 
@@ -366,7 +365,7 @@ public:
     return result;
   }
 
-  template <std::uint64_t N> std::array<float, N> Uniform(float) noexcept {
+  template <std::uint64_t N> std::array<float, 2 * N> Uniform(float) noexcept {
     alignas(HWY_ALIGNMENT) std::array<float, 2 * N> result;
     const ScalableTag<std::uint32_t> u32_tag{};
     const ScalableTag<std::uint64_t> tag{};

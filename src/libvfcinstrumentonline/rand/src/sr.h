@@ -6,14 +6,15 @@
 #include "utils.hpp"
 #include "xoroshiro256+_hw.h"
 
+namespace prism {
 namespace sr {
 namespace scalar {
 
 template <typename T> bool isnumber(T a, T b) {
   // fast check for a or b is not 0, inf or nan
   debug_start();
-  using U = typename sr::utils::IEEE754<T>::U;
-  constexpr auto naninf_mask = sr::utils::IEEE754<T>::inf_nan_mask;
+  using U = typename prism::utils::IEEE754<T>::U;
+  constexpr auto naninf_mask = prism::utils::IEEE754<T>::inf_nan_mask;
   U *a_bits = reinterpret_cast<U *>(&a);
   U *b_bits = reinterpret_cast<U *>(&b);
   bool ret = ((a_bits != 0) and (((*a_bits) & naninf_mask) != naninf_mask)) and
@@ -30,7 +31,7 @@ template <typename T> bool isnumber(T a, T b) {
 }
 
 template <typename T> inline T sround(const T sigma, const T tau) {
-  using namespace sr::utils;
+  using namespace prism::utils;
   debug_start();
   if (tau == 0) {
     debug_end();
@@ -43,7 +44,7 @@ template <typename T> inline T sround(const T sigma, const T tau) {
                           ? get_exponent(get_predecessor_abs(sigma))
                           : get_exponent(sigma);
   const T ulp = (sign_tau ? -1 : 1) * pow2<T>(eta - mantissa);
-  const T z = xoroshiro256plus::static_dispatch::uniform(T{});
+  const T z = prism::scalar::xoroshiro256plus::static_dispatch::uniform(T{});
   const T pi = ulp * z;
   const T round = (std::abs(tau + pi) >= std::abs(ulp)) ? ulp : 0;
 
@@ -171,5 +172,6 @@ template <typename T> inline T fma(T a, T b, T c) {
 
 } // namespace scalar
 } // namespace sr
+} // namespace prism
 
 #endif // HIGHWAY_HWY_SRLIB_RAND_SR_H_

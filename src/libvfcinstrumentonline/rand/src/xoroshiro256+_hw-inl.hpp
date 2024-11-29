@@ -22,13 +22,13 @@
 #include "src/xoroshiro256+_hw.h"
 
 HWY_BEFORE_NAMESPACE(); // at file scope
-namespace sr {
+namespace prism {
 namespace scalar {
 namespace xoroshiro256plus {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace sn = sr::HWY_NAMESPACE;
+namespace pn = prism::HWY_NAMESPACE;
 
 class RNGInitializer {
 public:
@@ -36,9 +36,9 @@ public:
   hn::CachedXoshiro<> *get();
 
 private:
-  hn::CachedXoshiro<> *rng;
+  hn::CachedXoshiro<> *rng = nullptr;
   static hn::CachedXoshiro<> *rng_constructor() {
-    if (not sn::isCurrentTargetSupported())
+    if (not pn::isCurrentTargetSupported())
       return nullptr;
 
     const auto seed = get_user_seed();
@@ -63,8 +63,8 @@ namespace xoroshiro256plus {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace sv = sr::vector::HWY_NAMESPACE;
-namespace sn = sr::HWY_NAMESPACE;
+namespace pvn = prism::vector::HWY_NAMESPACE;
+namespace pn = prism::HWY_NAMESPACE;
 
 class RNGInitializer {
 public:
@@ -72,9 +72,9 @@ public:
   hn::VectorXoshiro *get();
 
 private:
-  hn::VectorXoshiro *rng;
+  hn::VectorXoshiro *rng = nullptr;
   static hn::VectorXoshiro *rng_constructor() {
-    if (not sn::isCurrentTargetSupported())
+    if (not pn::isCurrentTargetSupported())
       return nullptr;
 
     const auto seed = get_user_seed();
@@ -86,7 +86,7 @@ private:
 extern thread_local RNGInitializer rng;
 
 template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
-  sv::debug_msg("[uniform] START");
+  pvn::debug_msg("[uniform] START");
   using T = hn::TFromD<D>;
   const std::size_t lanes = hn::Lanes(d);
   if constexpr (sizeof(lanes * sizeof(T)) <= 16) {
@@ -95,19 +95,19 @@ template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
     const std::size_t size_rng = std::max(lanes, std::size_t{8});
     auto z = rng.get()->Uniform(T{}, size_rng);
     auto z_load = hn::Load(d, z.data());
-    sv::debug_msg("[uniform] END");
+    pvn::debug_msg("[uniform] END");
     return z_load;
   } else {
     const std::size_t size_rng = lanes;
     auto z = rng.get()->Uniform(T{}, size_rng);
     auto z_load = hn::Load(d, z.data());
-    sv::debug_msg("[uniform] END");
+    pvn::debug_msg("[uniform] END");
     return z_load;
   }
 }
 
 template <class D, class V = hn::VFromD<D>> V random(const D d) {
-  sv::debug_msg("[random] START");
+  pvn::debug_msg("[random] START");
   using T = hn::TFromD<D>;
   const std::size_t lanes = hn::Lanes(d);
   if constexpr (sizeof(lanes * sizeof(T)) <= 16) {
@@ -116,13 +116,13 @@ template <class D, class V = hn::VFromD<D>> V random(const D d) {
     const std::size_t size_rng = std::max(lanes, std::size_t{8});
     auto z = rng.get()->operator()(T{}, size_rng);
     auto z_load = hn::Load(d, z.data());
-    sv::debug_msg("[random] END");
+    pvn::debug_msg("[random] END");
     return z_load;
   } else {
     const std::size_t size_rng = lanes;
     auto z = rng.get()->operator()(T{}, size_rng);
     auto z_load = hn::Load(d, z.data());
-    sv::debug_msg("[random] END");
+    pvn::debug_msg("[random] END");
     return z_load;
   }
 }
@@ -132,7 +132,7 @@ template <class D, class V = hn::VFromD<D>> V random(const D d) {
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 } // namespace xoroshiro256plus
 } // namespace vector
-} // namespace sr
+} // namespace prism
 HWY_AFTER_NAMESPACE();
 
 #endif // HIGHWAY_HWY_SRLIB_RAND_XOROSHIRO256P_H_

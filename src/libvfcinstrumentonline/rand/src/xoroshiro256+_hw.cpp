@@ -15,7 +15,7 @@
 #include "src/xoroshiro256+_hw-inl.hpp"
 
 HWY_BEFORE_NAMESPACE(); // at file scope
-namespace sr {
+namespace prism {
 namespace scalar {
 namespace xoroshiro256plus {
 
@@ -25,15 +25,12 @@ namespace hn = hwy::HWY_NAMESPACE;
 RNGInitializer::RNGInitializer() : rng(RNGInitializer::rng_constructor()) {}
 
 hn::CachedXoshiro<> *RNGInitializer::get() {
-#ifdef SR_DEBUG
   // check if the pointer is not null
+  // means that the current target has not been initialized
+  // happens with thread_local variables (lazy init?)
   if (this->rng == nullptr) {
-    std::cerr << "Error srlib: ";
-    std::cerr << "RNGInitializer::get() returned a null pointer\n";
-    std::cerr << "Means that the current target is not supported\n";
-    std::abort();
+    this->rng = RNGInitializer::rng_constructor();
   }
-#endif
   return this->rng;
 }
 
@@ -53,15 +50,12 @@ namespace hn = hwy::HWY_NAMESPACE;
 RNGInitializer::RNGInitializer() : rng(RNGInitializer::rng_constructor()) {}
 
 hn::VectorXoshiro *RNGInitializer::get() {
-#ifdef SR_DEBUG
   // check if the pointer is not null
+  // means that the current target has not been initialized
+  // happens with thread_local variables (lazy init?)
   if (this->rng == nullptr) {
-    std::cerr << "Error srlib: ";
-    std::cerr << "RNGInitializer::get() returned a null pointer\n";
-    std::cerr << "Means that the current target is not supported\n";
-    std::abort();
+    this->rng = RNGInitializer::rng_constructor();
   }
-#endif
   return this->rng;
 }
 
@@ -71,12 +65,12 @@ thread_local RNGInitializer rng;
 } // namespace xoroshiro256plus
 } // namespace vector
 
-} // namespace sr
+} // namespace prism
 HWY_AFTER_NAMESPACE();
 
 #if HWY_ONCE
 
-namespace sr {
+namespace prism {
 namespace scalar {
 namespace xoroshiro256plus {
 
@@ -109,6 +103,6 @@ HWY_DLLEXPORT std::uint64_t random() {
 } // namespace xoroshiro256plus
 } // namespace scalar
 
-} // namespace sr
+} // namespace prism
 
 #endif // HWY_ONCE

@@ -14,9 +14,7 @@
 
 HWY_BEFORE_NAMESPACE(); // at file scope
 
-namespace sr {
-
-namespace HWY_NAMESPACE {
+namespace prism::sr::vector::HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
 
@@ -132,17 +130,17 @@ struct TestOp {
     hn::Vec<D> r;
 
     if (op == "add") {
-      r = sr::vector::HWY_NAMESPACE::sr_add<D>(a, b);
+      r = add<D>(a, b);
     } else if (op == "sub") {
-      r = sr::vector::HWY_NAMESPACE::sr_sub<D>(a, b);
+      r = sub<D>(a, b);
     } else if (op == "mul") {
-      r = sr::vector::HWY_NAMESPACE::sr_mul<D>(a, b);
+      r = mul<D>(a, b);
     } else if (op == "div") {
-      r = sr::vector::HWY_NAMESPACE::sr_div<D>(a, b);
+      r = div<D>(a, b);
     } else if (op == "sqrt") {
-      r = sr::vector::HWY_NAMESPACE::sr_sqrt<D>(a);
+      r = sqrt<D>(a);
     } else if (op == "fma") {
-      r = sr::vector::HWY_NAMESPACE::sr_fma<D>(a, b, c);
+      r = fma<D>(a, b, c);
     } else {
       std::cerr << "Unknown operation: " << op << std::endl;
       std::exit(1);
@@ -165,25 +163,23 @@ struct TestOp {
   }
 };
 
+} // namespace
+
 HWY_NOINLINE void TestAllOp() {
   hn::ForFloat3264Types(hn::ForPartialVectors<TestOp>());
 }
 
-} // namespace
 // NOLINTNEXTLINE(google-readability-namespace-comments)
-} // namespace HWY_NAMESPACE
-} // namespace sr
+} // namespace prism::sr::vector::HWY_NAMESPACE
 HWY_AFTER_NAMESPACE();
 
 #if HWY_ONCE
 
-namespace sr {
-namespace {
+namespace prism::sr::vector::HWY_NAMESPACE {
 HWY_BEFORE_TEST(SRTest);
 HWY_EXPORT_AND_TEST_P(SRTest, TestAllOp);
 HWY_AFTER_TEST();
-} // namespace
-} // namespace sr
+} // namespace prism::sr::vector::HWY_NAMESPACE
 
 HWY_TEST_MAIN();
 
