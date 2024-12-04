@@ -1,9 +1,6 @@
-* operator*
-* fma_double
-* fma_float
+* fma*
 * mul*
 * div*
 * fma*
 * add*
 * sub*
-* shishua_test

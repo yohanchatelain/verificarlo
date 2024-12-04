@@ -37,6 +37,7 @@ libinterflop_stdlib_lib = "@INTERFLOP_LIBDIR@"
 libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
 libvfcinstrumentonline = LIBDIR + "/libvfcinstrumentonline.so"
+libprismdir = "/home/yohan/Work/verificarlo/src/libvfcinstrumentonline/rand/"
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + "vfcwrapper.c"
@@ -163,8 +164,7 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 def linker_mode(sources, options, libraries, output, args):
     if args.online_instrumentation:
         vfcwrapper_o = ""
-        libraries += " -lud -lsr -lhwy -lstdc++ "
-        
+        libraries += f" -lprism -lhwy -lstdc++ "
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
         compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
@@ -240,19 +240,22 @@ def apply_function_instrumentation_pass(ir, ins, args):
     )
 
 
-
 # Apply MCA instrumentation pass
 def apply_mca_instrumentation_pass(
     ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
 ):
     if args.online_instrumentation:
         debug = args.online_instrumentation_debug
-        vfclibinst_online_ll = '/home/yohan/Work/verificarlo/src/libvfcinstrumentonline/rand/sr_hw.ll'
+        vfclibinst_online_ll = libprismdir + os.path.sep
+        if args.online_instrumentation == "up-down":
+            vfclibinst_online_ll += "ud_hw.ll"
+        elif args.online_instrumentation == "sr":
+            vfclibinst_online_ll += "sr_hw.ll"
+
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
+        extra_args += f" -vfclibinst-dispatch {args.online_instrumentation_dispatch} "
         extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
-        if args.online_instrumentation_seed:
-            extra_args += f" -vfclibinst-seed {args.online_instrumentation_seed} "
         if debug:
             extra_args += f" -vfclibinst-debug "
     else:
@@ -346,7 +349,8 @@ def compiler_mode(sources, options, output, args):
         if not args.emit_llvm:
             # Produce object file
             shell(
-                f"{compiler} -c {cmd_output} {ins.name} {options}", verbose=args.show_cmd
+                f"{compiler} -c {cmd_output} {ins.name} {options}",
+                verbose=args.show_cmd,
             )
         else:
             # Produce a bc file with the wrapper bc linked in.
@@ -416,21 +420,16 @@ def parse_args():
     parser.add_argument(
         "--online-instrumentation",
         action="store",
-        choices=["up-down", "sr", "dummy"],
+        choices=["up-down", "sr"],
         type=str,
         help="Online instrumentation. (mode: up-down, sr)",
     )
     parser.add_argument(
-        "--online-instrumentation-seed",
-        type=int,
-        help="Online instrumentation seed (default: random)",
-    )
-    parser.add_argument(
-        "--online-instrumentation-rng",
-        choices=["xoroshiro", "shishua"],
-        default="xoroshiro",
+        "--online-instrumentation-dispatch",
         action="store",
-        help="Online instrumentation RNG",
+        choices=["static", "dynamic"],
+        default="dynamic",
+        help="Set the dispatching method for online instrumentation. Use 'dynamic' for portable code or 'static' for ISA-specific code (default: dynamic).",
     )
     parser.add_argument(
         "--online-instrumentation-debug",

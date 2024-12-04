@@ -121,14 +121,10 @@ static cl::opt<std::string>
                    cl::desc("Instrumentation mode: up-down or sr"),
                    cl::value_desc("Mode"), cl::init("up-down"));
 
-static cl::opt<int> VfclibSeed("vfclibinst-seed",
-                               cl::desc("Seed for the random number generator"),
-                               cl::value_desc("Seed"), cl::init(-1));
-
-static cl::opt<std::string> VfclibInstRNG("vfclibinst-rng",
-                                          cl::desc("RNG function name"),
-                                          cl::value_desc("RNG"),
-                                          cl::init("xoroshiro"));
+static cl::opt<std::string>
+    VfclibInstDispatch("vfclibinst-dispatch",
+                       cl::desc("Instrumentation dispatch: static or dynamic"),
+                       cl::value_desc("Dispatch"), cl::init("dynamic"));
 
 static cl::opt<bool>
     VfclibInstInstrumentFMA("vfclibinst-inst-fma",
@@ -530,38 +526,39 @@ struct VfclibInst : public ModulePass {
   }
 
   std::string getFunctionName(Instruction *I, Fops opCode,
-                              const bool fallback = false) {
+                              const std::string &dispatch) {
     if (opCode == FOP_IGNORE) {
       errs() << "Unsupported opcode: " << opCode << "\n";
       report_fatal_error("libVFCInstrument fatal error");
     }
 
     auto baseType = I->getType();
-    std::string libname = VfclibInstMode;
+    std::string mode = VfclibInstMode;
     if (VfclibInstMode == "up-down")
-      libname = "ud";
+      mode = "ud";
 
-    if (VfclibInstDebug) {
-      errs() << "Instrumenting " << *I << "\n";
-      errs() << "type: " << *baseType << "\n";
-    }
-
-    const std::string &libname_prefix = libname;
     const std::string &opname = Fops2str[opCode];
     const std::string &fpname = getFPTypeName(baseType);
 
     std::string vectype;
-    std::string dispatch;
+    std::string dispatch_ext = "";
 
     if (baseType->isVectorTy()) {
       vectype = "vector";
-      dispatch = fallback ? "_d" : "_v";
+      if (dispatch == "static") {
+        dispatch_ext = "_s";
+      } else if (dispatch == "dynamic") {
+        dispatch_ext = "_d";
+      } else {
+        errs() << "Invalid dispatch: " << dispatch << "\n";
+        llvm_unreachable("Invalid dispatch");
+      }
     } else {
       vectype = "scalar";
-      dispatch = "";
+      dispatch_ext = "";
     }
-
-    return libname + "::" + vectype + "::" + opname + fpname + dispatch;
+    return "prism::" + mode + "::" + vectype + "::" + opname + fpname +
+           dispatch_ext;
   }
 
   Function *getFunction(Module *M, StringRef name) {
@@ -575,29 +572,30 @@ struct VfclibInst : public ModulePass {
 
   Function *getPRFunction(Instruction *I) {
     Fops opCode = mustReplace(*I);
-    std::string functionName = getFunctionName(I, opCode);
+    const std::string dispatch = VfclibInstDispatch;
+    std::string functionName = getFunctionName(I, opCode, dispatch);
     auto function = getFunction(stoLibModule.get(), functionName);
-    if (function == nullptr) {
-      /* Use fallback implementation */
+    if (function == nullptr and dispatch == "static") {
+      /* Use dynamic implementation if static not version not found */
       /* Useful when vector size is not supported */
       /* by the current architecture */
-      functionName = getFunctionName(I, opCode, true);
+      functionName = getFunctionName(I, opCode, "dynamic");
       function = getFunction(stoLibModule.get(), functionName);
     }
 
     if (function == nullptr) {
-      errs() << "Function not found: " << functionName << "\n";
-      errs() << "Skipping instruction: " << *I << "\n";
+      if (VfclibInstDebug) {
+        errs() << "Function not found: " << functionName << "\n";
+        errs() << "Skipping instruction: " << *I << "\n";
+      }
       return nullptr;
-      // report_fatal_error("libVFCInstrument fatal error");
-    } else if (VfclibInstDebug) {
-      errs() << "Function found: " << functionName << "\n";
     }
 
     // Copy the function into the current module
     auto functionNameMangled = demangledShortNamesToMangled[functionName];
     auto F = I->getModule()->getOrInsertFunction(functionNameMangled,
-                                                 function->getFunctionType());
+                                                 function->getFunctionType(),
+                                                 function->getAttributes());
 
 #if LLVM_VERSION_MAJOR < 9
     return dyn_cast<Function>(F);
@@ -654,6 +652,12 @@ struct VfclibInst : public ModulePass {
     }
   }
 
+  bool is_dynamic_dispatch(const Function *F) {
+    const auto name = F->getName().str();
+    return name.find("scalar") == std::string::npos or
+           name.find("_v") == std::string::npos;
+  }
+
   /* Replace arithmetic instructions with PR */
   Value *replaceArithmeticWithPRCall(IRBuilder<> &Builder, Instruction *I) {
     Function *F = getPRFunction(I);
@@ -661,36 +665,62 @@ struct VfclibInst : public ModulePass {
       return nullptr;
     }
 
+    bool has_ptr_args = false;
     // check if operands of F are pointers, and skip if so
     for (auto &arg : F->args()) {
       if (arg.getType()->isPointerTy()) {
-        if (VfclibInstVerbose) {
-          errs() << "Skipping function " << F->getName()
-                 << " because it has pointer arguments\n";
-        }
-        return nullptr;
+        has_ptr_args = true;
       }
     }
 
-    // Check if the instruction is a 2xfloat instruction.
-    // If so, cast the operands to double and cast the result back to 2 x float
-    if (isDoubleFunction(F) and isFloatx2Instruction(I)) {
-      auto newOperands = getFloatx2ToDoubleCastOperands(Builder, I);
-      auto call = Builder.CreateCall(F, newOperands);
-      auto bitcast = Builder.CreateBitCast(call, I->getType());
-      return bitcast;
+    const bool scalar = not I->getType()->isVectorTy();
+    const auto scalar_type = I->getType()->getScalarType();
+    const auto ptr_scalar_type = scalar_type->getPointerTo();
+
+    if (has_ptr_args) {
+      std::vector<Value *> operands;
+      std::vector<int> alignements;
+      std::size_t arity = getArity(I);
+      for (unsigned i = 0; i < arity; i++) {
+        auto op = I->getOperand(i);
+        auto alloca = Builder.CreateAlloca(op->getType());
+        alignements.push_back(alloca->getAlignment());
+        auto store = Builder.CreateStore(op, alloca);
+        operands.push_back(alloca);
+      }
+      auto call = Builder.CreateCall(F, operands);
+      for (int i = 0; i < arity; i++) {
+        auto op = I->getOperand(i);
+        call->addParamAttr(i, Attribute::NoUndef);
+        call->addParamAttr(i, Attribute::NonNull);
+        call->addParamAttr(i, Attribute::get(op->getContext(), Attribute::ByVal,
+                                             op->getType()));
+        call->addParamAttr(i, Attribute::getWithAlignment(
+                                  op->getContext(), Align(alignements[i])));
+      }
+      return call;
+    } else {
+      // Check if the instruction is a 2xfloat instruction.
+      // If so, cast the operands to double and cast the result back to 2 x
+      // float
+      if (isDoubleFunction(F) and isFloatx2Instruction(I)) {
+        auto newOperands = getFloatx2ToDoubleCastOperands(Builder, I);
+        auto call = Builder.CreateCall(F, newOperands);
+        auto bitcast = Builder.CreateBitCast(call, I->getType());
+        return bitcast;
+      }
+      // get arguments of the instruction
+      // take only the n first arguments, where n is the arity of the function
+      // if the instruction has more arguments, they are not used
+      // i.e. for fma instruction, we take only the first 3 arguments
+      // the 4th argument is ignored
+      std::vector<Value *> operands;
+      std::size_t arity = getArity(I);
+      for (unsigned i = 0; i < arity; i++) {
+        operands.push_back(I->getOperand(i));
+      }
+      return Builder.CreateCall(F, operands);
     }
-    // get arguments of the instruction
-    // take only the n first arguments, where n is the arity of the function
-    // if the instruction has more arguments, they are not used
-    // i.e. for fma instruction, we take only the first 3 arguments
-    // the 4th argument is ignored
-    std::vector<Value *> operands;
-    std::size_t arity = getArity(I);
-    for (unsigned i = 0; i < arity; i++) {
-      operands.push_back(I->getOperand(i));
-    }
-    return Builder.CreateCall(F, operands);
   }
 
   Value *replaceWithPRCall(Module &M, Instruction *I, Fops opCode) {

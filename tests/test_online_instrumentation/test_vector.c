@@ -60,21 +60,26 @@ typedef int int16 __attribute__((ext_vector_type(16)));
 #endif
 
 #define define_binary_vector(type, operation, operator, size)                  \
-  type##size operation##_##size##x##_##type(type##size a, type##size b) {      \
+  __attribute__((noinline)) type##size operation##_##size##x##_##type(         \
+      type##size a, type##size b) {                                            \
     return a operator b;                                                       \
   }
 
 #define define_unary_vector(type, operation, operator, size)                   \
-  type##size operation##_##size##x##_##type(type##size a) { return operator a; }
+  __attribute__((noinline)) type##size operation##_##size##x##_##type(         \
+      type##size a) {                                                          \
+    return operator a;                                                         \
+  }
 
 #define define_comparison_vector(type, operation, operator, size)              \
-  int##size operation##_##size##x##_##type##_cmp(type##size a, type##size b) { \
+  __attribute__((noinline)) int##size operation##_##size##x##_##type##_cmp(    \
+      type##size a, type##size b) {                                            \
     return a operator b;                                                       \
   }
 
 #define define_fmaf_vector(size)                                               \
-  float##size fma##_##size##x##_##float(float##size a, float##size b,          \
-                                        float##size c) {                       \
+  __attribute__((noinline)) float##size fma##_##size##x##_##float(             \
+      float##size a, float##size b, float##size c) {                           \
     float##size res;                                                           \
     for (int i = 0; i < size; i++) {                                           \
       res[i] = __builtin_fmaf(a[i], b[i], c[i]);                               \
@@ -83,8 +88,8 @@ typedef int int16 __attribute__((ext_vector_type(16)));
   }
 
 #define define_fma_vector(size)                                                \
-  double##size fma##_##size##x##_##double(double##size a, double##size b,      \
-                                          double##size c) {                    \
+  __attribute__((noinline)) double##size fma##_##size##x##_##double(           \
+      double##size a, double##size b, double##size c) {                        \
     double##size res;                                                          \
     for (int i = 0; i < size; i++) {                                           \
       res[i] = __builtin_fma(a[i], b[i], c[i]);                                \
@@ -137,8 +142,8 @@ define_fma_vector(16);
 define_fmaf_vector(16);
 
 #define define_operator_vector(type, size)                                     \
-  type##size operator_##size##x_##type(char op, type##size a, type##size b,    \
-                                       type##size c) {                         \
+  __attribute__((noinline)) type##size operator_##size##x_##type(              \
+      char op, type##size a, type##size b, type##size c) {                     \
     switch (op) {                                                              \
     case '+':                                                                  \
       return add##_##size##x##_##type(a, b);                                   \

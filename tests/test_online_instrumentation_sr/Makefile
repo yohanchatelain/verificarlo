@@ -14,39 +14,26 @@ ifndef optimization
 $(error optimization is not set)
 endif
 
-ifndef operator
-$(error operator is not set)
+
+ifdef debug
+DEBUG=--show-cmd --verbose --save-temps
 endif
 
 ifdef size
 vector_size=-DSIZE=$(size)
 BINARY=test_$(type)_$(optimization)_$(operator)_$(size)
+SOURCE=test_vector.c
+INCLUDE=--include-file=include-functions.txt
 else
 BINARY=test_$(type)_$(optimization)_$(operator)
-endif
-
-ifdef debug
-DEBUG=--online-instrumentation-debug
-else
-DEBUG=
-endif
-
-ifdef loop
-LOOP=-DN=$(loop)
-else
-LOOP=
+SOURCE=test.c
+INCLUDE=
 endif
 
 CC=verificarlo-c
-SOURCE=test.c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) -Wno-psabi -Wno-unknown-warning-option $(DEBUG) --online-instrumentation=sr --save-temps -march=native $(LOOP) # --show-cmd --verbose
-LDFLAGS=--online-instrumentation=sr -lm -lstdc++
-
-ifdef debug
-CFLAGS+=--show-cmd --verbose
-endif
-
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi -Wno-unknown-warning-option --online-instrumentation=sr $(DEBUG)
+LDFLAGS=--online-instrumentation=sr -lm
 
 all:
-	$(CC) $(CFLAGS) -c $(SOURCE) -o $(BINARY).o
-	$(CC) $(BINARY).o -o $(BINARY) -L$(SRLIB)/src/ -lsr  -lhwy $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(SOURCE) -o .objects/$(BINARY).o
+	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS)

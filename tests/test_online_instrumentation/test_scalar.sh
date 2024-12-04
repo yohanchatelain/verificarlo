@@ -18,6 +18,8 @@ check_executable() {
     fi
 }
 
+mkdir -p .bin .objects .results
+
 optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
@@ -36,8 +38,8 @@ run_test() {
     local rng="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}_${op_name}
-    local file=tmp.$type.$op_name.$optimization.txt
+    local bin=.bin/test_${type}_${optimization}_${op_name}
+    local file=.results/tmp.$type.$op_name.$optimization.txt
 
     echo "Running test $type $op $optimization $op_name"
 
@@ -57,6 +59,13 @@ run_test() {
         echo "Failed!"
         echo "File $file failed"
         sort -u $file
+        exit 1
+    fi
+
+    # Check that variabililty is within 2 significant digits
+    if [[ $(./check_variability.py $file) ]]; then
+        echo "Failed!"
+        echo "File $file failed"
         exit 1
     fi
 }

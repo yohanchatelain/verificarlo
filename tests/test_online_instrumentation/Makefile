@@ -23,11 +23,11 @@ ifdef size
 vector_size=-DSIZE=$(size)
 BINARY=test_$(type)_$(optimization)_$(operator)_$(size)
 SOURCE=test_vector.c
-INCLUDE= 
+INCLUDE=--include-file=include-functions.txt
 else
 BINARY=test_$(type)_$(optimization)_$(operator)
 SOURCE=test.c
-INCLUDE=--include-file=include-functions.txt
+INCLUDE=
 endif
 
 CC=verificarlo-c
@@ -35,5 +35,5 @@ CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUD
 LDFLAGS=--online-instrumentation=up-down -lm
 
 all:
-	$(CC) $(CFLAGS) -c $(SOURCE) -o $(BINARY).o
-	$(CC) $(BINARY).o -o $(BINARY) $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $(SOURCE) -o .objects/$(BINARY).o
+	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS)

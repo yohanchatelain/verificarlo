@@ -18,11 +18,16 @@ check_executable() {
     fi
 }
 
+mkdir -p .bin .objects .results
+
 optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator}" \
+    ::: type float double \
+    ::: optimization "${optimizations[@]}" \
+    ::: operator add sub mul div
 
 run_test() {
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
@@ -42,17 +47,18 @@ run_test() {
     local type="$1"
     local optimization="$2"
     local op="$3"
+    local rng="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}_${op_name}
-    local file=tmp.$type.$op_name.$optimization.txt
+    local bin=.bin/test_${type}_${optimization}_${op_name}
+    local file=.results/tmp.$type.$op_name.$optimization.txt
 
-    echo "Running test $type $op $optimization $op_name on ${args["$type$op"]}..."
+    echo "Running test $type $op $optimization on ${args["$type$op"]}..."
 
     rm -f $file
 
     for i in $(seq 1 $SAMPLES); do
-        ./$bin $op ${args["$type$op"]} &>>$file
+        ./$bin $op ${args["$type$op"]} >>$file
     done
 
     if [[ $? != 0 ]]; then
@@ -67,19 +73,26 @@ run_test() {
         sort -u $file
         exit 1
     fi
+
+    # Check that variabililty is within 2 significant digits
+    if [[ $(./check_variability.py $file) ]]; then
+        echo "Failed!"
+        echo "File $file failed"
+        exit 1
+    fi
 }
 
 export -f run_test
 
-parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} " \
-    ::: type double float \
+parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op}" \
+    ::: type float double \
     ::: op "+" "-" "x" "/" \
     ::: optimization "${optimizations[@]}"
 
 if [[ $? != 0 ]]; then
     echo "Failed!"
     exit 1
-else
-    echo "Success!"
-    exit 0
 fi
+
+echo "Success!"
+exit 0

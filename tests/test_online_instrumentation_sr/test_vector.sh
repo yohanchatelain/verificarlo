@@ -18,18 +18,19 @@ check_executable() {
     fi
 }
 
+mkdir -p .bin .objects .results
+
 optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --header : "make --silent type={type} optimization={optimization} operator={operator} size={size}" ::: type float double ::: optimization "${optimizations[@]}" ::: operator add sub mul div ::: size 2 4 8 16
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} size={size}" \
+    ::: type float double \
+    ::: optimization "${optimizations[@]}" \
+    ::: operator add sub mul div \
+    ::: size 2 4 8 16
 
 run_test() {
-    # stop if double and 16
-    if [[ $1 == "double" && $4 == 16 ]]; then
-        return
-    fi
-
     declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
 
     declare -A args
@@ -50,8 +51,13 @@ run_test() {
     local size="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}_${op_name}_${size}
-    local file=tmp.$type.x$size.$op_name.$optimization.txt
+    local bin=.bin/test_${type}_${optimization}_${op_name}_${size}
+    local file=.results/tmp.$type.x$size.$op_name.$optimization.txt
+
+    # skip if double and size is 16
+    if [[ $type == "double" && $size == 16 ]]; then
+        return
+    fi
 
     echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
 
@@ -73,6 +79,13 @@ run_test() {
         sort -u $file
         exit 1
     fi
+
+    # Check that variabililty is within 2 significant digits
+    if [[ $(./check_variability.py $file) ]]; then
+        echo "Failed!"
+        echo "File $file failed"
+        exit 1
+    fi
 }
 
 export -f run_test
@@ -80,12 +93,13 @@ export -f run_test
 parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
     ::: type double float \
     ::: op "+" "-" "x" "/" \
-    ::: optimization "${optimizations[@]}" ::: size 2 4 8 16
+    ::: optimization "${optimizations[@]}" \
+    ::: size 2 4 8 16
 
 if [[ $? != 0 ]]; then
     echo "Failed!"
     exit 1
-else
-    echo "Success!"
-    exit 0
 fi
+
+echo "Success!"
+exit 0

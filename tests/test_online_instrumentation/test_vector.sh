@@ -18,8 +18,9 @@ check_executable() {
     fi
 }
 
-# TODO: Find flags to make it work with -O3 and -Ofast
-optimizations=('-O0' '-O1' '-O2')
+mkdir -p .bin .objects .results
+
+optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
@@ -50,8 +51,13 @@ run_test() {
     local size="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=test_${type}_${optimization}_${op_name}_${size}
-    local file=tmp.$type.x$size.$op_name.$optimization.txt
+    local bin=.bin/test_${type}_${optimization}_${op_name}_${size}
+    local file=.results/tmp.$type.x$size.$op_name.$optimization.txt
+
+    # skip if double and size is 16
+    if [[ $type == "double" && $size == 16 ]]; then
+        return
+    fi
 
     echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
 
@@ -71,6 +77,13 @@ run_test() {
         echo "Failed!"
         echo "File $file failed"
         sort -u $file
+        exit 1
+    fi
+
+    # Check that variabililty is within 2 significant digits
+    if [[ $(./check_variability.py $file) ]]; then
+        echo "Failed!"
+        echo "File $file failed"
         exit 1
     fi
 }

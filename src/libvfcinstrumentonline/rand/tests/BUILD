@@ -109,6 +109,17 @@ cc_test_lib_gen(
 )
 
 cc_test_lib_gen(
+    name = "ud-vector-single-test",
+    src = [
+        "//tests:test_single_ud_hwy.cpp",
+    ],
+    copts = HWY_OPTS,
+    deps = [
+        "@//src:prism-dbg",
+    ],
+)
+
+cc_test_lib_gen(
     name = "sr-vector-accuracy",
     size = "large",
     src = [
