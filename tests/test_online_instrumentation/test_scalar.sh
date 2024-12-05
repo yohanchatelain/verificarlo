@@ -59,6 +59,9 @@ run_test() {
         echo "Failed!"
         echo "File $file failed"
         sort -u $file
+        echo "To reproduce the error run:"
+        echo "  make --silent type=$type optimization=$optimization operator=$op"
+        echo "  ./$bin $op 0.1 0.2"
         exit 1
     fi
 

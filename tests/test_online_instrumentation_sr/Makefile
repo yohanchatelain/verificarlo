@@ -16,7 +16,7 @@ endif
 
 
 ifdef debug
-DEBUG=--show-cmd --verbose --save-temps
+DEBUG=--show-cmd --verbose --save-temps --online-instrumentation-debug
 endif
 
 ifdef size
@@ -32,8 +32,18 @@ endif
 
 CC=verificarlo-c
 CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi -Wno-unknown-warning-option --online-instrumentation=sr $(DEBUG)
-LDFLAGS=--online-instrumentation=sr -lm
+LDFLAGS=--online-instrumentation=sr -lm $(DEBUG)
+
+ifdef static
+CFLAGS+=--online-instrumentation-dispatch=static
+LDFLAGS+=--online-instrumentation-dispatch=static
+endif
+
+ifdef native
+CFLAGS+=-march=native
+endif
 
 all:
+	@mkdir -p .objects .bin
 	$(CC) $(CFLAGS) -c $(SOURCE) -o .objects/$(BINARY).o
 	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS)

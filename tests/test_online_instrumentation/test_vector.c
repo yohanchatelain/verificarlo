@@ -142,8 +142,8 @@ define_fma_vector(16);
 define_fmaf_vector(16);
 
 #define define_operator_vector(type, size)                                     \
-  __attribute__((noinline)) type##size operator_##size##x_##type(              \
-      char op, type##size a, type##size b, type##size c) {                     \
+  type##size operator_##size##x_##type(char op, type##size a, type##size b,    \
+                                       type##size c) {                         \
     switch (op) {                                                              \
     case '+':                                                                  \
       return add##_##size##x##_##type(a, b);                                   \
@@ -175,12 +175,30 @@ void operator_double(char op, double a, double b, double c, int size) {
   case 2: {
     double2 aa = {a, 2 * a}, bb = {b, 2 * b}, cc = {c, 2 * c};
     double2 res2 = operator_2x_double(op, aa, bb, cc);
+    union {
+      double2 vec;
+      double arr[2] __attribute__((aligned(16)));
+    } u;
+    u.vec = res2;
+    for (int i = 0; i < 2; i++) {
+      fprintf(stderr, "%.13a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "%.13a %.13a\n", res2[0], res2[1]);
   } break;
   case 4: {
     double4 aaa = {a, 2 * a, 3 * a, 4 * a}, bbb = {b, 2 * b, 3 * b, 4 * b},
             ccc = {c, 2 * c, 3 * c, 4 * c};
     double4 res4 = operator_4x_double(op, aaa, bbb, ccc);
+    union {
+      double4 vec;
+      double arr[4] __attribute__((aligned(32)));
+    } u;
+    u.vec = res4;
+    for (int i = 0; i < 4; i++) {
+      fprintf(stderr, "%.13a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "%.13a %.13a %.13a %.13a\n", res4[0], res4[1], res4[2],
             res4[3]);
   } break;
@@ -189,6 +207,15 @@ void operator_double(char op, double a, double b, double c, int size) {
             bbbb = {b, 2 * b, 3 * b, 4 * b, 5 * b, 6 * b, 7 * b, 8 * b},
             cccc = {c, 2 * c, 3 * c, 4 * c, 5 * c, 6 * c, 7 * c, 8 * c};
     double8 res8 = operator_8x_double(op, aaaa, bbbb, cccc);
+    union {
+      double8 vec;
+      double arr[8] __attribute__((aligned(64)));
+    } u;
+    u.vec = res8;
+    for (int i = 0; i < 8; i++) {
+      fprintf(stderr, "%.13a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "%.13a %.13a %.13a %.13a %.13a %.13a %.13a %.13a\n",
             res8[0], res8[1], res8[2], res8[3], res8[4], res8[5], res8[6],
             res8[7]);
@@ -204,6 +231,15 @@ void operator_double(char op, double a, double b, double c, int size) {
                       7 * c,  8 * c,  9 * c,  10 * c, 11 * c, 12 * c,
                       13 * c, 14 * c, 15 * c, 16 * c};
     double16 res16 = operator_16x_double(op, aaaaa, bbbbb, ccccc);
+    union {
+      double16 vec;
+      double arr[16] __attribute__((aligned(64)));
+    } u;
+    u.vec = res16;
+    for (int i = 0; i < 16; i++) {
+      fprintf(stderr, "%.13a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr,
             "%.13a %.13a %.13a %.13a %.13a %.13a %.13a %.13a %.13a %.13a "
             "%.13a %.13a %.13a %.13a %.13a %.13a\n",
@@ -223,12 +259,30 @@ void operator_float(char op, float a, float b, float c, int size) {
   case 2: {
     float2 aa = {a, 2 * a}, bb = {b, 2 * b}, cc = {c, 2 * c};
     float2 res2 = operator_2x_float(op, aa, bb, cc);
+    union {
+      float2 vec;
+      float arr[2] __attribute__((aligned(8)));
+    } u;
+    u.vec = res2;
+    for (int i = 0; i < 2; i++) {
+      fprintf(stderr, "%.6a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "%.6a %.6a\n", res2[0], res2[1]);
   } break;
   case 4: {
     float4 aaa = {a, 2 * a, 3 * a, 4 * a}, bbb = {b, 2 * b, 3 * b, 4 * b},
            ccc = {c, 2 * c, 3 * c, 4 * c};
     float4 res4 = operator_4x_float(op, aaa, bbb, ccc);
+    union {
+      float4 vec;
+      float arr[4] __attribute__((aligned(16)));
+    } u;
+    u.vec = res4;
+    for (int i = 0; i < 4; i++) {
+      fprintf(stderr, "%.6a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "%.6a %.6a %.6a %.6a\n", res4[0], res4[1], res4[2],
             res4[3]);
   } break;
@@ -237,6 +291,15 @@ void operator_float(char op, float a, float b, float c, int size) {
            bbbb = {b, 2 * b, 3 * b, 4 * b, 5 * b, 6 * b, 7 * b, 8 * b},
            cccc = {c, 2 * c, 3 * c, 4 * c, 5 * c, 6 * c, 7 * c, 8 * c};
     float8 res8 = operator_8x_float(op, aaaa, bbbb, cccc);
+    union {
+      float8 vec;
+      float arr[8] __attribute__((aligned(32)));
+    } u;
+    u.vec = res8;
+    for (int i = 0; i < 8; i++) {
+      fprintf(stderr, "%.6a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "%.6a %.6a %.6a %.6a %.6a %.6a %.6a %.6a\n", res8[0],
             res8[1], res8[2], res8[3], res8[4], res8[5], res8[6], res8[7]);
   } break;
@@ -251,6 +314,15 @@ void operator_float(char op, float a, float b, float c, int size) {
                      7 * c,  8 * c,  9 * c,  10 * c, 11 * c, 12 * c,
                      13 * c, 14 * c, 15 * c, 16 * c};
     float16 res16 = operator_16x_float(op, aaaaa, bbbbb, ccccc);
+    union {
+      float16 vec;
+      float arr[16] __attribute__((aligned(64)));
+    } u;
+    u.vec = res16;
+    for (int i = 0; i < 16; i++) {
+      fprintf(stderr, "%.6a ", u.arr[i]);
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr,
             "%.6a %.6a %.6a %.6a %.6a %.6a %.6a %.6a %.6a %.6a "
             "%.6a %.6a %.6a %.6a %.6a %.6a\n",

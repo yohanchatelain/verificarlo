@@ -79,7 +79,7 @@ cc_library(
         "-O2",
         "-Wall",
         "-Wno-psabi",
-        "-DHWY_COMPILE_ALL_ATTAINABLE",
+        # "-DHWY_COMPILE_ALL_ATTAINABLE",
         "-DSR_DEBUG",
         "-DWARN_FMA_EMULATION",
     ],
@@ -99,6 +99,26 @@ cc_library(
         "-Wall",
         "-Wno-psabi",
         "-march=native",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["@hwy"],
+)
+
+cc_library(
+    name = "prism-native-dbg",
+    srcs = [":srcs-prism"],
+    hdrs = [
+        "//src:sr_hw.h",
+        "//src:ud_hw.h",
+    ],
+    copts = COPTS + [
+        "-O2",
+        "-Wall",
+        "-Wno-psabi",
+        "-march=native",
+        # "-DHWY_COMPILE_ALL_ATTAINABLE",
+        "-DSR_DEBUG",
+        "-DWARN_FMA_EMULATION",
     ],
     visibility = ["//visibility:public"],
     deps = ["@hwy"],

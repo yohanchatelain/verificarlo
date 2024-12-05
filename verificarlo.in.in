@@ -164,7 +164,14 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 def linker_mode(sources, options, libraries, output, args):
     if args.online_instrumentation:
         vfcwrapper_o = ""
-        libraries += f" -lprism -lhwy -lstdc++ "
+        libprism = (
+            "-lprism"
+            if args.online_instrumentation_dispatch == "dynamic"
+            else "-lprism-native"
+        )
+        if args.online_instrumentation_debug:
+            libprism += "-dbg"
+        libraries += f" {libprism} -lhwy -lstdc++ "
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
         compile_vfcwrapper(vfcwrapper, vfcwrapper_o, args)
@@ -190,8 +197,8 @@ def linker_mode(sources, options, libraries, output, args):
             )
         else:
             cmd = (
-                f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
                 f" {mcalib_options} -ldl {interflop_stdlib_flags} "
+                f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
             )
 
         f.write(cmd)
@@ -247,10 +254,15 @@ def apply_mca_instrumentation_pass(
     if args.online_instrumentation:
         debug = args.online_instrumentation_debug
         vfclibinst_online_ll = libprismdir + os.path.sep
+        static_dispatch = args.online_instrumentation_dispatch == "static"
         if args.online_instrumentation == "up-down":
-            vfclibinst_online_ll += "ud_hw.ll"
+            vfclibinst_online_ll += (
+                "ud_hw" + ("-native" if static_dispatch else "") + ".ll"
+            )
         elif args.online_instrumentation == "sr":
-            vfclibinst_online_ll += "sr_hw.ll"
+            vfclibinst_online_ll += (
+                "sr_hw" + ("-native" if static_dispatch else "") + ".ll"
+            )
 
         libvfcinst = libvfcinstrumentonline
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "

@@ -361,14 +361,9 @@ struct VfclibInst : public ModulePass {
     }
     getDemangledNamesLibSR(stoLibModule.get());
 
-    if (VfclibInstDebug) {
-      printDemangledNamesLibsSR();
-      printDemangledNamesLibsSRShort();
-    }
-
-    // if (Linker::linkModules(M, std::move(loadVfcwrapperIR(M)))) {
-    //   report_fatal_error(
-    //       "libVFCInstrumentOnline fatal error when linking modules");
+    // if (VfclibInstDebug) {
+    //   printDemangledNamesLibsSR();
+    //   printDemangledNamesLibsSRShort();
     // }
 
     // Parse both included and excluded function set
@@ -546,9 +541,9 @@ struct VfclibInst : public ModulePass {
     if (baseType->isVectorTy()) {
       vectype = "vector";
       if (dispatch == "static") {
-        dispatch_ext = "_s";
+        dispatch_ext = "_static";
       } else if (dispatch == "dynamic") {
-        dispatch_ext = "_d";
+        dispatch_ext = "_dynamic";
       } else {
         errs() << "Invalid dispatch: " << dispatch << "\n";
         llvm_unreachable("Invalid dispatch");
@@ -573,6 +568,7 @@ struct VfclibInst : public ModulePass {
   Function *getPRFunction(Instruction *I) {
     Fops opCode = mustReplace(*I);
     const std::string dispatch = VfclibInstDispatch;
+
     std::string functionName = getFunctionName(I, opCode, dispatch);
     auto function = getFunction(stoLibModule.get(), functionName);
     if (function == nullptr and dispatch == "static") {
@@ -597,45 +593,37 @@ struct VfclibInst : public ModulePass {
                                                  function->getFunctionType(),
                                                  function->getAttributes());
 
+    auto parent = I->getParent()->getParent();
+
 #if LLVM_VERSION_MAJOR < 9
-    return dyn_cast<Function>(F);
+    auto f = dyn_cast<Function>(F);
+    auto prism_function = dyn_cast<Function>(F);
 #else
-    return dyn_cast<Function>(F.getCallee());
+    auto f = dyn_cast<Function>(F.getCallee());
+    auto prism_function = dyn_cast<Function>(F.getCallee());
 #endif
+
+    return prism_function;
   }
 
   bool isDoubleFunction(Function *F) {
-    return F->getReturnType()->isDoubleTy();
+    const auto name = F->getName().str();
+    return name.find("f64") != std::string::npos;
   }
 
-  bool isFloatx2Function(Function *F) {
-    if (not F->getReturnType()->isVectorTy()) {
+  bool isf32x2Value(Value *V) {
+    if (not V->getType()->isVectorTy()) {
       return false;
     }
-    auto vecType = static_cast<VectorType *>(F->getReturnType());
+    auto vecType = static_cast<VectorType *>(V->getType());
     auto baseType = vecType->getScalarType();
     auto size = GET_VECTOR_ELEMENT_COUNT(vecType);
     return baseType->isFloatTy() and size == 2;
   }
 
-  bool isFloatx2Instruction(Instruction *I) {
-    if (not I->getType()->isVectorTy()) {
-      return false;
-    }
-    auto vecType = static_cast<VectorType *>(I->getType());
-    auto baseType = vecType->getScalarType();
-    auto size = GET_VECTOR_ELEMENT_COUNT(vecType);
-    return baseType->isFloatTy() and size == 2;
-  }
-
-  std::vector<Value *> getFloatx2ToDoubleCastOperands(IRBuilder<> &Builder,
-                                                      Instruction *I) {
-    std::vector<Value *> newOperands;
-    for (auto &op : I->operands()) {
-      auto op_cast = Builder.CreateBitCast(op.get(), Builder.getDoubleTy());
-      newOperands.push_back(op_cast);
-    }
-    return newOperands;
+  Value *f32x2ToDoubleCast(IRBuilder<> &Builder, Value *V) {
+    auto cast = Builder.CreateBitCast(V, Builder.getDoubleTy());
+    return cast;
   }
 
   std::size_t getArity(Instruction *I) {
@@ -654,8 +642,50 @@ struct VfclibInst : public ModulePass {
 
   bool is_dynamic_dispatch(const Function *F) {
     const auto name = F->getName().str();
-    return name.find("scalar") == std::string::npos or
-           name.find("_v") == std::string::npos;
+    return name.find("_dynamic") != std::string::npos;
+  }
+
+  bool is_static_dispatch(const Function *F) {
+    const auto name = F->getName().str();
+    return name.find("_static") != std::string::npos;
+  }
+
+  std::vector<Value *> getOperands(IRBuilder<> &Builder, Instruction *I,
+                                   Function *F, bool isDynamicDispatch) {
+    if (VfclibInstDebug) {
+      errs() << "Get operands for function: " << F->getName() << "\n";
+      errs() << *F << "\n";
+    }
+    std::vector<Value *> operands;
+    for (unsigned i = 0; i < getArity(I); i++) {
+      auto op = I->getOperand(i);
+      auto arg_type = F->getFunctionType()->getParamType(i);
+      if (VfclibInstDebug) {
+        errs() << "Operand " << i << ": " << *op << "\n";
+        errs() << "Arg type " << i << ": " << *arg_type << "\n";
+      }
+      if (isf32x2Value(op)) {
+        op = f32x2ToDoubleCast(Builder, op);
+        operands.push_back(op);
+        if (VfclibInstDebug)
+          errs() << "Operand " << i << " after cast: " << *op << "\n";
+      } else if (isDynamicDispatch and arg_type->isPointerTy()) {
+        auto alloca = Builder.CreateAlloca(op->getType());
+        auto store = Builder.CreateStore(op, alloca, true);
+        operands.push_back(alloca);
+        if (VfclibInstDebug)
+          errs() << "Operand " << i << " after alloca: " << *alloca << "\n";
+      } else { // static dispatch
+        operands.push_back(op);
+      }
+    }
+    if (isDynamicDispatch) {
+      auto alloca = Builder.CreateAlloca(I->getType());
+      if (VfclibInstDebug)
+        errs() << "Result alloca: " << *alloca << "\n";
+      operands.push_back(alloca);
+    }
+    return operands;
   }
 
   /* Replace arithmetic instructions with PR */
@@ -665,62 +695,28 @@ struct VfclibInst : public ModulePass {
       return nullptr;
     }
 
-    bool has_ptr_args = false;
-    // check if operands of F are pointers, and skip if so
-    for (auto &arg : F->args()) {
-      if (arg.getType()->isPointerTy()) {
-        has_ptr_args = true;
-      }
-    }
+    const auto dynamic_dispatch = is_dynamic_dispatch(F);
+    auto operands = getOperands(Builder, I, F, dynamic_dispatch);
 
-    const bool scalar = not I->getType()->isVectorTy();
-    const auto scalar_type = I->getType()->getScalarType();
-    const auto ptr_scalar_type = scalar_type->getPointerTo();
+    auto call = Builder.CreateCall(F, operands);
+    call->setAttributes(F->getAttributes());
 
-    if (has_ptr_args) {
-      std::vector<Value *> operands;
-      std::vector<int> alignements;
-      std::size_t arity = getArity(I);
-      for (unsigned i = 0; i < arity; i++) {
-        auto op = I->getOperand(i);
-        auto alloca = Builder.CreateAlloca(op->getType());
-        alignements.push_back(alloca->getAlignment());
-        auto store = Builder.CreateStore(op, alloca);
-        operands.push_back(alloca);
-      }
-      auto call = Builder.CreateCall(F, operands);
-      for (int i = 0; i < arity; i++) {
-        auto op = I->getOperand(i);
-        call->addParamAttr(i, Attribute::NoUndef);
-        call->addParamAttr(i, Attribute::NonNull);
-        call->addParamAttr(i, Attribute::get(op->getContext(), Attribute::ByVal,
-                                             op->getType()));
-        call->addParamAttr(i, Attribute::getWithAlignment(
-                                  op->getContext(), Align(alignements[i])));
-      }
-      return call;
+    Value *result = nullptr;
+
+    if (dynamic_dispatch) {
+      auto load = Builder.CreateLoad(I->getType(), operands.back());
+      result = load;
     } else {
-      // Check if the instruction is a 2xfloat instruction.
-      // If so, cast the operands to double and cast the result back to 2 x
-      // float
-      if (isDoubleFunction(F) and isFloatx2Instruction(I)) {
-        auto newOperands = getFloatx2ToDoubleCastOperands(Builder, I);
-        auto call = Builder.CreateCall(F, newOperands);
+      auto return_type = F->getReturnType();
+      if (isf32x2Value(I) and return_type->isDoubleTy()) {
         auto bitcast = Builder.CreateBitCast(call, I->getType());
-        return bitcast;
+        result = bitcast;
+      } else {
+        result = call;
       }
-      // get arguments of the instruction
-      // take only the n first arguments, where n is the arity of the function
-      // if the instruction has more arguments, they are not used
-      // i.e. for fma instruction, we take only the first 3 arguments
-      // the 4th argument is ignored
-      std::vector<Value *> operands;
-      std::size_t arity = getArity(I);
-      for (unsigned i = 0; i < arity; i++) {
-        operands.push_back(I->getOperand(i));
-      }
-      return Builder.CreateCall(F, operands);
     }
+
+    return result;
   }
 
   Value *replaceWithPRCall(Module &M, Instruction *I, Fops opCode) {
@@ -739,8 +735,6 @@ struct VfclibInst : public ModulePass {
       Builder.SetInsertPoint(I->getNextNode());
     }
 
-    // We call directly a hardcoded helper function
-    // no need to go through the vtable at this stage.
     Value *newInst = replaceArithmeticWithPRCall(Builder, I);
 
     return newInst;
