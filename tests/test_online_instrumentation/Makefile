@@ -43,6 +43,15 @@ ifdef native
 CFLAGS+=-march=native
 endif
 
+ifdef static
+CFLAGS+=--online-instrumentation-dispatch=static
+LDFLAGS+=--online-instrumentation-dispatch=static
+endif
+
+ifdef native
+CFLAGS+=-march=native
+endif
+
 all:
 	@mkdir -p .objects .bin
 	$(CC) $(CFLAGS) -c $(SOURCE) -o .objects/$(BINARY).o
