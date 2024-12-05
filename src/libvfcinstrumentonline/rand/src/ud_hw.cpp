@@ -196,21 +196,9 @@ template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
 void _addxN(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
             T *HWY_RESTRICT result) {
   const D d;
-  std::cout << "#a: ";
-  for (int i = 0; i < N; i++) {
-    std::cout << a[i] << " ";
-  }
-  std::cout << std::endl;
-  std::cout << "#b: ";
-  for (int i = 0; i < N; i++) {
-    std::cout << b[i] << " ";
-  }
   const auto va = hn::Load(d, a);
   const auto vb = hn::Load(d, b);
-  dbg::debug_vec<D>("#va", va);
-  dbg::debug_vec<D>("#vb", vb);
   auto res = internal::_add_fp_xN<T, N>(va, vb);
-  dbg::debug_vec<D>("#res", res);
   hn::Store(res, d, result);
 }
 
