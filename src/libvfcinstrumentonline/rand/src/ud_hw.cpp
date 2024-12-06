@@ -29,10 +29,7 @@ namespace internal {
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 V _add_fp_xN(V a, V b) {
-  dbg::debug_vec<D>("#[add] a", a);
-  dbg::debug_vec<D>("#[add] b", b);
   auto res = add<D>(a, b);
-  dbg::debug_vec<D>("#[add] res", res);
   return res;
 }
 

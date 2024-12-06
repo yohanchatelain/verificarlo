@@ -1,6 +1,8 @@
 #!/bin/env python
 
 import numpy as np
+
+np.seterr(all="ignore")
 import argparse
 import sys
 import significantdigits as sd
@@ -72,6 +74,12 @@ def main():
 
     if mean_min == 0:
         print(f"Error with {args.input}: one element is zero")
+        sys.exit(1)
+    if np.isnan(mean_min):
+        print(f"Error with {args.input}: one element is nan")
+        sys.exit(1)
+    if np.isinf(mean_min):
+        print(f"Error with {args.input}: one element is inf")
         sys.exit(1)
 
 

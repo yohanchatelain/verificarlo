@@ -62,23 +62,23 @@ typedef int int16 __attribute__((ext_vector_type(16)));
 #define define_binary_vector(type, operation, operator, size)                  \
   __attribute__((noinline)) type##size operation##_##size##x##_##type(         \
       type##size a, type##size b) {                                            \
-    fprintf(stderr, "# operation: %s\n", #operation);                          \
-    fprintf(stderr, "# a: ");                                                  \
+    fprintf(stderr, "#> operation: %s\n", #operation);                         \
+    fprintf(stderr, "#> a: ");                                                 \
     for (int i = 0; i < size; i++) {                                           \
-      fprintf(stderr, "%.6a ", a[i]);                                          \
+      fprintf(stderr, "%.13a ", a[i]);                                         \
     }                                                                          \
     fprintf(stderr, "#\n");                                                    \
-    fprintf(stderr, "#b: ");                                                   \
+    fprintf(stderr, "#> b: ");                                                 \
     for (int i = 0; i < size; i++) {                                           \
-      fprintf(stderr, "%.6a ", b[i]);                                          \
+      fprintf(stderr, "%.13a ", b[i]);                                         \
     }                                                                          \
-    fprintf(stderr, "#\n");                                                    \
+    fprintf(stderr, "#>\n");                                                   \
     type##size res = a operator b;                                             \
-    fprintf(stderr, "#result: ");                                              \
+    fprintf(stderr, "#> result: ");                                            \
     for (int i = 0; i < size; i++) {                                           \
-      fprintf(stderr, "%.6a ", res[i]);                                        \
+      fprintf(stderr, "%.13a ", res[i]);                                       \
     }                                                                          \
-    fprintf(stderr, "#\n");                                                    \
+    fprintf(stderr, "#>\n");                                                   \
     return res;                                                                \
   }
 

@@ -102,15 +102,19 @@ run_test() {
 
 export -f run_test
 
-parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
-    ::: type double float \
-    ::: op "+" "-" "x" "/" \
-    ::: optimization "${optimizations[@]}" \
-    ::: size 2 4 8 16
-
-if [[ $? != 0 ]]; then
-    echo "Failed!"
-    exit 1
+if [[ ${TEST_DEBUG} -eq 1 ]]; then
+    echo "Running in debug mode"
+    parallel --header : "run_test {type} {optimization} {op} {size}" \
+        ::: type double float \
+        ::: op "+" "-" "x" "/" \
+        ::: optimization "${optimizations[@]}" \
+        ::: size 2 4 8 16
+else
+    parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
+        ::: type double float \
+        ::: op "+" "-" "x" "/" \
+        ::: optimization "${optimizations[@]}" \
+        ::: size 2 4 8 16
 fi
 
 echo "Success!"

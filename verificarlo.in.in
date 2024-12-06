@@ -252,7 +252,6 @@ def apply_mca_instrumentation_pass(
     ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
 ):
     if args.online_instrumentation:
-        debug = args.online_instrumentation_debug
         vfclibinst_online_ll = libprismdir + os.path.sep
         static_dispatch = args.online_instrumentation_dispatch == "static"
         if args.online_instrumentation == "up-down":
@@ -268,8 +267,10 @@ def apply_mca_instrumentation_pass(
         extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
         extra_args += f" -vfclibinst-dispatch {args.online_instrumentation_dispatch} "
         extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
-        if debug:
+        if args.online_instrumentation_debug:
             extra_args += f" -vfclibinst-debug "
+            for debug in args.online_instrumentation_debug:
+                extra_args += f" -vfclibinst-debug-{debug} "
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "
@@ -445,8 +446,10 @@ def parse_args():
     )
     parser.add_argument(
         "--online-instrumentation-debug",
-        action="store_true",
-        help="Online instrumentation debug",
+        action="store",
+        nargs="+",
+        choices=["getoperands", "abi", "targetfeatures"],
+        help="Enable online instrumentation debug",
     )
 
     args, other = parser.parse_known_args()

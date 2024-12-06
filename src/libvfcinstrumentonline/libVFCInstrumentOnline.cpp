@@ -38,9 +38,16 @@
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/MC/SubtargetFeature.h>
 // #include <llvm/Support/Alignment.h>
+#include <llvm/IR/Attributes.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/X86TargetParser.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
+// #include <llvm/Target/TargetRegistry.h>
 #if LLVM_VERSION_MAJOR >= 11
 #undef PIC
 #include <llvm/MC/TargetRegistry.h>
@@ -91,6 +98,13 @@
 
 using namespace llvm;
 // VfclibInst pass command line arguments
+
+enum debugOptions {
+  GetOperands = 1 << 0,
+  TargetFeatures = 1 << 1,
+  ABI = 1 << 2
+};
+
 static cl::opt<std::string>
     VfclibInstFunction("vfclibinst-function",
                        cl::desc("Only instrument given FunctionName"),
@@ -135,6 +149,16 @@ static cl::opt<bool> VfclibInstDebug("vfclibinst-debug",
                                      cl::desc("Activate debug mode"),
                                      cl::value_desc("Debug"), cl::init(false));
 
+static cl::bits<debugOptions> VfclibInstDebugOptions(
+    cl::desc("Debug options"),
+    cl::values(
+        clEnumValN(debugOptions::GetOperands, "vfclibinst-debug-getoperands",
+                   "Debug GetOperands"),
+        clEnumValN(debugOptions::TargetFeatures,
+                   "vfclibinst-debug-targetfeatures", "Debug TargetFeatures"),
+        clEnumValN(debugOptions::ABI, "vfclibinst-debug-abi", "Debug ABI")),
+    cl::CommaSeparated);
+
 namespace {
 // Define an enum type to classify the floating points operations
 // that are instrumented by verificarlo
@@ -156,13 +180,12 @@ std::map<std::string, std::string> demangledNamesToMangled;
 std::map<std::string, std::string> demangledShortNamesToMangled;
 std::set<std::string> functionsToExclude;
 
-/* Pointer to the module that contains the stochastic operators */
-
 struct VfclibInst : public ModulePass {
   static char ID;
   std::unique_ptr<Module> stoLibModule;
 
   VfclibInst() : ModulePass(ID) {
+
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();
     llvm::InitializeAllTargetMCs();
@@ -187,7 +210,7 @@ struct VfclibInst : public ModulePass {
 
   // Taken from
   // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/
-  std::vector<std::string> split(const std::string &s, char delimiter) {
+  static std::vector<std::string> split(const std::string &s, char delimiter) {
     std::vector<std::string> tokens;
     std::string token;
     std::istringstream tokenStream(s);
@@ -195,6 +218,10 @@ struct VfclibInst : public ModulePass {
       tokens.push_back(token);
     }
     return tokens;
+  }
+
+  static std::vector<std::string> split(const StringRef &s, char delimiter) {
+    return split(s.str(), delimiter);
   }
 
   // https://thispointer.com/find-and-replace-all-occurrences-of-a-sub-string-in-c/
@@ -351,6 +378,12 @@ struct VfclibInst : public ModulePass {
   }
 
   bool runOnModule(Module &M) {
+    // listTargetFeatures();
+    // listTargetFeatures("x86-64");
+    // listTargetFeatures("x86-64-v2");
+    // listTargetFeatures("x86-64-v3");
+    // listTargetFeatures("x86-64-v4");
+
     bool modified = false;
 
     stoLibModule = loadVfcwrapperIR(M, VfclibInstStoIRFile);
@@ -652,7 +685,7 @@ struct VfclibInst : public ModulePass {
 
   std::vector<Value *> getOperands(IRBuilder<> &Builder, Instruction *I,
                                    Function *F, bool isDynamicDispatch) {
-    if (VfclibInstDebug) {
+    if (VfclibInstDebugOptions.isSet(debugOptions::GetOperands)) {
       errs() << "Get operands for function: " << F->getName() << "\n";
       errs() << *F << "\n";
     }
@@ -660,32 +693,439 @@ struct VfclibInst : public ModulePass {
     for (unsigned i = 0; i < getArity(I); i++) {
       auto op = I->getOperand(i);
       auto arg_type = F->getFunctionType()->getParamType(i);
-      if (VfclibInstDebug) {
+
+      if (VfclibInstDebugOptions.isSet(debugOptions::GetOperands)) {
         errs() << "Operand " << i << ": " << *op << "\n";
         errs() << "Arg type " << i << ": " << *arg_type << "\n";
       }
-      if (isf32x2Value(op)) {
-        op = f32x2ToDoubleCast(Builder, op);
-        operands.push_back(op);
-        if (VfclibInstDebug)
-          errs() << "Operand " << i << " after cast: " << *op << "\n";
-      } else if (isDynamicDispatch and arg_type->isPointerTy()) {
+
+      if (isDynamicDispatch and arg_type->isPointerTy()) {
+
+        // dynamic dispatch with vector arguments
+        // auto alloca = Builder.CreateAlloca(op->getType());
+        // auto store = Builder.CreateStore(op, alloca, true);
+        // operands.push_back(alloca);
+
+        // dynamic dispatch with pointer arguments
+        // if the vector is passed as a value
+        // need to create an alloca and store the value
         auto alloca = Builder.CreateAlloca(op->getType());
         auto store = Builder.CreateStore(op, alloca, true);
-        operands.push_back(alloca);
-        if (VfclibInstDebug)
+        auto bitcast = Builder.CreateBitCast(alloca, arg_type);
+        operands.push_back(bitcast);
+
+        if (VfclibInstDebugOptions.isSet(debugOptions::GetOperands))
           errs() << "Operand " << i << " after alloca: " << *alloca << "\n";
+
+      } else if (isf32x2Value(op)) {
+        op = f32x2ToDoubleCast(Builder, op);
+        operands.push_back(op);
+
+        if (VfclibInstDebugOptions.isSet(debugOptions::GetOperands))
+          errs() << "Operand " << i << " after cast: " << *op << "\n";
+
       } else { // static dispatch
         operands.push_back(op);
       }
     }
     if (isDynamicDispatch) {
+      // dynamic dispatch with vector return value
+      // auto alloca = Builder.CreateAlloca(I->getType());
+      // operands.push_back(alloca);
+
+      // dynamic dispatch with pointer return value
       auto alloca = Builder.CreateAlloca(I->getType());
-      if (VfclibInstDebug)
+      // get type of last argument of F
+      auto arg_type = F->getFunctionType()->getParamType(getArity(I));
+      auto bitcast = Builder.CreateBitCast(alloca, arg_type);
+      operands.push_back(bitcast);
+
+      if (VfclibInstDebugOptions.isSet(debugOptions::GetOperands))
         errs() << "Result alloca: " << *alloca << "\n";
-      operands.push_back(alloca);
     }
     return operands;
+  }
+
+  void listTargetFeatures(const std::string &CPU = "") {
+    // Initialize LLVM native target and ASM printer
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    std::string Error;
+    std::string TargetTriple = llvm::sys::getDefaultTargetTriple();
+    // Lookup target information
+    const llvm::Target *Target =
+        llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+    if (!Target) {
+      llvm::errs() << "Error: " << Error << "\n";
+      return;
+    }
+    if (CPU.empty()) {
+
+      // Get the default target triple for the host system
+      const auto ProcessTriple = llvm::sys::getProcessTriple();
+      const auto HostCPUName = llvm::sys::getHostCPUName();
+      StringMap<bool> HostFeatures;
+      llvm::sys::getHostCPUFeatures(HostFeatures);
+
+      // Print host information
+      errs() << "Host Information:\n";
+      errs() << "  Target Triple: " << TargetTriple << "\n";
+      errs() << "  Process Triple: " << ProcessTriple << "\n";
+      errs() << "  Host CPU: " << HostCPUName << "\n";
+      errs() << "  Host CPU Features:\n";
+      for (const auto &Feature : HostFeatures) {
+        const auto enabled = Feature.second ? "+" : "-";
+        errs() << enabled << Feature.first() << ", ";
+      }
+      errs() << "\n";
+
+    } else {
+      // Define CPU and Features string (use "native" for host CPU)
+      std::string FeaturesStr;
+
+      // Create target options
+      TargetOptions Options;
+      auto RM = llvm::Optional<Reloc::Model>();
+
+      auto x86arch = llvm::X86::parseArchX86(CPU);
+      auto x86tune = llvm::X86::parseArchX86(CPU);
+
+      SmallVector<llvm::StringRef, 256> features;
+      llvm::X86::getFeaturesForCPU(CPU, features);
+
+      // Print target information
+      errs() << "Target Information:\n";
+      errs() << "  Target Machine: " << Target->getName() << "\n";
+      errs() << "  Target CPU: " << CPU << "\n";
+      errs() << "  Target Features: ";
+      for (const auto &Feature : features) {
+        errs() << Feature << ",";
+      }
+      errs() << "\n";
+    }
+  }
+
+  typedef enum {
+    x86_64_NONE = 0,
+    x86_64_SSE = 1,
+    x86_64_SSE2 = 2,
+    x86_64_SSE3 = 3,
+    x86_64_SSE4 = 4,
+    x86_64_AVX = 5,
+    x86_64_AVX2 = 6,
+    x86_64_AVX512F = 7
+  } X86_64_ISA;
+
+  std::string getIsaAsStringX86_64(X86_64_ISA isa) {
+    switch (isa) {
+    case x86_64_NONE:
+      return "";
+    case x86_64_SSE:
+      return "sse";
+    case x86_64_SSE2:
+      return "sse2";
+    case x86_64_SSE3:
+      return "sse3";
+    case x86_64_SSE4:
+      return "sse4";
+    case x86_64_AVX:
+      return "avx";
+    case x86_64_AVX2:
+      return "avx2";
+    case x86_64_AVX512F:
+      return "avx512f";
+    default:
+      return "";
+    }
+  }
+
+  class TargetFeature {
+  public:
+    TargetFeature() = default;
+    TargetFeature(const std::string &feature) {
+      if (feature[0] == '-') {
+        enabled = false;
+        name = feature.substr(1);
+      } else if (feature[0] == '+') {
+        enabled = true;
+        name = feature.substr(1);
+      } else {
+        enabled = true;
+        name = feature;
+      }
+    }
+
+    std::string getAsString() const {
+      if (enabled) {
+        return "+" + name;
+      } else {
+        return "-" + name;
+      }
+    }
+
+    bool operator<(const TargetFeature &rhs) const {
+      const auto repr = getAsString();
+      const auto rhs_repr = rhs.getAsString();
+      return repr < rhs_repr;
+    }
+
+    bool operator==(const TargetFeature &rhs) const {
+      return (name == rhs.name) and (enabled == rhs.enabled);
+    }
+
+    friend llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
+                                         const TargetFeature &TF) {
+      OS << TF.getAsString();
+      return OS;
+    }
+
+    bool enabled;
+    std::string name;
+  };
+
+  class TargetFeatures {
+  public:
+    TargetFeatures() = default;
+    TargetFeatures(const std::string &features) {
+      if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+        errs() << "Build TargetFeatures from string: " << features << "\n";
+      }
+      std::vector<std::string> features_list = split(features, ',');
+      if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+        errs() << "Features list: ";
+        for (const auto &feature : features_list) {
+          errs() << feature << " ";
+        }
+        errs() << "\n";
+      }
+      for (const auto &feature : features_list) {
+        addAttribute(TargetFeature(feature));
+      }
+      if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+        errs() << "TargetFeatures built: " << getAsString() << "\n";
+      }
+    }
+
+    TargetFeatures(const Attribute &features) {
+      if (features.isStringAttribute()) {
+        const auto features_str = features.getValueAsString();
+        std::vector<std::string> features_list = split(features_str, ',');
+        if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+          errs() << "Build TargetFeatures from Attribute: " << features_str
+                 << "\n";
+        }
+        if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+          errs() << "Features list: ";
+          for (const auto &feature : features_list) {
+            errs() << feature << " ";
+          }
+          errs() << "\n";
+        }
+        for (const auto &feature : features_list) {
+          addAttribute(TargetFeature(feature));
+        }
+      }
+      if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+        errs() << "TargetFeatures built: " << getAsString() << "\n";
+      }
+    }
+
+    void addAttribute(const std::string &feature) {
+      if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+        errs() << "addAttribute string: " << feature << "\n";
+      }
+      if (this->hasAttribute(feature)) {
+        if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+          errs() << "Attribute already present\n";
+        }
+        return;
+      }
+      addAttribute(TargetFeature(feature));
+    }
+
+    void addAttribute(const TargetFeature &feature) {
+      if (VfclibInstDebugOptions.isSet(debugOptions::TargetFeatures)) {
+        errs() << "addAttribute TargetFeature: " << feature << "\n";
+        if (features.find(feature) != features.end()) {
+          errs() << "Attribute already present\n";
+        }
+      }
+      features.insert(feature);
+    }
+
+    bool hasAttribute(const TargetFeature &feature) const {
+      return features.find(feature) != features.end();
+    }
+
+    bool hasAttribute(const std::string &feature) const {
+      return hasAttribute(TargetFeature(feature));
+    }
+
+    std::string getAsString() const {
+      std::string str = "";
+      for (const auto &feature : features) {
+        str += feature.getAsString() + ",";
+      }
+      if (not str.empty()) {
+        str.pop_back();
+      }
+      return str;
+    }
+
+    // Attribute getAttributes() {
+    //   std::string str = getAsString();
+    //   return Attribute::get(M.getContext(), str);
+    // }
+
+    bool isIncludeIn(const TargetFeatures &rhs) {
+      for (const auto &feature : features) {
+        if (not rhs.hasAttribute(feature)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    TargetFeatures operator+(const TargetFeatures &rhs) {
+      TargetFeatures result;
+      for (const auto &feature : features) {
+        result.addAttribute(feature);
+      }
+      for (const auto &feature : rhs.features) {
+        result.addAttribute(feature);
+      }
+      return result;
+    }
+
+    TargetFeatures operator-(const TargetFeatures &rhs) {
+      TargetFeatures result;
+      for (const auto &feature : features) {
+        result.addAttribute(feature);
+      }
+      for (const auto &feature : rhs.features) {
+        result.features.erase(feature);
+      }
+      return result;
+    }
+
+    TargetFeatures operator|(const TargetFeatures &rhs) {
+      TargetFeatures result;
+      for (const auto &feature : features) {
+        result.addAttribute(feature);
+      }
+      for (const auto &feature : rhs.features) {
+        result.addAttribute(feature);
+      }
+      return result;
+    }
+
+    TargetFeatures operator&(const TargetFeatures &rhs) {
+      TargetFeatures result;
+      for (const auto &feature : features) {
+        if (rhs.hasAttribute(feature)) {
+          result.addAttribute(feature);
+        }
+      }
+      return result;
+    }
+
+    friend llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
+                                         const TargetFeatures &TF) {
+      OS << TF.getAsString();
+      return OS;
+    }
+
+  private:
+    std::set<TargetFeature> features;
+  };
+
+  X86_64_ISA getHighestSupportedISA_X86_64(const TargetFeatures &features) {
+    if (features.hasAttribute("avx512f")) {
+      return x86_64_AVX512F;
+    }
+    if (features.hasAttribute("avx2")) {
+      return x86_64_AVX2;
+    }
+    if (features.hasAttribute("avx")) {
+      return x86_64_AVX;
+    }
+    if (features.hasAttribute("sse4.2")) {
+      return x86_64_SSE4;
+    }
+    if (features.hasAttribute("sse3")) {
+      return x86_64_SSE3;
+    }
+    if (features.hasAttribute("sse2")) {
+      return x86_64_SSE2;
+    }
+    if (features.hasAttribute("sse")) {
+      return x86_64_SSE;
+    }
+    return x86_64_NONE;
+  }
+
+  bool hasFeatures_X86_64(const Attribute &src, const Attribute &target) {
+
+    std::vector<std::string> features = {"avx512f", "avx2", "avx", "sse4.2",
+                                         "sse3",    "sse2", "sse"};
+    for (const auto &feature : features) {
+      if (src.hasAttribute(feature) and not target.hasAttribute(feature)) {
+        if (VfclibInstDebug) {
+          errs() << "Missing feature: " << feature << "\n";
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool areABICompatible(Instruction *CallInst, Function *Callee) {
+    auto caller = CallInst->getParent()->getParent();
+    auto calleeTargetFeatures =
+        TargetFeatures(Callee->getFnAttribute("target-features"));
+    auto callerTargetFeatures =
+        TargetFeatures(caller->getFnAttribute("target-features"));
+
+    // if caller does have the callee features, we're good
+    if (calleeTargetFeatures.isIncludeIn(callerTargetFeatures)) {
+      if (VfclibInstDebug and VfclibInstDebugOptions.isSet(debugOptions::ABI)) {
+        errs() << "Caller has the callee target features\n";
+        errs() << "caller features: " << callerTargetFeatures.getAsString()
+               << "\n";
+        errs() << "callee features: " << calleeTargetFeatures.getAsString()
+               << "\n";
+      }
+      return true;
+    } else {
+      // if caller does not have the callee features, we need to check if there
+      // is compatibility
+      auto caller_highest_isa_supported =
+          getHighestSupportedISA_X86_64(callerTargetFeatures);
+      auto callee_highest_isa_supported =
+          getHighestSupportedISA_X86_64(calleeTargetFeatures);
+      if (caller_highest_isa_supported >= callee_highest_isa_supported) {
+        if (VfclibInstDebug and
+            VfclibInstDebugOptions.isSet(debugOptions::ABI)) {
+          errs() << "Caller is compatible with callee target features\n";
+          errs() << "caller features: " << callerTargetFeatures.getAsString()
+                 << "\n";
+          errs() << "callee features: " << calleeTargetFeatures.getAsString()
+                 << "\n";
+        }
+        return true;
+      } else {
+        if (VfclibInstDebug and
+            VfclibInstDebugOptions.isSet(debugOptions::ABI)) {
+          errs() << "Caller is not compatible with callee target features\n";
+          errs() << "caller features: " << callerTargetFeatures.getAsString()
+                 << "\n";
+          errs() << "callee features: " << calleeTargetFeatures.getAsString()
+                 << "\n";
+        }
+        return false;
+      }
+    }
   }
 
   /* Replace arithmetic instructions with PR */
@@ -694,6 +1134,9 @@ struct VfclibInst : public ModulePass {
     if (F == nullptr) {
       return nullptr;
     }
+
+    if (not areABICompatible(I, F))
+      return nullptr;
 
     const auto dynamic_dispatch = is_dynamic_dispatch(F);
     auto operands = getOperands(Builder, I, F, dynamic_dispatch);
@@ -704,8 +1147,17 @@ struct VfclibInst : public ModulePass {
     Value *result = nullptr;
 
     if (dynamic_dispatch) {
-      auto load = Builder.CreateLoad(I->getType(), operands.back());
+      // dynamic dispatch with vector return value
+      // auto load = Builder.CreateLoad(I->getType(), operands.back());
+      // result = load;
+
+      // dynamic dispatch with pointer return value
+      auto return_type = I->getType();
+      auto return_type_ptr = return_type->getPointerTo();
+      auto ptr_to_vec = Builder.CreateBitCast(operands.back(), return_type_ptr);
+      auto load = Builder.CreateLoad(return_type, ptr_to_vec);
       result = load;
+
     } else {
       auto return_type = F->getReturnType();
       if (isf32x2Value(I) and return_type->isDoubleTy()) {

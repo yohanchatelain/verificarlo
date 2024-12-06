@@ -92,7 +92,7 @@ run_test() {
         echo "File $file failed"
         sort -u $file
         echo "To reproduce the error run:"
-        echo "make --silent type=$type optimization=$optimization operator=$op size=$size ${DISPATCH} ${MARCH}"
+        echo "make --silent type=$type optimization=$optimization operator=$op_name size=$size ${DISPATCH} ${MARCH}"
         echo "    ./$bin $op ${args["$type$op"]}"
         exit 1
     fi
@@ -102,7 +102,7 @@ run_test() {
         echo "Failed!"
         echo "File $file failed"
         echo "To reproduce the error run:"
-        echo "make --silent type=$type optimization=$optimization operator=$op size=$size ${DISPATCH} ${MARCH}"
+        echo "make --silent type=$type optimization=$optimization operator=$op_name size=$size ${DISPATCH} ${MARCH}"
         echo "    ./$bin $op ${args["$type$op"]}"
         exit 1
     fi
@@ -110,15 +110,19 @@ run_test() {
 
 export -f run_test
 
-parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
-    ::: type double float \
-    ::: op "+" "-" "x" "/" \
-    ::: optimization "${optimizations[@]}" \
-    ::: size 2 4 8 16
-
-if [[ $? != 0 ]]; then
-    echo "Failed!"
-    exit 1
+if [[ ${TEST_DEBUG} -eq 1 ]]; then
+    echo "Running in debug mode"
+    parallel --header : "run_test {type} {optimization} {op} {size}" \
+        ::: type double float \
+        ::: op "+" "-" "x" "/" \
+        ::: optimization "${optimizations[@]}" \
+        ::: size 2 4 8 16
+else
+    parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
+        ::: type double float \
+        ::: op "+" "-" "x" "/" \
+        ::: optimization "${optimizations[@]}" \
+        ::: size 2 4 8 16
 fi
 
 echo "Success!"

@@ -99,6 +99,7 @@ cc_library(
         "-Wall",
         "-Wno-psabi",
         "-march=native",
+        "-DHWY_COMPILE_ONLY_STATIC",
     ],
     visibility = ["//visibility:public"],
     deps = ["@hwy"],
