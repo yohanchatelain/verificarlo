@@ -20,15 +20,15 @@ fi
 
 ./clean.sh
 
-# echo "Test vector static dispatch"
-# STATIC_DISPATCH=1 ./test_vector.sh
+echo "Test vector static dispatch"
+STATIC_DISPATCH=1 ./test_vector.sh
 
-# if [[ $? != 0 ]]; then
-#     echo "Failed!"
-#     exit 1
-# fi
+if [[ $? != 0 ]]; then
+    echo "Failed!"
+    exit 1
+fi
 
-# ./clean.sh
+./clean.sh
 
 echo "Test vector dynamic dispatch -march=native"
 MARCH_NATIVE=1 ./test_vector.sh

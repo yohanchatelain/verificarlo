@@ -12,7 +12,6 @@
 #include "src/ud_hw-inl.h"
 #include "src/ud_hw.h"
 #include "src/xoroshiro256+_hw-inl.hpp"
-#include "src/debug_hwy-inl.h"
 // clang-format on
 
 // Optional, can instead add HWY_ATTR to all functions.
@@ -28,175 +27,216 @@ namespace internal {
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
-V _add_fp_xN(V a, V b) {
+inline V _add_fp_xN(const V a, const V b) {
   auto res = add<D>(a, b);
+  std::cout << "# _add_fp_XN: " << std::endl;
+  dbg::debug_vec<D>("# a:", a);
+  dbg::debug_vec<D>("# b:", b);
+  dbg::debug_vec<D>("# result:", res);
+  std::cout << "# :_add_fp_xN" << std::endl;
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
-V _sub_fp_xN(V a, V b) {
+inline V _sub_fp_xN(const V a, const V b) {
   auto res = sub<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
-V _mul_fp_xN(V a, V b) {
+inline V _mul_fp_xN(const V a, const V b) {
   auto res = mul<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
-V _div_fp_xN(V a, V b) {
+inline V _div_fp_xN(const V a, const V b) {
   auto res = div<D>(a, b);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
-V _sqrt_fp_xN(V a) {
+inline V _sqrt_fp_xN(const V a) {
   auto res = sqrt<D>(a);
   return res;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
-V _fma_fp_xN(V a, V b, V c) {
+inline V _fma_fp_xN(const V a, const V b, const V c) {
   auto res = fma<D>(a, b, c);
   return res;
 }
+
+#define define_vector_un_op_wrapper(op, vtype, ftype, size)                    \
+  inline vtype##x##size _##op##_##vtype##_x##size(const vtype##x##size a) {    \
+    return _##op##_fp_xN<ftype, size>(a);                                      \
+  }
+
+#define define_vector_bin_op_wrapper(op, vtype, ftype, size)                   \
+  inline vtype##x##size _##op##_##vtype##_x##size(const vtype##x##size a,      \
+                                                  const vtype##x##size b) {    \
+    return _##op##_fp_xN<ftype, size>(a, b);                                   \
+  }
+
+#define define_vector_ter_op_wrapper(op, vtype, ftype, size)                   \
+  inline vtype##x##size _##op##_##vtype##_x##size(const vtype##x##size a,      \
+                                                  const vtype##x##size b,      \
+                                                  const vtype##x##size c) {    \
+    return _##op##_fp_xN<ftype, size>(a, b, c);                                \
+  }
 
 /* 32-bits */
 #if HWY_MAX_BYTES >= 4
 using f32x1_t = hn::FixedTag<float, 1>;
 using f32x1 = hn::Vec<f32x1_t>;
-
-f32x1 _add_f32_x1(f32x1 a, f32x1 b) { return _add_fp_xN<float, 1>(a, b); }
-f32x1 _sub_f32_x1(f32x1 a, f32x1 b) { return _sub_fp_xN<float, 1>(a, b); }
-f32x1 _mul_f32_x1(f32x1 a, f32x1 b) { return _mul_fp_xN<float, 1>(a, b); }
-f32x1 _div_f32_x1(f32x1 a, f32x1 b) { return _div_fp_xN<float, 1>(a, b); }
-f32x1 _sqrt_f32_x1(f32x1 a) { return _sqrt_fp_xN<float, 1>(a); }
-f32x1 _fma_f32_x1(f32x1 a, f32x1 b, f32x1 c) {
-  return _fma_fp_xN<float, 1>(a, b, c);
-}
+define_vector_bin_op_wrapper(add, f32, float, 1);
+define_vector_bin_op_wrapper(sub, f32, float, 1);
+define_vector_bin_op_wrapper(mul, f32, float, 1);
+define_vector_bin_op_wrapper(div, f32, float, 1);
+define_vector_un_op_wrapper(sqrt, f32, float, 1);
+define_vector_ter_op_wrapper(fma, f32, float, 1);
 #endif
 
 /* 64-bits */
 #if HWY_MAX_BYTES >= 8
 using f64x1_t = hn::FixedTag<double, 1>;
 using f64x1 = hn::Vec<f64x1_t>;
+define_vector_bin_op_wrapper(add, f64, double, 1);
+define_vector_bin_op_wrapper(sub, f64, double, 1);
+define_vector_bin_op_wrapper(mul, f64, double, 1);
+define_vector_bin_op_wrapper(div, f64, double, 1);
+define_vector_un_op_wrapper(sqrt, f64, double, 1);
+define_vector_ter_op_wrapper(fma, f64, double, 1);
+
 using f32x2_t = hn::FixedTag<float, 2>;
 using f32x2 = hn::Vec<f32x2_t>;
+define_vector_bin_op_wrapper(add, f32, float, 2);
+define_vector_bin_op_wrapper(sub, f32, float, 2);
+define_vector_bin_op_wrapper(mul, f32, float, 2);
+define_vector_bin_op_wrapper(div, f32, float, 2);
+define_vector_un_op_wrapper(sqrt, f32, float, 2);
+define_vector_ter_op_wrapper(fma, f32, float, 2);
 
-f64x1 _add_f64_x1(f64x1 a, f64x1 b) { return _add_fp_xN<double, 1>(a, b); }
-f64x1 _sub_f64_x1(f64x1 a, f64x1 b) { return _sub_fp_xN<double, 1>(a, b); }
-f64x1 _mul_f64_x1(f64x1 a, f64x1 b) { return _mul_fp_xN<double, 1>(a, b); }
-f64x1 _div_f64_x1(f64x1 a, f64x1 b) { return _div_fp_xN<double, 1>(a, b); }
-f64x1 _sqrt_f64_x1(f64x1 a) { return _sqrt_fp_xN<double, 1>(a); }
-f64x1 _fma_f64_x1(f64x1 a, f64x1 b, f64x1 c) {
-  return _fma_fp_xN<double, 1>(a, b, c);
-}
-
-f32x2 _add_f32_x2(f32x2 a, f32x2 b) { return _add_fp_xN<float, 2>(a, b); }
-f32x2 _sub_f32_x2(f32x2 a, f32x2 b) { return _sub_fp_xN<float, 2>(a, b); }
-f32x2 _mul_f32_x2(f32x2 a, f32x2 b) { return _mul_fp_xN<float, 2>(a, b); }
-f32x2 _div_f32_x2(f32x2 a, f32x2 b) { return _div_fp_xN<float, 2>(a, b); }
-f32x2 _sqrt_f32_x2(f32x2 a) { return _sqrt_fp_xN<float, 2>(a); }
-f32x2 _fma_f32_x2(f32x2 a, f32x2 b, f32x2 c) {
-  return _fma_fp_xN<float, 2>(a, b, c);
-}
 #endif
 
 /* 128-bits */
 #if HWY_MAX_BYTES >= 16
 using f64x2_t = hn::FixedTag<double, 2>;
 using f64x2 = hn::Vec<f64x2_t>;
+define_vector_bin_op_wrapper(add, f64, double, 2);
+define_vector_bin_op_wrapper(sub, f64, double, 2);
+define_vector_bin_op_wrapper(mul, f64, double, 2);
+define_vector_bin_op_wrapper(div, f64, double, 2);
+define_vector_un_op_wrapper(sqrt, f64, double, 2);
+define_vector_ter_op_wrapper(fma, f64, double, 2);
+
 using f32x4_t = hn::FixedTag<float, 4>;
 using f32x4 = hn::Vec<f32x4_t>;
-
-f64x2 _add_f64_x2(f64x2 a, f64x2 b) { return _add_fp_xN<double, 2>(a, b); }
-f64x2 _sub_f64_x2(f64x2 a, f64x2 b) { return _sub_fp_xN<double, 2>(a, b); }
-f64x2 _mul_f64_x2(f64x2 a, f64x2 b) { return _mul_fp_xN<double, 2>(a, b); }
-f64x2 _div_f64_x2(f64x2 a, f64x2 b) { return _div_fp_xN<double, 2>(a, b); }
-f64x2 _sqrt_f64_x2(f64x2 a) { return _sqrt_fp_xN<double, 2>(a); }
-f64x2 _fma_f64_x2(f64x2 a, f64x2 b, f64x2 c) {
-  return _fma_fp_xN<double, 2>(a, b, c);
-}
-
-f32x4 _add_f32_x4(f32x4 a, f32x4 b) { return _add_fp_xN<float, 4>(a, b); }
-f32x4 _sub_f32_x4(f32x4 a, f32x4 b) { return _sub_fp_xN<float, 4>(a, b); }
-f32x4 _mul_f32_x4(f32x4 a, f32x4 b) { return _mul_fp_xN<float, 4>(a, b); }
-f32x4 _div_f32_x4(f32x4 a, f32x4 b) { return _div_fp_xN<float, 4>(a, b); }
-f32x4 _sqrt_f32_x4(f32x4 a) { return _sqrt_fp_xN<float, 4>(a); }
-f32x4 _fma_f32_x4(f32x4 a, f32x4 b, f32x4 c) {
-  return _fma_fp_xN<float, 4>(a, b, c);
-}
+define_vector_bin_op_wrapper(add, f32, float, 4);
+define_vector_bin_op_wrapper(sub, f32, float, 4);
+define_vector_bin_op_wrapper(mul, f32, float, 4);
+define_vector_bin_op_wrapper(div, f32, float, 4);
+define_vector_un_op_wrapper(sqrt, f32, float, 4);
+define_vector_ter_op_wrapper(fma, f32, float, 4);
 #endif
 
 /* 256-bits */
 #if HWY_MAX_BYTES >= 32
 using f64x4_t = hn::FixedTag<double, 4>;
 using f64x4 = hn::Vec<f64x4_t>;
+define_vector_bin_op_wrapper(add, f64, double, 4);
+define_vector_bin_op_wrapper(sub, f64, double, 4);
+define_vector_bin_op_wrapper(mul, f64, double, 4);
+define_vector_bin_op_wrapper(div, f64, double, 4);
+define_vector_un_op_wrapper(sqrt, f64, double, 4);
+define_vector_ter_op_wrapper(fma, f64, double, 4);
+
 using f32x8_t = hn::FixedTag<float, 8>;
 using f32x8 = hn::Vec<f32x8_t>;
-
-f64x4 _add_f64_x4(f64x4 a, f64x4 b) { return _add_fp_xN<double, 4>(a, b); }
-f64x4 _sub_f64_x4(f64x4 a, f64x4 b) { return _sub_fp_xN<double, 4>(a, b); }
-f64x4 _mul_f64_x4(f64x4 a, f64x4 b) { return _mul_fp_xN<double, 4>(a, b); }
-f64x4 _div_f64_x4(f64x4 a, f64x4 b) { return _div_fp_xN<double, 4>(a, b); }
-f64x4 _sqrt_f64_x4(f64x4 a) { return _sqrt_fp_xN<double, 4>(a); }
-f64x4 _fma_f64_x4(f64x4 a, f64x4 b, f64x4 c) {
-  return _fma_fp_xN<double, 4>(a, b, c);
-}
-
-f32x8 _add_f32_x8(f32x8 a, f32x8 b) { return _add_fp_xN<float, 8>(a, b); }
-f32x8 _sub_f32_x8(f32x8 a, f32x8 b) { return _sub_fp_xN<float, 8>(a, b); }
-f32x8 _mul_f32_x8(f32x8 a, f32x8 b) { return _mul_fp_xN<float, 8>(a, b); }
-f32x8 _div_f32_x8(f32x8 a, f32x8 b) { return _div_fp_xN<float, 8>(a, b); }
-f32x8 _sqrt_f32_x8(f32x8 a) { return _sqrt_fp_xN<float, 8>(a); }
-f32x8 _fma_f32_x8(f32x8 a, f32x8 b, f32x8 c) {
-  return _fma_fp_xN<float, 8>(a, b, c);
-}
+define_vector_bin_op_wrapper(add, f32, float, 8);
+define_vector_bin_op_wrapper(sub, f32, float, 8);
+define_vector_bin_op_wrapper(mul, f32, float, 8);
+define_vector_bin_op_wrapper(div, f32, float, 8);
+define_vector_un_op_wrapper(sqrt, f32, float, 8);
+define_vector_ter_op_wrapper(fma, f32, float, 8);
 #endif
 
 /* 512-bits */
 #if HWY_MAX_BYTES >= 64
 using f64x8_t = hn::FixedTag<double, 8>;
 using f64x8 = hn::Vec<f64x8_t>;
+define_vector_bin_op_wrapper(add, f64, double, 8);
+define_vector_bin_op_wrapper(sub, f64, double, 8);
+define_vector_bin_op_wrapper(mul, f64, double, 8);
+define_vector_bin_op_wrapper(div, f64, double, 8);
+define_vector_un_op_wrapper(sqrt, f64, double, 8);
+define_vector_ter_op_wrapper(fma, f64, double, 8);
+
 using f32x16_t = hn::FixedTag<float, 16>;
 using f32x16 = hn::Vec<f32x16_t>;
-
-f64x8 _add_f64_x8(f64x8 a, f64x8 b) { return _add_fp_xN<double, 8>(a, b); }
-f64x8 _sub_f64_x8(f64x8 a, f64x8 b) { return _sub_fp_xN<double, 8>(a, b); }
-f64x8 _mul_f64_x8(f64x8 a, f64x8 b) { return _mul_fp_xN<double, 8>(a, b); }
-f64x8 _div_f64_x8(f64x8 a, f64x8 b) { return _div_fp_xN<double, 8>(a, b); }
-f64x8 _sqrt_f64_x8(f64x8 a) { return _sqrt_fp_xN<double, 8>(a); }
-f64x8 _fma_f64_x8(f64x8 a, f64x8 b, f64x8 c) {
-  return _fma_fp_xN<double, 8>(a, b, c);
-}
-
-f32x16 _add_f32_x16(f32x16 a, f32x16 b) { return _add_fp_xN<float, 16>(a, b); }
-f32x16 _sub_f32_x16(f32x16 a, f32x16 b) { return _sub_fp_xN<float, 16>(a, b); }
-f32x16 _mul_f32_x16(f32x16 a, f32x16 b) { return _mul_fp_xN<float, 16>(a, b); }
-f32x16 _div_f32_x16(f32x16 a, f32x16 b) { return _div_fp_xN<float, 16>(a, b); }
-f32x16 _sqrt_f32_x16(f32x16 a) { return _sqrt_fp_xN<float, 16>(a); }
-f32x16 _fma_f32_x16(f32x16 a, f32x16 b, f32x16 c) {
-  return _fma_fp_xN<float, 16>(a, b, c);
-}
+define_vector_bin_op_wrapper(add, f32, float, 16);
+define_vector_bin_op_wrapper(sub, f32, float, 16);
+define_vector_bin_op_wrapper(mul, f32, float, 16);
+define_vector_bin_op_wrapper(div, f32, float, 16);
+define_vector_un_op_wrapper(sqrt, f32, float, 16);
+define_vector_ter_op_wrapper(fma, f32, float, 16);
 #endif
+
+/* 1024-bits */
+#if HWY_MAX_BYTES >= 128
+using f64x16_t = hn::FixedTag<double, 16>;
+using f64x16 = hn::Vec<f64x16_t>;
+define_vector_bin_op_wrapper(add, f64, double, 16);
+define_vector_bin_op_wrapper(sub, f64, double, 16);
+define_vector_bin_op_wrapper(mul, f64, double, 16);
+define_vector_bin_op_wrapper(div, f64, double, 16);
+define_vector_un_op_wrapper(sqrt, f64, double, 16);
+define_vector_ter_op_wrapper(fma, f64, double, 16);
+#endif
+
 } // namespace internal
+
+template <typename T, std::size_t N>
+void _print(const T *HWY_RESTRICT a, const char *msg) {
+  std::cout << msg;
+  for (int i = 0; i < N; i++) {
+    std::cout << a[i] << " ";
+  }
+  std::cout << std::endl;
+}
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
           class V = hn::Vec<D>>
 void _addxN(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
             T *HWY_RESTRICT result) {
+  std::cout << "# _addxN: " << std::endl;
+  std::cout << "# &a: " << a << std::endl;
+  std::cout << "# &b: " << b << std::endl;
+  _print<T, N>(a, "# a: ");
+  _print<T, N>(b, "# b: ");
   const D d;
   const auto va = hn::Load(d, a);
   const auto vb = hn::Load(d, b);
+  dbg::debug_vec<D>("# va:", va);
+  dbg::debug_vec<D>("# vb:", vb);
+  constexpr auto align_va = alignof(decltype(va));
+  constexpr auto align_vb = alignof(decltype(vb));
+  std::cout << "# alignment va: " << align_va << std::endl;
+  std::cout << "# alignment vb: " << align_vb << std::endl;
+  constexpr auto align_a = alignof(decltype(a));
+  constexpr auto align_b = alignof(decltype(b));
+  std::cout << "# alignment a: " << align_a << std::endl;
+  std::cout << "# alignment b: " << align_b << std::endl;
   auto res = internal::_add_fp_xN<T, N>(va, vb);
+  dbg::debug_vec<D>("# vresult:", res);
   hn::Store(res, d, result);
+  _print<T, N>(result, "# result: ");
+  std::cout << "# :_addxN" << std::endl;
 }
 
 template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
@@ -257,15 +297,15 @@ void _fmaxN(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
 
 #define define_fp_xN_unary_op(type, name, size, op)                            \
   void _##op##x##size##_##name(const type *HWY_RESTRICT a,                     \
-                               type *HWY_RESTRICT c) {                         \
-    _##op##xN<type, size>(a, c);                                               \
+                               type *HWY_RESTRICT result) {                    \
+    _##op##xN<type, size>(a, result);                                          \
   }
 
 #define define_fp_xN_bin_op(type, name, size, op)                              \
   void _##op##x##size##_##name(const type *HWY_RESTRICT a,                     \
                                const type *HWY_RESTRICT b,                     \
-                               type *HWY_RESTRICT c) {                         \
-    _##op##xN<type, size>(a, b, c);                                            \
+                               type *HWY_RESTRICT result) {                    \
+    _##op##xN<type, size>(a, b, result);                                       \
   }
 
 #define define_fp_xN_ter_op(type, name, size, op)                              \
@@ -359,160 +399,200 @@ void _round(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
   using D = hn::ScalableTag<T>;
   const D d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto res = round<D>(a_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto res = round<D>(a_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C c;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(c, a + i);
+      auto res = round<C>(a_vec);
+      hn::Store(res, c, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto sigma_vec = hn::Load(d, sigma + i);
-  //     auto tau_vec = hn::Load(d, tau + i);
-  //     auto res = ud_round<C>(sigma_vec, tau_vec);
-  //     hn::Store(res, c, result + i);
-  //   }
 }
 
+// TODO: make two versions: one fixed size and one scalable
 template <typename T>
-HWY_NOINLINE void _add(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
-                       T *HWY_RESTRICT result, const size_t count) {
+void _add(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
+          T *HWY_RESTRICT result, const size_t count) {
+
   using D = hn::ScalableTag<T>;
   const D d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto b_vec = hn::Load(d, b + i);
-    auto res = add<D>(a_vec, b_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto b_vec = hn::Load(d, b + i);
+      auto res = add<D>(a_vec, b_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C c;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(c, a + i);
+      auto b_vec = hn::Load(c, b + i);
+      auto res = add<C>(a_vec, b_vec);
+      hn::Store(res, c, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto a_vec = hn::Load(c, a + i);
-  //     auto b_vec = hn::Load(c, b + i);
-  //     auto res = ud_add<C>(a_vec, b_vec);
-  //     hn::Store(res, c, result + i);
-  //   }
+
+  std::cout << "# _add: " << std::endl;
+  std::cout << "# a: ";
+  for (int j = 0; j < count; j++) {
+    std::cout << a[j] << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "# b: ";
+  for (int j = 0; j < count; j++) {
+    std::cout << b[j] << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "# result: ";
+  for (int j = 0; j < count; j++) {
+    std::cout << result[j] << " ";
+  }
+  std::cout << std::endl;
 }
 
 template <typename T>
-HWY_NOINLINE void _sub(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
-                       T *HWY_RESTRICT result, const size_t count) {
+void _sub(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
+          T *HWY_RESTRICT result, const size_t count) {
   using D = hn::ScalableTag<T>;
   const D d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto b_vec = hn::Load(d, b + i);
-    auto res = sub<D>(a_vec, b_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto b_vec = hn::Load(d, b + i);
+      auto res = sub<D>(a_vec, b_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C c;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(c, a + i);
+      auto b_vec = hn::Load(c, b + i);
+      auto res = sub<C>(a_vec, b_vec);
+      hn::Store(res, c, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto a_vec = hn::Load(c, a + i);
-  //     auto b_vec = hn::Load(c, b + i);
-  //     auto res = ud_sub<C>(a_vec, b_vec);
-  //     hn::Store(res, c, result + i);
-  //   }
 }
 
 template <typename T>
-HWY_NOINLINE void _mul(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
-                       T *HWY_RESTRICT result, const size_t count) {
+void _mul(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
+          T *HWY_RESTRICT result, const size_t count) {
   using D = hn::ScalableTag<T>;
   const hn::ScalableTag<T> d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto b_vec = hn::Load(d, b + i);
-    auto res = mul<D>(a_vec, b_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto b_vec = hn::Load(d, b + i);
+      auto res = mul<D>(a_vec, b_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C c;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(c, a + i);
+      auto b_vec = hn::Load(c, b + i);
+      auto res = mul<C>(a_vec, b_vec);
+      hn::Store(res, c, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto a_vec = hn::Load(c, a + i);
-  //     auto b_vec = hn::Load(c, b + i);
-  //     auto res = ud_mul<C>(a_vec, b_vec);
-  //     hn::Store(res, c, result + i);
-  //   }
 }
 
 template <typename T>
-HWY_NOINLINE void _div(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
-                       T *HWY_RESTRICT result, const size_t count) {
+void _div(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
+          T *HWY_RESTRICT result, const size_t count) {
   using D = hn::ScalableTag<T>;
   const hn::ScalableTag<T> d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto b_vec = hn::Load(d, b + i);
-    auto res = div<D>(a_vec, b_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto b_vec = hn::Load(d, b + i);
+      auto res = div<D>(a_vec, b_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C c;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(c, a + i);
+      auto b_vec = hn::Load(c, b + i);
+      auto res = div<C>(a_vec, b_vec);
+      hn::Store(res, c, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto a_vec = hn::Load(c, a + i);
-  //     auto b_vec = hn::Load(c, b + i);
-  //     auto res = ud_div<C>(a_vec, b_vec);
-  //     hn::Store(res, c, result + i);
-  //   }
 }
 
 template <typename T>
-HWY_NOINLINE void _sqrt(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
-                        const size_t count) {
+void _sqrt(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
+           const size_t count) {
   using D = hn::ScalableTag<T>;
   const hn::ScalableTag<T> d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto res = sqrt<D>(a_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto res = sqrt<D>(a_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C c;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(c, a + i);
+      auto res = sqrt<C>(a_vec);
+      hn::Store(res, c, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto a_vec = hn::Load(d, a + i);
-  //     auto res = ud_sqrt<C>(a_vec);
-  //     hn::Store(res, c, result + i);
-  //   }
 }
 
 template <typename T>
-HWY_NOINLINE void _fma(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
-                       const T *HWY_RESTRICT c, T *HWY_RESTRICT result,
-                       const size_t count) {
+void _fma(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
+          const T *HWY_RESTRICT c, T *HWY_RESTRICT result, const size_t count) {
   using D = hn::ScalableTag<T>;
-  const hn::ScalableTag<T> d;
+  const D d;
   const size_t N = hn::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= count; i += N) {
-    auto a_vec = hn::Load(d, a + i);
-    auto b_vec = hn::Load(d, b + i);
-    auto c_vec = hn::Load(d, c + i);
-    auto res = fma<D>(a_vec, b_vec, c_vec);
-    hn::Store(res, d, result + i);
+
+  if (count >= N) {
+    for (size_t i = 0; i + N <= count; i += N) {
+      auto a_vec = hn::Load(d, a + i);
+      auto b_vec = hn::Load(d, b + i);
+      auto c_vec = hn::Load(d, c + i);
+      auto res = fma<D>(a_vec, b_vec, c_vec);
+      hn::Store(res, d, result + i);
+    }
+  } else {
+    using C = hn::CappedTag<T, 1>;
+    const C ct;
+    for (size_t i = 0; i < count; ++i) {
+      auto a_vec = hn::Load(ct, a + i);
+      auto b_vec = hn::Load(ct, b + i);
+      auto c_vec = hn::Load(ct, c + i);
+      auto res = fma<C>(a_vec, b_vec, c_vec);
+      hn::Store(res, ct, result + i);
+    }
   }
-  //   using C = hn::CappedTag<T, 1>;
-  //   const C c;
-  //   for (; i < count; ++i) {
-  //     auto a_vec = hn::Load(d, a + i);
-  //     auto b_vec = hn::Load(d, b + i);
-  //     auto c_vec = hn::Load(d, c + i);
-  //     auto res = ud_fma<C>(a_vec, b_vec, c_vec);
-  //     hn::Store(res, c, d + i);
-  //   }
 }
+
+/* binary32 */
 
 void _round_f32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
                 const size_t count) {
@@ -521,7 +601,23 @@ void _round_f32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
 
 void _add_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
               float *HWY_RESTRICT result, const size_t count) {
+  std::cout << "# _add_f32: " << std::endl;
+  std::cout << "# a: ";
+  for (int i = 0; i < count; i++) {
+    std::cout << a[i] << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "# b: ";
+  for (int i = 0; i < count; i++) {
+    std::cout << b[i] << " ";
+  }
+  std::cout << std::endl;
   _add<float>(a, b, result, count);
+  std::cout << "# result: ";
+  for (int i = 0; i < count; i++) {
+    std::cout << result[i] << " ";
+  }
+  std::cout << std::endl;
 }
 void _sub_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
               float *HWY_RESTRICT result, const size_t count) {
@@ -538,15 +634,17 @@ void _div_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
   _div<float>(a, b, result, count);
 }
 
-void _sqrt_f32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
-               const size_t count) {
-  _sqrt<float>(a, result, count);
-}
-
 void _fma_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
               const float *HWY_RESTRICT c, float *HWY_RESTRICT result,
               const size_t count) {
   _fma<float>(a, b, c, result, count);
+}
+
+/* binary64 */
+
+void _sqrt_f32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
+               const size_t count) {
+  _sqrt<float>(a, result, count);
 }
 
 void _round_f64(const double *HWY_RESTRICT a, double *HWY_RESTRICT result,
@@ -699,12 +797,12 @@ HWY_EXPORT(_fmax16_f64);
 #endif
 
 template <typename T>
-void round(const T *HWY_RESTRICT a, T *HWY_RESTRICT result,
-           const size_t count) {
+void round(const T *HWY_RESTRICT sigma, const T *HWY_RESTRICT tau,
+           T *HWY_RESTRICT result, const size_t count) {
   if constexpr (std::is_same_v<T, float>) {
-    return HWY_DYNAMIC_DISPATCH(_round_f32)(a, result, count);
+    return HWY_DYNAMIC_DISPATCH(_round_f32)(sigma, tau, result, count);
   } else if constexpr (std::is_same_v<T, double>) {
-    return HWY_DYNAMIC_DISPATCH(_round_f64)(a, result, count);
+    return HWY_DYNAMIC_DISPATCH(_round_f64)(sigma, tau, result, count);
   }
 }
 
@@ -773,33 +871,48 @@ void fma(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
 
 void addf32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
             float *HWY_RESTRICT result, const size_t count) {
-  return add(a, b, result, count);
+  std::cout << "# addf32" << std::endl;
+  std::cout << "# a: ";
+  for (int i = 0; i < count; i++) {
+    std::cout << a[i] << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "# b: ";
+  for (int i = 0; i < count; i++) {
+    std::cout << b[i] << " ";
+  }
+  add(a, b, result, count);
+  std::cout << "# result: ";
+  for (int i = 0; i < count; i++) {
+    std::cout << result[i] << " ";
+  }
+  std::cout << std::endl;
 }
 
 void subf32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
             float *HWY_RESTRICT result, const size_t count) {
-  return sub(a, b, result, count);
+  sub(a, b, result, count);
 }
 
 void mulf32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
             float *HWY_RESTRICT result, const size_t count) {
-  return mul(a, b, result, count);
+  mul(a, b, result, count);
 }
 
 void divf32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
             float *HWY_RESTRICT result, const size_t count) {
-  return div(a, b, result, count);
+  div(a, b, result, count);
 }
 
 void sqrtf32(const float *HWY_RESTRICT a, float *HWY_RESTRICT result,
              const size_t count) {
-  return sqrt(a, result, count);
+  sqrt(a, result, count);
 }
 
 void fmaf32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
             const float *HWY_RESTRICT c, float *HWY_RESTRICT result,
             const size_t count) {
-  return fma(a, b, c, result, count);
+  fma(a, b, c, result, count);
 }
 
 /* binary64 */
@@ -837,275 +950,118 @@ void fmaf64(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
 
 /* Single vector instructions with dynamic dispatch */
 
-/* 64-bits functions */
-#if HWY_MAX_BYTES >= 8
+// void addf32x2(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
+//               float *HWY_RESTRICT result) {
+//   HWY_DYNAMIC_DISPATCH(_addx2_f32)(a, b, result);
+// }
 
-/* binary32 */
+#define define_array_unary_op_dynamic(name, count)                             \
+  void name##f32##x##count##_dynamic(const float *HWY_RESTRICT a,              \
+                                     float *HWY_RESTRICT result) {             \
+    return name<float>(a, result, count);                                      \
+  }                                                                            \
+  void name##f64x##count##_dynamic(const double *HWY_RESTRICT a,               \
+                                   double *HWY_RESTRICT result) {              \
+    return name<double>(a, result, count);                                     \
+  }
 
-void addf32x2(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx2_f32)(a, b, result);
-}
+#define define_array_bin_op_dynamic(name, count)                               \
+  void name##f32##x##count##_dynamic(const float *HWY_RESTRICT a,              \
+                                     const float *HWY_RESTRICT b,              \
+                                     float *HWY_RESTRICT result) {             \
+    return name<float>(a, b, result, count);                                   \
+  }                                                                            \
+  void name##f64x##count##_dynamic(const double *HWY_RESTRICT a,               \
+                                   const double *HWY_RESTRICT b,               \
+                                   double *HWY_RESTRICT result) {              \
+    return name<double>(a, b, result, count);                                  \
+  }
 
-void subf32x2(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx2_f32)(a, b, result);
-}
+#define define_array_ter_op_dynamic(name, count)                               \
+  void name##f32##x##count##_dynamic(                                          \
+      const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,                \
+      const float *HWY_RESTRICT c, float *HWY_RESTRICT result) {               \
+    return name<float>(a, b, c, result, count);                                \
+  }                                                                            \
+  void name##f64x##count##_dynamic(                                            \
+      const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,              \
+      const double *HWY_RESTRICT c, double *HWY_RESTRICT result) {             \
+    return name<double>(a, b, c, result, count);                               \
+  }
 
-void mulf32x2(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx2_f32)(a, b, result);
-}
+/* 64-bits */
+define_array_bin_op_dynamic(add, 2);
+define_array_bin_op_dynamic(sub, 2);
+define_array_bin_op_dynamic(mul, 2);
+define_array_bin_op_dynamic(div, 2);
+define_array_unary_op_dynamic(sqrt, 2);
+define_array_ter_op_dynamic(fma, 2);
 
-void divf32x2(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx2_f32)(a, b, result);
-}
+/* 128-bits */
+define_array_bin_op_dynamic(add, 4);
+define_array_bin_op_dynamic(sub, 4);
+define_array_bin_op_dynamic(mul, 4);
+define_array_bin_op_dynamic(div, 4);
+define_array_unary_op_dynamic(sqrt, 4);
+define_array_ter_op_dynamic(fma, 4);
 
-void sqrtf32x2(const float *HWY_RESTRICT a, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx2_f32)(a, result);
-}
+/* 256-bits */
+define_array_bin_op_dynamic(add, 8);
+define_array_bin_op_dynamic(sub, 8);
+define_array_bin_op_dynamic(mul, 8);
+define_array_bin_op_dynamic(div, 8);
+define_array_unary_op_dynamic(sqrt, 8);
+define_array_ter_op_dynamic(fma, 8);
 
-void fmaf32x2(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              const float *HWY_RESTRICT c, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax2_f32)(a, b, c, result);
-}
-#endif
+/* 512-bits */
+define_array_bin_op_dynamic(add, 16);
+define_array_bin_op_dynamic(sub, 16);
+define_array_bin_op_dynamic(mul, 16);
+define_array_bin_op_dynamic(div, 16);
+define_array_unary_op_dynamic(sqrt, 16);
+define_array_ter_op_dynamic(fma, 16);
 
-/* 128-bits functions */
-#if HWY_MAX_BYTES >= 16
-/* binary64 */
-void addf64x2(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx2_f64)(a, b, result);
-}
+/* 1024-bits */
+define_array_bin_op_dynamic(add, 32);
+define_array_bin_op_dynamic(sub, 32);
+define_array_bin_op_dynamic(mul, 32);
+define_array_bin_op_dynamic(div, 32);
+define_array_unary_op_dynamic(sqrt, 32);
+define_array_ter_op_dynamic(fma, 32);
 
-void subf64x2(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx2_f64)(a, b, result);
-}
+union f32x2_u {
+  f32x2_v vector;
+  alignas(8) float array[2];
+};
+union f64x2_u {
+  f64x2_v vector;
+  alignas(16) double array[2];
+};
+union f32x4_u {
+  f32x4_v vector;
+  alignas(16) float array[4];
+};
 
-void mulf64x2(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx2_f64)(a, b, result);
-}
-
-void divf64x2(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx2_f64)(a, b, result);
-}
-
-void sqrtf64x2(const double *HWY_RESTRICT a, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx2_f64)(a, result);
-}
-
-void fmaf64x2(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              const double *HWY_RESTRICT c, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax2_f64)(a, b, c, result);
-}
-
-/* binary32 */
-void addf32x4(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx4_f32)(a, b, result);
-}
-
-void subf32x4(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx4_f32)(a, b, result);
-}
-
-void mulf32x4(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx4_f32)(a, b, result);
-}
-
-void divf32x4(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx4_f32)(a, b, result);
-}
-
-void sqrtf32x4(const float *HWY_RESTRICT a, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx4_f32)(a, result);
-}
-
-void fmaf32x4(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              const float *HWY_RESTRICT c, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax4_f32)(a, b, c, result);
-}
-
-#endif
-
-/* 256-bits functions*/
-
-#if HWY_MAX_BYTES >= 32
-
-/* binary32 */
-
-void addf32x8(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx8_f32)(a, b, result);
-}
-
-void subf32x8(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx8_f32)(a, b, result);
-}
-
-void mulf32x8(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx8_f32)(a, b, result);
-}
-
-void divf32x8(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx8_f32)(a, b, result);
-}
-
-void sqrtf32x8(const float *HWY_RESTRICT a, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx8_f32)(a, result);
-}
-
-void fmaf32x8(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-              const float *HWY_RESTRICT c, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax8_f32)(a, b, c, result);
-}
-
-/* binary64 */
-
-void addf64x4(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx4_f64)(a, b, result);
-}
-
-void subf64x4(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx4_f64)(a, b, result);
-}
-
-void mulf64x4(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx4_f64)(a, b, result);
-}
-
-void divf64x4(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx4_f64)(a, b, result);
-}
-
-void sqrtf64x4(const double *HWY_RESTRICT a, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx4_f64)(a, result);
-}
-
-void fmaf64x4(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              const double *HWY_RESTRICT c, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax4_f64)(a, b, c, result);
-}
-
-#endif
-
-/* 512-bits functions */
-
-#if HWY_MAX_BYTES >= 64
-
-/* binary64 */
-
-void addf64x8(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx8_f64)(a, b, result);
-}
-
-void subf64x8(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx8_f64)(a, b, result);
-}
-
-void mulf64x8(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx8_f64)(a, b, result);
-}
-
-void divf64x8(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx8_f64)(a, b, result);
-}
-
-void sqrtf64x8(const double *HWY_RESTRICT a, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx8_f64)(a, result);
-}
-
-void fmaf64x8(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-              const double *HWY_RESTRICT c, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax8_f64)(a, b, c, result);
-}
-
-/* binary32 */
-
-void addf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-               float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx16_f32)(a, b, result);
-}
-
-void subf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-               float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx16_f32)(a, b, result);
-}
-
-void mulf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-               float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx16_f32)(a, b, result);
-}
-
-void divf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-               float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx16_f32)(a, b, result);
-}
-
-void sqrtf32x16(const float *HWY_RESTRICT a, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx16_f32)(a, result);
-}
-
-void fmaf32x16(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
-               const float *HWY_RESTRICT c, float *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax16_f32)(a, b, c, result);
-}
-
-#endif
-
-/* 1024-bits functions */
-#if HWY_MAX_BYTES >= 128
-
-/* binary64 */
-void addf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-               double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_addx16_f64)(a, b, result);
-}
-
-void subf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-               double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_subx16_f64)(a, b, result);
-}
-
-void mulf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-               double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_mulx16_f64)(a, b, result);
-}
-
-void divf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-               double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_divx16_f64)(a, b, result);
-}
-
-void sqrtf64x16(const double *HWY_RESTRICT a, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_sqrtx16_f64)(a, result);
-}
-
-void fmaf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
-               const double *HWY_RESTRICT c, double *HWY_RESTRICT result) {
-  HWY_DYNAMIC_DISPATCH(_fmax16_f64)(a, b, c, result);
-}
-
-#endif
+union f64x4_u {
+  f64x4_v vector;
+  alignas(32) double array[4];
+};
+union f32x8_u {
+  f32x8_v vector;
+  alignas(32) float array[8];
+};
+union f64x8_u {
+  f64x8_v vector;
+  alignas(64) double array[8];
+};
+union f32x16_u {
+  f32x16_v vector;
+  alignas(64) float array[16];
+};
+union f64x16_u {
+  f64x16_v vector;
+  alignas(128) double array[16];
+};
 
 /* Single vector functions with static dispatch */
 
@@ -1116,63 +1072,57 @@ void fmaf64x16(const double *HWY_RESTRICT a, const double *HWY_RESTRICT b,
 /* binary32 */
 
 f32x2_v addf32x2_static(const f32x2_v a, const f32x2_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(8) float result_ptr[2];
-  HWY_STATIC_DISPATCH(_addx2_f32)(a_ptr, b_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  f32x2_u a_union = {.vector = a};
+  f32x2_u b_union = {.vector = b};
+  f32x2_u result_union;
+  HWY_STATIC_DISPATCH(_addx2_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x2_v subf32x2_static(const f32x2_v a, const f32x2_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(8) float result_ptr[2];
-  HWY_STATIC_DISPATCH(_subx2_f32)(a_ptr, b_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  f32x2_u a_union = {.vector = a};
+  f32x2_u b_union = {.vector = b};
+  f32x2_u result_union;
+  HWY_STATIC_DISPATCH(_subx2_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x2_v mulf32x2_static(const f32x2_v a, const f32x2_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(8) float result_ptr[2];
-  HWY_STATIC_DISPATCH(_mulx2_f32)(a_ptr, b_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  f32x2_u a_union = {.vector = a};
+  f32x2_u b_union = {.vector = b};
+  f32x2_u result_union;
+  HWY_STATIC_DISPATCH(_mulx2_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x2_v divf32x2_static(const f32x2_v a, const f32x2_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(8) float result_ptr[2];
-  HWY_STATIC_DISPATCH(_divx2_f32)(a_ptr, b_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  f32x2_u a_union = {.vector = a};
+  f32x2_u b_union = {.vector = b};
+  f32x2_u result_union;
+  HWY_STATIC_DISPATCH(_divx2_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x2_v sqrtf32x2_static(const f32x2_v a) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  alignas(8) float result_ptr[2];
-  HWY_STATIC_DISPATCH(_sqrtx2_f32)(a_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  f32x2_u a_union = {.vector = a};
+  f32x2_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx2_f32)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x2_v fmaf32x2_static(const f32x2_v a, const f32x2_v b, const f32x2_v c) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  const float *c_ptr = reinterpret_cast<const float *>(&c);
-  alignas(8) float result_ptr[2];
-  HWY_STATIC_DISPATCH(_fmax2_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f32x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x2_v));
-  return result;
+  f32x2_u a_union = {.vector = a};
+  f32x2_u b_union = {.vector = b};
+  f32x2_u c_union = {.vector = c};
+  f32x2_u result_union;
+  HWY_STATIC_DISPATCH(_fmax2_f32)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 #endif
@@ -1184,125 +1134,113 @@ f32x2_v fmaf32x2_static(const f32x2_v a, const f32x2_v b, const f32x2_v c) {
 /* binary64 */
 
 f64x2_v addf64x2_static(const f64x2_v a, const f64x2_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(16) double result_ptr[2];
-  HWY_STATIC_DISPATCH(_addx2_f64)(a_ptr, b_ptr, result_ptr);
-  f64x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x2_v));
-  return result;
+  f64x2_u a_union = {.vector = a};
+  f64x2_u b_union = {.vector = b};
+  f64x2_u result_union;
+  HWY_STATIC_DISPATCH(_addx2_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x2_v subf64x2_static(const f64x2_v a, const f64x2_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(16) double result_ptr[2];
-  HWY_STATIC_DISPATCH(_subx2_f64)(a_ptr, b_ptr, result_ptr);
-  f64x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x2_v));
-  return result;
+  f64x2_u a_union = {.vector = a};
+  f64x2_u b_union = {.vector = b};
+  f64x2_u result_union;
+  HWY_STATIC_DISPATCH(_subx2_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x2_v mulf64x2_static(const f64x2_v a, const f64x2_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(16) double result_ptr[2];
-  HWY_STATIC_DISPATCH(_mulx2_f64)(a_ptr, b_ptr, result_ptr);
-  f64x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x2_v));
-  return result;
+  f64x2_u a_union = {.vector = a};
+  f64x2_u b_union = {.vector = b};
+  f64x2_u result_union;
+  HWY_STATIC_DISPATCH(_mulx2_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x2_v divf64x2_static(const f64x2_v a, const f64x2_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(16) double result_ptr[2];
-  HWY_STATIC_DISPATCH(_divx2_f64)(a_ptr, b_ptr, result_ptr);
-  f64x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x2_v));
-  return result;
+  f64x2_u a_union = {.vector = a};
+  f64x2_u b_union = {.vector = b};
+  f64x2_u result_union;
+  HWY_STATIC_DISPATCH(_divx2_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x2_v sqrtf64x2_static(const f64x2_v a) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  alignas(16) double result_ptr[2];
-  HWY_STATIC_DISPATCH(_sqrtx2_f64)(a_ptr, result_ptr);
-  f64x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x2_v));
-  return result;
+  f64x2_u a_union = {.vector = a};
+  f64x2_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx2_f64)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x2_v fmaf64x2_static(const f64x2_v a, const f64x2_v b, const f64x2_v c) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  const double *c_ptr = reinterpret_cast<const double *>(&c);
-  alignas(16) double result_ptr[2];
-  HWY_STATIC_DISPATCH(_fmax2_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f64x2_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x2_v));
-  return result;
+  f64x2_u a_union = {.vector = a};
+  f64x2_u b_union = {.vector = b};
+  f64x2_u c_union = {.vector = c};
+  f64x2_u result_union;
+  HWY_STATIC_DISPATCH(_fmax2_f64)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 /* binary32 */
 
 f32x4_v addf32x4_static(const f32x4_v a, const f32x4_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(16) float result_ptr[4];
-  HWY_STATIC_DISPATCH(_addx4_f32)(a_ptr, b_ptr, result_ptr);
-  f32x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x4_v));
-  return result;
+  f32x4_u a_union = {.vector = a};
+  f32x4_u b_union = {.vector = b};
+  f32x4_u result_union;
+  HWY_STATIC_DISPATCH(_addx4_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x4_v subf32x4_static(const f32x4_v a, const f32x4_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(16) float result_ptr[4];
-  HWY_STATIC_DISPATCH(_subx4_f32)(a_ptr, b_ptr, result_ptr);
-  f32x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x4_v));
-  return result;
+  f32x4_u a_union = {.vector = a};
+  f32x4_u b_union = {.vector = b};
+  f32x4_u result_union;
+  HWY_STATIC_DISPATCH(_subx4_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x4_v mulf32x4_static(const f32x4_v a, const f32x4_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(16) float result_ptr[4];
-  HWY_STATIC_DISPATCH(_mulx4_f32)(a_ptr, b_ptr, result_ptr);
-  f32x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x4_v));
-  return result;
+  f32x4_u a_union = {.vector = a};
+  f32x4_u b_union = {.vector = b};
+  f32x4_u result_union;
+  HWY_STATIC_DISPATCH(_mulx4_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x4_v divf32x4_static(const f32x4_v a, const f32x4_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(16) float result_ptr[4];
-  HWY_STATIC_DISPATCH(_divx4_f32)(a_ptr, b_ptr, result_ptr);
-  f32x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x4_v));
-  return result;
+  f32x4_u a_union = {.vector = a};
+  f32x4_u b_union = {.vector = b};
+  f32x4_u result_union;
+  HWY_STATIC_DISPATCH(_divx4_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x4_v sqrtf32x4_static(const f32x4_v a) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  alignas(16) float result_ptr[4];
-  HWY_STATIC_DISPATCH(_sqrtx4_f32)(a_ptr, result_ptr);
-  f32x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x4_v));
-  return result;
+  f32x4_u a_union = {.vector = a};
+  f32x4_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx4_f32)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x4_v fmaf32x4_static(const f32x4_v a, const f32x4_v b, const f32x4_v c) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  const float *c_ptr = reinterpret_cast<const float *>(&c);
-  alignas(16) float result_ptr[4];
-  HWY_STATIC_DISPATCH(_fmax4_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f32x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x4_v));
-  return result;
+  f32x4_u a_union = {.vector = a};
+  f32x4_u b_union = {.vector = b};
+  f32x4_u c_union = {.vector = c};
+  f32x4_u result_union;
+  HWY_STATIC_DISPATCH(_fmax4_f32)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 #endif
@@ -1313,126 +1251,130 @@ f32x4_v fmaf32x4_static(const f32x4_v a, const f32x4_v b, const f32x4_v c) {
 
 /* binary64 */
 
+template <typename T, size_t N>
+void _print(const T array, const std::string &prefix) {
+  std::cout << prefix;
+  for (size_t i = 0; i < N; i++) {
+    std::cout << array[i] << " ";
+  }
+  std::cout << std::endl;
+}
+
 f64x4_v addf64x4_static(const f64x4_v a, const f64x4_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(32) double result_ptr[4];
-  HWY_STATIC_DISPATCH(_addx4_f64)(a_ptr, b_ptr, result_ptr);
-  f64x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x4_v));
-  return result;
+  std::cout << "# addf64x4_static:" << std::endl;
+  _print<f64x4_v, 4>(a, "# a: ");
+  _print<f64x4_v, 4>(b, "# b: ");
+  f64x4_u a_union = {.vector = a};
+  f64x4_u b_union = {.vector = b};
+  _print<double[], 4>(a_union.array, "# a_union:");
+  _print<double[], 4>(b_union.array, "# b_union:");
+  f64x4_u result_union;
+  HWY_STATIC_DISPATCH(_addx4_f64)
+  (a_union.array, b_union.array, result_union.array);
+  _print<double[], 4>(result_union.array, "# result_union: ");
+  std::cout << "# :addf64x4_static" << std::endl;
+  return result_union.vector;
 }
 
 f64x4_v subf64x4_static(const f64x4_v a, const f64x4_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(32) double result_ptr[4];
-  HWY_STATIC_DISPATCH(_subx4_f64)(a_ptr, b_ptr, result_ptr);
-  f64x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x4_v));
-  return result;
+  f64x4_u a_union = {.vector = a};
+  f64x4_u b_union = {.vector = b};
+  f64x4_u result_union;
+  HWY_STATIC_DISPATCH(_subx4_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x4_v mulf64x4_static(const f64x4_v a, const f64x4_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(32) double result_ptr[4];
-  HWY_STATIC_DISPATCH(_mulx4_f64)(a_ptr, b_ptr, result_ptr);
-  f64x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x4_v));
-  return result;
+  f64x4_u a_union = {.vector = a};
+  f64x4_u b_union = {.vector = b};
+  f64x4_u result_union;
+  HWY_STATIC_DISPATCH(_mulx4_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x4_v divf64x4_static(const f64x4_v a, const f64x4_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(32) double result_ptr[4];
-  HWY_STATIC_DISPATCH(_divx4_f64)(a_ptr, b_ptr, result_ptr);
-  f64x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x4_v));
-  return result;
+  f64x4_u a_union = {.vector = a};
+  f64x4_u b_union = {.vector = b};
+  f64x4_u result_union;
+  HWY_STATIC_DISPATCH(_divx4_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x4_v sqrtf64x4_static(const f64x4_v a) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  alignas(32) double result_ptr[4];
-  HWY_STATIC_DISPATCH(_sqrtx4_f64)(a_ptr, result_ptr);
-  f64x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x4_v));
-  return result;
+  f64x4_u a_union = {.vector = a};
+  f64x4_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx4_f64)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x4_v fmaf64x4_static(const f64x4_v a, const f64x4_v b, const f64x4_v c) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  const double *c_ptr = reinterpret_cast<const double *>(&c);
-  alignas(32) double result_ptr[4];
-  HWY_STATIC_DISPATCH(_fmax4_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f64x4_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x4_v));
-  return result;
+  f64x4_u a_union = {.vector = a};
+  f64x4_u b_union = {.vector = b};
+  f64x4_u c_union = {.vector = c};
+  f64x4_u result_union;
+  HWY_STATIC_DISPATCH(_fmax4_f64)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 /* binary32 */
 
 f32x8_v addf32x8_static(const f32x8_v a, const f32x8_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(32) float result_ptr[8];
-  HWY_STATIC_DISPATCH(_addx8_f32)(a_ptr, b_ptr, result_ptr);
-  f32x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x8_v));
-  return result;
+  f32x8_u a_union = {.vector = a};
+  f32x8_u b_union = {.vector = b};
+  f32x8_u result_union;
+  HWY_STATIC_DISPATCH(_addx8_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x8_v subf32x8_static(const f32x8_v a, const f32x8_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(32) float result_ptr[8];
-  HWY_STATIC_DISPATCH(_subx8_f32)(a_ptr, b_ptr, result_ptr);
-  f32x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x8_v));
-  return result;
+  f32x8_u a_union = {.vector = a};
+  f32x8_u b_union = {.vector = b};
+  f32x8_u result_union;
+  HWY_STATIC_DISPATCH(_subx8_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x8_v mulf32x8_static(const f32x8_v a, const f32x8_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(32) float result_ptr[8];
-  HWY_STATIC_DISPATCH(_mulx8_f32)(a_ptr, b_ptr, result_ptr);
-  f32x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x8_v));
-  return result;
+  f32x8_u a_union = {.vector = a};
+  f32x8_u b_union = {.vector = b};
+  f32x8_u result_union;
+  HWY_STATIC_DISPATCH(_mulx8_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x8_v divf32x8_static(const f32x8_v a, const f32x8_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(32) float result_ptr[8];
-  HWY_STATIC_DISPATCH(_divx8_f32)(a_ptr, b_ptr, result_ptr);
-  f32x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x8_v));
-  return result;
+  f32x8_u a_union = {.vector = a};
+  f32x8_u b_union = {.vector = b};
+  f32x8_u result_union;
+  HWY_STATIC_DISPATCH(_divx8_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x8_v sqrtf32x8_static(const f32x8_v a) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  alignas(32) float result_ptr[8];
-  HWY_STATIC_DISPATCH(_sqrtx8_f32)(a_ptr, result_ptr);
-  f32x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x8_v));
-  return result;
+  f32x8_u a_union = {.vector = a};
+  f32x8_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx8_f32)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x8_v fmaf32x8_static(const f32x8_v a, const f32x8_v b, const f32x8_v c) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  const float *c_ptr = reinterpret_cast<const float *>(&c);
-  alignas(32) float result_ptr[8];
-  HWY_STATIC_DISPATCH(_fmax8_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f32x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x8_v));
-  return result;
+  f32x8_u a_union = {.vector = a};
+  f32x8_u b_union = {.vector = b};
+  f32x8_u c_union = {.vector = c};
+  f32x8_u result_union;
+  HWY_STATIC_DISPATCH(_fmax8_f32)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 #endif
@@ -1444,126 +1386,114 @@ f32x8_v fmaf32x8_static(const f32x8_v a, const f32x8_v b, const f32x8_v c) {
 /* binary64 */
 
 f64x8_v addf64x8_static(const f64x8_v a, const f64x8_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(64) double result_ptr[8];
-  HWY_STATIC_DISPATCH(_addx8_f64)(a_ptr, b_ptr, result_ptr);
-  f64x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x8_v));
-  return result;
+  f64x8_u a_union = {.vector = a};
+  f64x8_u b_union = {.vector = b};
+  f64x8_u result_union;
+  HWY_STATIC_DISPATCH(_addx8_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x8_v subf64x8_static(const f64x8_v a, const f64x8_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(64) double result_ptr[8];
-  HWY_STATIC_DISPATCH(_subx8_f64)(a_ptr, b_ptr, result_ptr);
-  f64x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x8_v));
-  return result;
+  f64x8_u a_union = {.vector = a};
+  f64x8_u b_union = {.vector = b};
+  f64x8_u result_union;
+  HWY_STATIC_DISPATCH(_subx8_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x8_v mulf64x8_static(const f64x8_v a, const f64x8_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(64) double result_ptr[8];
-  HWY_STATIC_DISPATCH(_mulx8_f64)(a_ptr, b_ptr, result_ptr);
-  f64x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x8_v));
-  return result;
+  f64x8_u a_union = {.vector = a};
+  f64x8_u b_union = {.vector = b};
+  f64x8_u result_union;
+  HWY_STATIC_DISPATCH(_mulx8_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x8_v divf64x8_static(const f64x8_v a, const f64x8_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(64) double result_ptr[8];
-  HWY_STATIC_DISPATCH(_divx8_f64)(a_ptr, b_ptr, result_ptr);
-  f64x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x8_v));
-  return result;
+  f64x8_u a_union = {.vector = a};
+  f64x8_u b_union = {.vector = b};
+  f64x8_u result_union;
+  HWY_STATIC_DISPATCH(_divx8_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x8_v sqrtf64x8_static(const f64x8_v a) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  alignas(64) double result_ptr[8];
-  HWY_STATIC_DISPATCH(_sqrtx8_f64)(a_ptr, result_ptr);
-  f64x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x8_v));
-  return result;
+  f64x8_u a_union = {.vector = a};
+  f64x8_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx8_f64)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x8_v fmaf64x8_static(const f64x8_v a, const f64x8_v b, const f64x8_v c) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  const double *c_ptr = reinterpret_cast<const double *>(&c);
-  alignas(64) double result_ptr[8];
-  HWY_STATIC_DISPATCH(_fmax8_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f64x8_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x8_v));
-  return result;
+  f64x8_u a_union = {.vector = a};
+  f64x8_u b_union = {.vector = b};
+  f64x8_u c_union = {.vector = c};
+  f64x8_u result_union;
+  HWY_STATIC_DISPATCH(_fmax8_f64)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 /* binary32 */
 
 f32x16_v addf32x16_static(const f32x16_v a, const f32x16_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(64) float result_ptr[16];
-  HWY_STATIC_DISPATCH(_addx16_f32)(a_ptr, b_ptr, result_ptr);
-  f32x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x16_v));
-  return result;
+  f32x16_u a_union = {.vector = a};
+  f32x16_u b_union = {.vector = b};
+  f32x16_u result_union;
+  HWY_STATIC_DISPATCH(_addx16_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x16_v subf32x16_static(const f32x16_v a, const f32x16_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(64) float result_ptr[16];
-  HWY_STATIC_DISPATCH(_subx16_f32)(a_ptr, b_ptr, result_ptr);
-  f32x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x16_v));
-  return result;
+  f32x16_u a_union = {.vector = a};
+  f32x16_u b_union = {.vector = b};
+  f32x16_u result_union;
+  HWY_STATIC_DISPATCH(_subx16_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x16_v mulf32x16_static(const f32x16_v a, const f32x16_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(64) float result_ptr[16];
-  HWY_STATIC_DISPATCH(_mulx16_f32)(a_ptr, b_ptr, result_ptr);
-  f32x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x16_v));
-  return result;
+  f32x16_u a_union = {.vector = a};
+  f32x16_u b_union = {.vector = b};
+  f32x16_u result_union;
+  HWY_STATIC_DISPATCH(_mulx16_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x16_v divf32x16_static(const f32x16_v a, const f32x16_v b) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  alignas(64) float result_ptr[16];
-  HWY_STATIC_DISPATCH(_divx16_f32)(a_ptr, b_ptr, result_ptr);
-  f32x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x16_v));
-  return result;
+  f32x16_u a_union = {.vector = a};
+  f32x16_u b_union = {.vector = b};
+  f32x16_u result_union;
+  HWY_STATIC_DISPATCH(_divx16_f32)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x16_v sqrtf32x16_static(const f32x16_v a) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  alignas(64) float result_ptr[16];
-  HWY_STATIC_DISPATCH(_sqrtx16_f32)(a_ptr, result_ptr);
-  f32x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x16_v));
-  return result;
+  f32x16_u a_union = {.vector = a};
+  f32x16_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx16_f32)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f32x16_v fmaf32x16_static(const f32x16_v a, const f32x16_v b,
                           const f32x16_v c) {
-  const float *a_ptr = reinterpret_cast<const float *>(&a);
-  const float *b_ptr = reinterpret_cast<const float *>(&b);
-  const float *c_ptr = reinterpret_cast<const float *>(&c);
-  alignas(64) float result_ptr[16];
-  HWY_STATIC_DISPATCH(_fmax16_f32)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f32x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f32x16_v));
-  return result;
+  f32x16_u a_union = {.vector = a};
+  f32x16_u b_union = {.vector = b};
+  f32x16_u c_union = {.vector = c};
+  f32x16_u result_union;
+  HWY_STATIC_DISPATCH(_fmax16_f32)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 #endif // 512-bits
@@ -1574,280 +1504,61 @@ f32x16_v fmaf32x16_static(const f32x16_v a, const f32x16_v b,
 /* binary64 */
 
 f64x16_v addf64x16_static(const f64x16_v a, const f64x16_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(128) double result_ptr[16];
-  HWY_STATIC_DISPATCH(_addx16_f64)(a_ptr, b_ptr, result_ptr);
-  f64x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
-  return result;
+  f64x16_u a_union = {.vector = a};
+  f64x16_u b_union = {.vector = b};
+  f64x16_u result_union;
+  HWY_STATIC_DISPATCH(_addx16_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x16_v subf64x16_static(const f64x16_v a, const f64x16_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(128) double result_ptr[16];
-  HWY_STATIC_DISPATCH(_subx16_f64)(a_ptr, b_ptr, result_ptr);
-  f64x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
-  return result;
+  f64x16_u a_union = {.vector = a};
+  f64x16_u b_union = {.vector = b};
+  f64x16_u result_union;
+  HWY_STATIC_DISPATCH(_subx16_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x16_v mulf64x16_static(const f64x16_v a, const f64x16_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(128) double result_ptr[16];
-  HWY_STATIC_DISPATCH(_mulx16_f64)(a_ptr, b_ptr, result_ptr);
-  f64x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
-  return result;
+  f64x16_u a_union = {.vector = a};
+  f64x16_u b_union = {.vector = b};
+  f64x16_u result_union;
+  HWY_STATIC_DISPATCH(_mulx16_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x16_v divf64x16_static(const f64x16_v a, const f64x16_v b) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  alignas(128) double result_ptr[16];
-  HWY_STATIC_DISPATCH(_divx16_f64)(a_ptr, b_ptr, result_ptr);
-  f64x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
-  return result;
+  f64x16_u a_union = {.vector = a};
+  f64x16_u b_union = {.vector = b};
+  f64x16_u result_union;
+  HWY_STATIC_DISPATCH(_divx16_f64)
+  (a_union.array, b_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x16_v sqrtf64x16_static(const f64x16_v a) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  alignas(128) double result_ptr[16];
-  HWY_STATIC_DISPATCH(_sqrtx16_f64)(a_ptr, result_ptr);
-  f64x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
-  return result;
+  f64x16_u a_union = {.vector = a};
+  f64x16_u result_union;
+  HWY_STATIC_DISPATCH(_sqrtx16_f64)
+  (a_union.array, result_union.array);
+  return result_union.vector;
 }
 
 f64x16_v fmaf64x16_static(const f64x16_v a, const f64x16_v b,
                           const f64x16_v c) {
-  const double *a_ptr = reinterpret_cast<const double *>(&a);
-  const double *b_ptr = reinterpret_cast<const double *>(&b);
-  const double *c_ptr = reinterpret_cast<const double *>(&c);
-  alignas(128) double result_ptr[16];
-  HWY_STATIC_DISPATCH(_fmax16_f64)(a_ptr, b_ptr, c_ptr, result_ptr);
-  f64x16_v result;
-  std::memcpy(&result, result_ptr, sizeof(f64x16_v));
-  return result;
+  f64x16_u a_union = {.vector = a};
+  f64x16_u b_union = {.vector = b};
+  f64x16_u c_union = {.vector = c};
+  f64x16_u result_union;
+  HWY_STATIC_DISPATCH(_fmax16_f64)
+  (a_union.array, b_union.array, c_union.array, result_union.array);
+  return result_union.vector;
 }
 
 #endif // 1024-bits
-
-#define define_un_op_dynamic_dispatch(op, type, size)                          \
-  void op##type##x##size##_dynamic(const type##x##size##_v a,                  \
-                                   type##x##size##_v &result) {                \
-    type##x##size##_u a_union = {.vector = a};                                 \
-    type##x##size##_u result_union;                                            \
-    op##type(a_union.array, result_union.array, size);                         \
-    result = result_union.vector;                                              \
-  }
-
-#define define_bin_op_dynamic_dispatch(op, type, size)                         \
-  void op##type##x##size##_dynamic(const type##x##size##_v a,                  \
-                                   const type##x##size##_v b,                  \
-                                   type##x##size##_v &result) {                \
-    type##x##size##_u a_union = {.vector = a};                                 \
-    type##x##size##_u b_union = {.vector = b};                                 \
-    type##x##size##_u result_union;                                            \
-    op##type(a_union.array, b_union.array, result_union.array, size);          \
-    result = result_union.vector;                                              \
-  }
-
-#define define_ter_op_dynamic_dispatch(op, type, size)                         \
-  void op##type##x##size##_dynamic(                                            \
-      const type##x##size##_v a, const type##x##size##_v b,                    \
-      const type##x##size##_v c, type##x##size##_v &result) {                  \
-    type##x##size##_u a_union = {.vector = a};                                 \
-    type##x##size##_u b_union = {.vector = b};                                 \
-    type##x##size##_u c_union = {.vector = c};                                 \
-    type##x##size##_u result_union;                                            \
-    op##type(a_union.array, b_union.array, c_union.array, result_union.array,  \
-             size);                                                            \
-    result = result_union.vector;                                              \
-  }
-
-// if the vector types are native, they are never passed by pointers, so we call
-// directly the dynamic dispatch tp avoid ABI mismatches
-// For x86_64, the vector types f32x2, f32x4 and f64x2 are native to the target
-
-#define define_un_op_dynamic_dispatch_native(op, type, size)                   \
-  void op##type##x##size##_dynamic(const type##x##size##_v a,                  \
-                                   type##x##size##_v &result) {                \
-    type##x##size##_u a_union = {.vector = a};                                 \
-    type##x##size##_u result_union;                                            \
-    HWY_DYNAMIC_DISPATCH(_##op##x##size##_##type)                              \
-    (a_union.array, result_union.array);                                       \
-    result = result_union.vector;                                              \
-  }
-
-#define define_bin_op_dynamic_dispatch_native(op, type, size)                  \
-  void op##type##x##size##_dynamic(const type##x##size##_v a,                  \
-                                   const type##x##size##_v b,                  \
-                                   type##x##size##_v &result) {                \
-    type##x##size##_u a_union = {.vector = a};                                 \
-    type##x##size##_u b_union = {.vector = b};                                 \
-    type##x##size##_u result_union;                                            \
-    HWY_DYNAMIC_DISPATCH(_##op##x##size##_##type)                              \
-    (a_union.array, b_union.array, result_union.array);                        \
-    result = result_union.vector;                                              \
-  }
-
-#define define_ter_op_dynamic_dispatch_native(op, type, size)                  \
-  void op##type##x##size##_dynamic(                                            \
-      const type##x##size##_v a, const type##x##size##_v b,                    \
-      const type##x##size##_v c, type##x##size##_v &result) {                  \
-    type##x##size##_u a_union = {.vector = a};                                 \
-    type##x##size##_u b_union = {.vector = b};                                 \
-    type##x##size##_u c_union = {.vector = c};                                 \
-    type##x##size##_u result_union;                                            \
-    HWY_DYNAMIC_DISPATCH(_##op##x##size##_##type)                              \
-    (a_union.array, b_union.array, c_union.array, result_union.array);         \
-    result = result_union.vector;                                              \
-  }
-
-/* Single vector functions, dynamic dispatch */
-
-/* IEEE-754 binary32 x2 */
-
-union f32x2_u {
-  f32x2_v vector;
-  alignas(8) float array[2];
-};
-
-#if defined(__x86_64__)
-define_bin_op_dynamic_dispatch_native(add, f32, 2);
-define_bin_op_dynamic_dispatch_native(sub, f32, 2);
-define_bin_op_dynamic_dispatch_native(mul, f32, 2);
-define_bin_op_dynamic_dispatch_native(div, f32, 2);
-define_un_op_dynamic_dispatch_native(sqrt, f32, 2);
-define_ter_op_dynamic_dispatch_native(fma, f32, 2);
-#else
-define_bin_op_dynamic_dispatch(add, f32, 2);
-define_bin_op_dynamic_dispatch(sub, f32, 2);
-define_bin_op_dynamic_dispatch(mul, f32, 2);
-define_bin_op_dynamic_dispatch(div, f32, 2);
-define_un_op_dynamic_dispatch(sqrt, f32, 2);
-define_ter_op_dynamic_dispatch(fma, f32, 2);
-#endif
-
-/* IEEE-754 binary64 x2 */
-
-union f64x2_u {
-  f64x2_v vector;
-  alignas(16) double array[2];
-};
-
-#if defined(__x86_64__)
-define_bin_op_dynamic_dispatch_native(add, f64, 2);
-define_bin_op_dynamic_dispatch_native(sub, f64, 2);
-define_bin_op_dynamic_dispatch_native(mul, f64, 2);
-define_bin_op_dynamic_dispatch_native(div, f64, 2);
-define_un_op_dynamic_dispatch_native(sqrt, f64, 2);
-define_ter_op_dynamic_dispatch_native(fma, f64, 2);
-#else
-define_bin_op_dynamic_dispatch(add, f64, 2);
-define_bin_op_dynamic_dispatch(sub, f64, 2);
-define_bin_op_dynamic_dispatch(mul, f64, 2);
-define_bin_op_dynamic_dispatch(div, f64, 2);
-define_un_op_dynamic_dispatch(sqrt, f64, 2);
-define_ter_op_dynamic_dispatch(fma, f64, 2);
-#endif
-
-/* IEEE-754 binary32 x4 */
-
-union f32x4_u {
-  f32x4_v vector;
-  alignas(16) float array[4];
-};
-
-#if defined(__x86_64__)
-define_bin_op_dynamic_dispatch_native(add, f32, 4);
-define_bin_op_dynamic_dispatch_native(sub, f32, 4);
-define_bin_op_dynamic_dispatch_native(mul, f32, 4);
-define_bin_op_dynamic_dispatch_native(div, f32, 4);
-define_un_op_dynamic_dispatch_native(sqrt, f32, 4);
-define_ter_op_dynamic_dispatch_native(fma, f32, 4);
-#else
-define_bin_op_dynamic_dispatch(add, f32, 4);
-define_bin_op_dynamic_dispatch(sub, f32, 4);
-define_bin_op_dynamic_dispatch(mul, f32, 4);
-define_bin_op_dynamic_dispatch(div, f32, 4);
-define_un_op_dynamic_dispatch(sqrt, f32, 4);
-define_ter_op_dynamic_dispatch(fma, f32, 4);
-#endif
-
-/* IEEE-754 binary64 x4 */
-
-union f64x4_u {
-  f64x4_v vector;
-  alignas(32) double array[4];
-};
-
-define_bin_op_dynamic_dispatch(add, f64, 4);
-define_bin_op_dynamic_dispatch(sub, f64, 4);
-define_bin_op_dynamic_dispatch(mul, f64, 4);
-define_bin_op_dynamic_dispatch(div, f64, 4);
-define_un_op_dynamic_dispatch(sqrt, f64, 4);
-define_ter_op_dynamic_dispatch(fma, f64, 4);
-
-/* IEEE-754 binary32 x8 */
-
-union f32x8_u {
-  f32x8_v vector;
-  alignas(32) float array[8];
-};
-
-define_bin_op_dynamic_dispatch(add, f32, 8);
-define_bin_op_dynamic_dispatch(sub, f32, 8);
-define_bin_op_dynamic_dispatch(mul, f32, 8);
-define_bin_op_dynamic_dispatch(div, f32, 8);
-define_un_op_dynamic_dispatch(sqrt, f32, 8);
-define_ter_op_dynamic_dispatch(fma, f32, 8);
-
-/* IEEE-754 binary64 x8 */
-
-union f64x8_u {
-  f64x8_v vector;
-  alignas(64) double array[8];
-};
-
-define_bin_op_dynamic_dispatch(add, f64, 8);
-define_bin_op_dynamic_dispatch(sub, f64, 8);
-define_bin_op_dynamic_dispatch(mul, f64, 8);
-define_bin_op_dynamic_dispatch(div, f64, 8);
-define_un_op_dynamic_dispatch(sqrt, f64, 8);
-define_ter_op_dynamic_dispatch(fma, f64, 8);
-
-/* IEEE-754 binary32 x16 */
-
-union f32x16_u {
-  f32x16_v vector;
-  alignas(64) float array[16];
-};
-
-define_bin_op_dynamic_dispatch(add, f32, 16);
-define_bin_op_dynamic_dispatch(sub, f32, 16);
-define_bin_op_dynamic_dispatch(mul, f32, 16);
-define_bin_op_dynamic_dispatch(div, f32, 16);
-define_un_op_dynamic_dispatch(sqrt, f32, 16);
-define_ter_op_dynamic_dispatch(fma, f32, 16);
-
-/* IEEE-754 binary64 x16 */
-
-union f64x16_u {
-  f64x16_v vector;
-  alignas(128) double array[16];
-};
-
-define_bin_op_dynamic_dispatch(add, f64, 16);
-define_bin_op_dynamic_dispatch(sub, f64, 16);
-define_bin_op_dynamic_dispatch(mul, f64, 16);
-define_bin_op_dynamic_dispatch(div, f64, 16);
-define_un_op_dynamic_dispatch(sqrt, f64, 16);
-define_ter_op_dynamic_dispatch(fma, f64, 16);
 
 } // namespace prism::ud::vector
 
@@ -1875,4 +1586,5 @@ double fmaf64(double a, double b, double c) {
 }
 
 } // namespace prism::ud::scalar
+
 #endif // HWY_ONCE
