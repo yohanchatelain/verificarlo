@@ -259,7 +259,7 @@ public:
   }
 
   AlignedVector<std::uint64_t> operator()(std::uint64_t, const std::size_t n) {
-    AlignedVector<std::uint64_t> result(2 * n);
+    AlignedVector<std::uint64_t> result(n);
     const ScalableTag<std::uint64_t> tag{};
     auto s0 = Load(tag, state_[{0}].data());
     auto s1 = Load(tag, state_[{1}].data());
@@ -277,8 +277,8 @@ public:
   }
 
   template <std::uint32_t N>
-  std::array<std::uint32_t, N> operator()(std::uint32_t) noexcept {
-    alignas(HWY_ALIGNMENT) std::array<std::uint32_t, N> result;
+  std::array<std::uint32_t, 2 * N> operator()(std::uint32_t) noexcept {
+    alignas(HWY_ALIGNMENT) std::array<std::uint32_t, 2 * N> result;
     const ScalableTag<std::uint64_t> tag{};
     const ScalableTag<std::uint32_t> u32_tag{};
     auto s0 = Load(tag, state_[{0}].data());

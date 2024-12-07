@@ -215,8 +215,6 @@ template <typename T, std::size_t N, class D = hn::FixedTag<T, N>,
 void _addxN(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
             T *HWY_RESTRICT result) {
   std::cout << "# _addxN: " << std::endl;
-  std::cout << "# &a: " << a << std::endl;
-  std::cout << "# &b: " << b << std::endl;
   _print<T, N>(a, "# a: ");
   _print<T, N>(b, "# b: ");
   const D d;
@@ -224,14 +222,6 @@ void _addxN(const T *HWY_RESTRICT a, const T *HWY_RESTRICT b,
   const auto vb = hn::Load(d, b);
   dbg::debug_vec<D>("# va:", va);
   dbg::debug_vec<D>("# vb:", vb);
-  constexpr auto align_va = alignof(decltype(va));
-  constexpr auto align_vb = alignof(decltype(vb));
-  std::cout << "# alignment va: " << align_va << std::endl;
-  std::cout << "# alignment vb: " << align_vb << std::endl;
-  constexpr auto align_a = alignof(decltype(a));
-  constexpr auto align_b = alignof(decltype(b));
-  std::cout << "# alignment a: " << align_a << std::endl;
-  std::cout << "# alignment b: " << align_b << std::endl;
   auto res = internal::_add_fp_xN<T, N>(va, vb);
   dbg::debug_vec<D>("# vresult:", res);
   hn::Store(res, d, result);
@@ -621,6 +611,7 @@ void _add_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
   }
   std::cout << std::endl;
 }
+
 void _sub_f32(const float *HWY_RESTRICT a, const float *HWY_RESTRICT b,
               float *HWY_RESTRICT result, const size_t count) {
   _sub<float>(a, b, result, count);

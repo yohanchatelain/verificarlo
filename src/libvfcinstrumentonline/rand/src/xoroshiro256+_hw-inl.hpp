@@ -89,7 +89,7 @@ template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
   pvn::debug_msg("[uniform] START");
   using T = hn::TFromD<D>;
   const std::size_t lanes = hn::Lanes(d);
-  if constexpr (sizeof(lanes * sizeof(T)) <= 16) {
+  if constexpr ((lanes * sizeof(T)) <= 16) {
     /* allocate at least 128bits */
     /* since VectorXoshiro returns 128bits elements */
     const std::size_t size_rng = std::max(lanes, std::size_t{8});
@@ -110,7 +110,7 @@ template <class D, class V = hn::VFromD<D>> V random(const D d) {
   pvn::debug_msg("[random] START");
   using T = hn::TFromD<D>;
   const std::size_t lanes = hn::Lanes(d);
-  if constexpr (sizeof(lanes * sizeof(T)) <= 16) {
+  if constexpr ((lanes * sizeof(T)) <= 16) {
     /* allocate at least 128bits */
     /* since VectorXoshiro returns 128bits elements */
     const std::size_t size_rng = std::max(lanes, std::size_t{8});

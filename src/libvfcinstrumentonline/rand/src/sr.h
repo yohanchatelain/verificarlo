@@ -61,7 +61,7 @@ template <typename T> inline T sround(const T sigma, const T tau) {
   return round;
 }
 
-template <typename T> inline T add(T a, T b) {
+template <typename T> inline T add(const T a, const T b) {
   debug_start();
   if (not isnumber(a, b)) {
     debug_end();
@@ -90,7 +90,7 @@ template <typename T> inline T mul(T a, T b) {
   return sigma + round;
 }
 
-template <typename T> inline T div(T a, T b) {
+template <typename T> inline T div(const T a, const T b) {
   debug_start();
   if (not isnumber(a, b)) {
     debug_end();
@@ -111,7 +111,7 @@ template <typename T> inline T div(T a, T b) {
   return sigma + round;
 }
 
-template <typename T> inline T sqrt(T a) {
+template <typename T> inline T sqrt(const T a) {
   T sigma;
 #if defined(__SSE2__)
   if constexpr (std::is_same<T, float>::value) {
@@ -151,7 +151,7 @@ Algorithm 5 (ErrFmaNearest):
   γ = ◦(◦(β1 − r1) + β2)
   r2 = ◦(γ + α2)
 */
-template <typename T> inline T fma(T a, T b, T c) {
+template <typename T> inline T fma(const T a, const T b, const T c) {
   if (not std::isfinite(a) or not std::isfinite(b) or not std::isfinite(c)) {
     return std::fma(a, b, c);
   }
