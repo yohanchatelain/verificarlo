@@ -105,28 +105,6 @@ public:
   }
 #endif
 
-  Vec<FixedTag<double, 1>> UniformVec(double) noexcept {
-    const FixedTag<std::uint64_t, 1> u64_tag;
-    const FixedTag<double, 1> real_tag;
-    const auto MUL_VALUE = Set(real_tag, internal::kMulConst);
-    const auto bits = Set(u64_tag, Next());
-    const auto bitsshift = ShiftRight<11>(bits);
-    const auto real = ConvertTo(real_tag, bitsshift);
-    return Mul(real, MUL_VALUE);
-  }
-
-  Vec<ScalableTag<float>> UniformVec(float) noexcept {
-    const ScalableTag<std::uint64_t> u64_tag;
-    const ScalableTag<std::uint32_t> u32_tag;
-    const ScalableTag<float> real_tag;
-    const auto MUL_VALUE = Set(real_tag, internal::kMulConstF);
-    const auto bits = Set(u64_tag, Next());
-    const auto bitscast = BitCast(u32_tag, bits);
-    const auto bitsshift = ShiftRight<8>(bitscast);
-    const auto real = ConvertTo(real_tag, bitsshift);
-    return Mul(real, MUL_VALUE);
-  }
-
   HWY_CXX14_CONSTEXPR std::array<std::uint64_t, 4> GetState() const {
     return {state_[0], state_[1], state_[2], state_[3]};
   }

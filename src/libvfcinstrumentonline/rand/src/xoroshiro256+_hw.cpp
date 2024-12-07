@@ -79,9 +79,13 @@ HWY_EXPORT(uniformf64);
 HWY_EXPORT(randomu64);
 
 namespace static_dispatch {
-float uniform(float) { return HWY_STATIC_DISPATCH(uniformf32)(); }
-double uniform(double) { return HWY_STATIC_DISPATCH(uniformf64)(); }
-std::uint64_t random() { return HWY_STATIC_DISPATCH(randomu64)(); }
+HWY_DLLEXPORT float uniform(float) { return HWY_STATIC_DISPATCH(uniformf32)(); }
+HWY_DLLEXPORT double uniform(double) {
+  return HWY_STATIC_DISPATCH(uniformf64)();
+}
+HWY_DLLEXPORT std::uint64_t random() {
+  return HWY_STATIC_DISPATCH(randomu64)();
+}
 
 } // namespace static_dispatch
 

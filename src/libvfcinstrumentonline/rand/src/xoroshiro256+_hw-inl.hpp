@@ -30,6 +30,8 @@ namespace HWY_NAMESPACE {
 namespace hn = hwy::HWY_NAMESPACE;
 namespace pn = prism::HWY_NAMESPACE;
 
+// TODO: make seeds different for scalar and vector versions
+
 class RNGInitializer {
 public:
   RNGInitializer();
@@ -63,7 +65,7 @@ namespace xoroshiro256plus {
 namespace HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
-namespace pvn = prism::vector::HWY_NAMESPACE;
+namespace dbg = prism::vector::HWY_NAMESPACE;
 namespace pn = prism::HWY_NAMESPACE;
 
 class RNGInitializer {
@@ -78,53 +80,33 @@ private:
       return nullptr;
 
     const auto seed = get_user_seed();
-    const auto thread_id = syscall(__NR_gettid) % syscall(__NR_getpid);
-    return new hn::VectorXoshiro(seed, thread_id);
+    const auto thread_id = (syscall(__NR_gettid) % syscall(__NR_getpid));
+    return new hn::VectorXoshiro(seed, thread_id + 1);
   }
 };
 
 extern thread_local RNGInitializer rng;
 
 template <class D, class V = hn::VFromD<D>> V uniform(const D d) {
-  pvn::debug_msg("[uniform] START");
   using T = hn::TFromD<D>;
-  const std::size_t lanes = hn::Lanes(d);
-  if constexpr ((lanes * sizeof(T)) <= 16) {
-    /* allocate at least 128bits */
-    /* since VectorXoshiro returns 128bits elements */
-    const std::size_t size_rng = std::max(lanes, std::size_t{8});
-    auto z = rng.get()->Uniform(T{}, size_rng);
-    auto z_load = hn::Load(d, z.data());
-    pvn::debug_msg("[uniform] END");
-    return z_load;
-  } else {
-    const std::size_t size_rng = lanes;
-    auto z = rng.get()->Uniform(T{}, size_rng);
-    auto z_load = hn::Load(d, z.data());
-    pvn::debug_msg("[uniform] END");
-    return z_load;
-  }
+  auto z = rng.get()->Uniform(T{});
+  using D_RNG = hn::DFromV<decltype(z)>;
+  const D_RNG d_rng;
+  const auto N = hn::Lanes(d_rng);
+  std::array<T, N> z_array;
+  hn::Store(z, d_rng, z_array.data());
+  return hn::Load(d, z_array.data());
 }
 
 template <class D, class V = hn::VFromD<D>> V random(const D d) {
-  pvn::debug_msg("[random] START");
   using T = hn::TFromD<D>;
-  const std::size_t lanes = hn::Lanes(d);
-  if constexpr ((lanes * sizeof(T)) <= 16) {
-    /* allocate at least 128bits */
-    /* since VectorXoshiro returns 128bits elements */
-    const std::size_t size_rng = std::max(lanes, std::size_t{8});
-    auto z = rng.get()->operator()(T{}, size_rng);
-    auto z_load = hn::Load(d, z.data());
-    pvn::debug_msg("[random] END");
-    return z_load;
-  } else {
-    const std::size_t size_rng = lanes;
-    auto z = rng.get()->operator()(T{}, size_rng);
-    auto z_load = hn::Load(d, z.data());
-    pvn::debug_msg("[random] END");
-    return z_load;
-  }
+  auto z = rng.get()->operator()(T{});
+  using D_RNG = hn::DFromV<decltype(z)>;
+  const D_RNG d_rng;
+  const auto N = hn::Lanes(d_rng);
+  std::array<T, N> z_array;
+  hn::Store(z, d_rng, z_array.data());
+  return hn::Load(d, z_array.data());
 }
 
 } // namespace HWY_NAMESPACE
