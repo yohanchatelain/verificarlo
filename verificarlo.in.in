@@ -447,8 +447,9 @@ def parse_args():
     parser.add_argument(
         "--online-instrumentation-debug",
         action="store",
-        nargs="+",
-        choices=["getoperands", "abi", "targetfeatures"],
+        nargs="*",
+        default=[],
+        choices=["getoperands", "abi", "targetfeatures", ""],
         help="Enable online instrumentation debug",
     )
 

@@ -26,7 +26,7 @@ def read_file(filename):
 
 def compute_sig(x, verbose):
     mean = np.mean(x, axis=0)
-    std = np.std(x, axis=0)
+    std = np.std(x, axis=0, dtype=np.float64)
     sig = sd.significant_digits(x, reference=mean, basis=10)
     sig_min = np.min(sig)
     mean_min = np.min(np.abs(mean))
@@ -36,7 +36,7 @@ def compute_sig(x, verbose):
         print(f"Std: {std}")
         print(f"Signficant digits: {sig}")
         print(f"Min significant digits: {sig_min}")
-    return sig_min, mean_min
+    return sig_min, mean_min, std
 
 
 def deduce_type(filename, fp_type):
@@ -61,7 +61,7 @@ def main():
     try:
         fp_type = deduce_type(args.input, args.type)
         x = read_file(args.input)
-        sig_min, mean_min = compute_sig(x, args.verbose)
+        sig_min, mean_min, std = compute_sig(x, args.verbose)
     except Exception as e:
         print(f"Error with {args.input}")
         print(e)
@@ -80,6 +80,10 @@ def main():
         print(
             f"Error with {args.input}: minimal number of significant digits {sig_min:.2f} below threshold ({tol:.2f})"
         )
+        sys.exit(1)
+
+    if std.max() == 0:
+        print(f"Error with {args.input}: standard deviation is zero")
         sys.exit(1)
 
     if mean_min == 0:

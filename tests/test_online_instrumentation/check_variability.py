@@ -32,7 +32,7 @@ def compute_sig(x, verbose):
         print(f"Std: {std}")
         print(f"Signficant digits: {sig}")
         print(f"Min significant digits: {sig_min}")
-    return sig_min, mean_min
+    return sig_min, mean_min, std
 
 
 def deduce_type(filename, fp_type):
@@ -55,7 +55,7 @@ def main():
     args = parse_args()
     fp_type = deduce_type(args.input, args.type)
     x = read_file(args.input)
-    sig_min, mean_min = compute_sig(x, args.verbose)
+    sig_min, mean_min, std = compute_sig(x, args.verbose)
 
     tol = 0
     if fp_type == "float":
@@ -70,6 +70,10 @@ def main():
         print(
             f"Error with {args.input}: minimal number of significant digits {sig_min:.2f} below threshold ({tol:.2f})"
         )
+        sys.exit(1)
+
+    if std.max() == 0:
+        print(f"Error with {args.input}: standard deviation is zero")
         sys.exit(1)
 
     if mean_min == 0:

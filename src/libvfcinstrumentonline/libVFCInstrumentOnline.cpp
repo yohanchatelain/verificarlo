@@ -43,7 +43,6 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
-#include <llvm/Support/X86TargetParser.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
@@ -378,12 +377,6 @@ struct VfclibInst : public ModulePass {
   }
 
   bool runOnModule(Module &M) {
-    // listTargetFeatures();
-    // listTargetFeatures("x86-64");
-    // listTargetFeatures("x86-64-v2");
-    // listTargetFeatures("x86-64-v3");
-    // listTargetFeatures("x86-64-v4");
-
     bool modified = false;
 
     stoLibModule = loadVfcwrapperIR(M, VfclibInstStoIRFile);
@@ -746,66 +739,6 @@ struct VfclibInst : public ModulePass {
     return operands;
   }
 
-  void listTargetFeatures(const std::string &CPU = "") {
-    // Initialize LLVM native target and ASM printer
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-
-    std::string Error;
-    std::string TargetTriple = llvm::sys::getDefaultTargetTriple();
-    // Lookup target information
-    const llvm::Target *Target =
-        llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
-    if (!Target) {
-      llvm::errs() << "Error: " << Error << "\n";
-      return;
-    }
-    if (CPU.empty()) {
-
-      // Get the default target triple for the host system
-      const auto ProcessTriple = llvm::sys::getProcessTriple();
-      const auto HostCPUName = llvm::sys::getHostCPUName();
-      StringMap<bool> HostFeatures;
-      llvm::sys::getHostCPUFeatures(HostFeatures);
-
-      // Print host information
-      errs() << "Host Information:\n";
-      errs() << "  Target Triple: " << TargetTriple << "\n";
-      errs() << "  Process Triple: " << ProcessTriple << "\n";
-      errs() << "  Host CPU: " << HostCPUName << "\n";
-      errs() << "  Host CPU Features:\n";
-      for (const auto &Feature : HostFeatures) {
-        const auto enabled = Feature.second ? "+" : "-";
-        errs() << enabled << Feature.first() << ", ";
-      }
-      errs() << "\n";
-
-    } else {
-      // Define CPU and Features string (use "native" for host CPU)
-      std::string FeaturesStr;
-
-      // Create target options
-      TargetOptions Options;
-      auto RM = llvm::Optional<Reloc::Model>();
-
-      auto x86arch = llvm::X86::parseArchX86(CPU);
-      auto x86tune = llvm::X86::parseArchX86(CPU);
-
-      SmallVector<llvm::StringRef, 256> features;
-      llvm::X86::getFeaturesForCPU(CPU, features);
-
-      // Print target information
-      errs() << "Target Information:\n";
-      errs() << "  Target Machine: " << Target->getName() << "\n";
-      errs() << "  Target CPU: " << CPU << "\n";
-      errs() << "  Target Features: ";
-      for (const auto &Feature : features) {
-        errs() << Feature << ",";
-      }
-      errs() << "\n";
-    }
-  }
-
   typedef enum {
     x86_64_NONE = 0,
     x86_64_SSE = 1,
@@ -987,6 +920,8 @@ struct VfclibInst : public ModulePass {
       return true;
     }
 
+    bool empty() const { return features.empty(); }
+
     TargetFeatures operator+(const TargetFeatures &rhs) {
       TargetFeatures result;
       for (const auto &feature : features) {
@@ -1086,6 +1021,12 @@ struct VfclibInst : public ModulePass {
         TargetFeatures(Callee->getFnAttribute("target-features"));
     auto callerTargetFeatures =
         TargetFeatures(caller->getFnAttribute("target-features"));
+
+    if (callerTargetFeatures.empty()) {
+      // The case when using flang as frontend
+      // TODO: add a flag to enable/disable this
+      return true;
+    }
 
     // if caller does have the callee features, we're good
     if (calleeTargetFeatures.isIncludeIn(callerTargetFeatures)) {
@@ -1245,8 +1186,6 @@ struct VfclibInst : public ModulePass {
     for (auto p : WorkList) {
       Instruction *I = p.first;
       Fops opCode = p.second;
-      if (VfclibInstVerbose)
-        errs() << "Instrumenting" << *I << '\n';
       Value *value = replaceWithPRCall(M, I, opCode);
       if (value != nullptr) {
         BasicBlock::iterator ii(I);
@@ -1255,6 +1194,8 @@ struct VfclibInst : public ModulePass {
 #else
         ReplaceInstWithValue(B.getInstList(), ii, value);
 #endif
+        if (VfclibInstVerbose)
+          errs() << "Instrumenting" << *I << '\n';
       }
     }
 

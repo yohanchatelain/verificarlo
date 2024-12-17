@@ -32,7 +32,7 @@ endif
 
 CC=verificarlo-c
 CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi -Wno-unknown-warning-option --online-instrumentation=up-down $(DEBUG) 
-LDFLAGS=--online-instrumentation=up-down -lm 
+LDFLAGS=--online-instrumentation=up-down -lm  $(DEBUG)
 
 ifdef static
 CFLAGS+=--online-instrumentation-dispatch=static
