@@ -26,7 +26,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import random
 
 PACKAGE_STRING = "@PACKAGE_STRING@"
 LIBDIR = "%LIBDIR%"
