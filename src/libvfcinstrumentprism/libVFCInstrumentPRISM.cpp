@@ -129,10 +129,16 @@ static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
                                        cl::value_desc("Verbose"),
                                        cl::init(false));
 
-static cl::opt<std::string>
-    VfclibInstMode("vfclibinst-mode",
-                   cl::desc("Instrumentation mode: up-down or sr"),
-                   cl::value_desc("Mode"), cl::init("up-down"));
+const std::string up_down_mode = "up-down";
+const std::string up_down_ns = "up";
+const std::string stochastic_rounding_mode = "stochastic-rounding";
+const std::string stochastic_rounding_ns = "sr";
+const std::string stochastic_rounding_mode = "stochastic-rounding";
+
+static cl::opt<std::string> VfclibInstMode(
+    "vfclibinst-mode",
+    cl::desc("Instrumentation mode: up-down or stochastic-rounding"),
+    cl::value_desc("Mode"), cl::init(up_down_mode));
 
 static cl::opt<std::string>
     VfclibInstDispatch("vfclibinst-dispatch",
@@ -159,6 +165,7 @@ static cl::bits<debugOptions> VfclibInstDebugOptions(
     cl::CommaSeparated);
 
 namespace {
+
 // Define an enum type to classify the floating points operations
 // that are instrumented by verificarlo
 enum Fops { FOP_ADD, FOP_SUB, FOP_MUL, FOP_DIV, FOP_FMA, FOP_CMP, FOP_IGNORE };
@@ -387,11 +394,6 @@ struct VfclibInst : public ModulePass {
     }
     getDemangledNamesLibSR(stoLibModule.get());
 
-    // if (VfclibInstDebug) {
-    //   printDemangledNamesLibsSR();
-    //   printDemangledNamesLibsSRShort();
-    // }
-
     // Parse both included and excluded function set
     std::regex includeFunctionRgx =
         parseFunctionSetFile(M, VfclibInstIncludeFile);
@@ -554,9 +556,15 @@ struct VfclibInst : public ModulePass {
     }
 
     auto baseType = I->getType();
-    std::string mode = VfclibInstMode;
-    if (VfclibInstMode == "up-down")
-      mode = "ud";
+    std::string mode;
+    if (VfclibInstMode == up_down_mode)
+      mode = up_down_ns;
+    else if (VfclibInstMode == stochastic_rounding_mode)
+      mode = stochastic_rounding_ns;
+    else {
+      errs() << "Invalid mode: " << VfclibInstMode << "\n";
+      report_fatal_error("libVFCInstrumentPRISM fatal error");
+    }
 
     const std::string &opname = Fops2str[opCode];
     const std::string &fpname = getFPTypeName(baseType);

@@ -65,18 +65,20 @@ class prism_modes:
 
 
 class PrismModeAction(argparse.Action):
-    _PRISM_MODES_MAP = {
-        prism_modes.up_down: "ud",
-        prism_modes.stochastic_rounding: "sr",
+    _PRISM_MODES_ALIASES = {
+        "ud": prism_modes.up_down,
+        "sr": prism_modes.stochastic_rounding,
     }
-    PRISM_MODES = list(_PRISM_MODES_MAP.keys()) + list(_PRISM_MODES_MAP.values())
+    PRISM_MODES = list(_PRISM_MODES_ALIASES.keys()) + list(
+        _PRISM_MODES_ALIASES.values()
+    )
 
     def __call__(self, parser, namespace, values, option_string):
         arg = values
-        if arg in PrismModeAction._PRISM_MODES_MAP:
-            value = arg
+        if arg in PrismModeAction._PRISM_MODES_ALIASES:
+            value = PrismModeAction._PRISM_MODES_ALIASES.get(arg)
         else:
-            value = PrismModeAction._PRISM_MODES_MAP.get(arg)
+            value = arg
         setattr(namespace, self.dest, value)
 
 
