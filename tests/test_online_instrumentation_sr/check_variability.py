@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python3
 
 from math import isinf
 from pandas import isna
