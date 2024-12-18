@@ -1188,14 +1188,14 @@ struct VfclibInst : public ModulePass {
       Fops opCode = p.second;
       Value *value = replaceWithPRCall(M, I, opCode);
       if (value != nullptr) {
+        if (VfclibInstVerbose)
+          errs() << "Instrumenting" << *I << '\n';
         BasicBlock::iterator ii(I);
 #if LLVM_VERSION_MAJOR >= 16
         ReplaceInstWithValue(ii, value);
 #else
         ReplaceInstWithValue(B.getInstList(), ii, value);
 #endif
-        if (VfclibInstVerbose)
-          errs() << "Instrumenting" << *I << '\n';
       }
     }
 
