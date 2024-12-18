@@ -180,8 +180,6 @@ else
   AC_MSG_RESULT([no])
 fi
 
-
-
 # Checks for library functions.
 AC_FUNC_ALLOCA
 AC_FUNC_CHOWN
@@ -242,7 +240,7 @@ AC_CONFIG_FILES([Makefile
                  src/common/Makefile
                  src/libvfcinstrument/Makefile
                  src/libvfcfuncinstrument/Makefile
-                 src/libvfcinstrumentonline/Makefile
+                 src/libvfcinstrumentprism/Makefile
                  src/vfcwrapper/Makefile
                  src/backends/Makefile
                  tests/Makefile

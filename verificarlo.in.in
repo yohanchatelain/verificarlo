@@ -36,8 +36,8 @@ libinterflop_stdlib_include = "@INTERFLOP_INCLUDEDIR@"
 libinterflop_stdlib_lib = "@INTERFLOP_LIBDIR@"
 libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
-libvfcinstrumentonline = LIBDIR + "/libvfcinstrumentonline.so"
-libprismdir = "/home/yohan/Work/verificarlo/src/libvfcinstrumentonline/rand/"
+libvfcinstrumentprism = LIBDIR + "/libvfcinstrumentprism.so"
+libprismdir = "%INCLUDEDIR%"
 mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + "vfcwrapper.c"
@@ -58,6 +58,27 @@ linkers = {"clang": clang, "flang": flang, "clang++": clangxx}
 default_linker = "clang"
 temp_files_set = set()
 march_flag = "@MARCH_FLAG@"
+
+
+class prism_modes:
+    up_down = "up-down"
+    stochastic_rounding = "stochastic-rounding"
+
+
+class PrismModeAction(argparse.Action):
+    _PRISM_MODES_MAP = {
+        prism_modes.up_down: "ud",
+        prism_modes.stochastic_rounding: "sr",
+    }
+    PRISM_MODES = list(_PRISM_MODES_MAP.keys()) + list(_PRISM_MODES_MAP.values())
+
+    def __call__(self, parser, namespace, values, option_string):
+        arg = values[0]
+        if arg in PrismModeAction._PRISM_MODES_MAP:
+            value = arg
+        else:
+            value = PrismModeAction._PRISM_MODES_MAP.get(arg)
+        setattr(namespace, self.dest, value)
 
 
 class NoPrefixParser(argparse.ArgumentParser):
@@ -162,14 +183,12 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 
 
 def linker_mode(sources, options, libraries, output, args):
-    if args.online_instrumentation:
+    if args.prism_backend:
         vfcwrapper_o = ""
         libprism = (
-            "-lprism"
-            if args.online_instrumentation_dispatch == "dynamic"
-            else "-lprism-native"
+            "-lprism" if args.prism_backend_dispatch == "dynamic" else "-lprism-native"
         )
-        if args.online_instrumentation_debug:
+        if args.prism_backend_debug:
             libprism += "-dbg"
         libraries += f" {libprism} -lhwy -lstdc++ "
     else:
@@ -251,25 +270,25 @@ def apply_function_instrumentation_pass(ir, ins, args):
 def apply_mca_instrumentation_pass(
     ir, ins, vfcwrapper_ir, extra_args, selectfunction, args
 ):
-    if args.online_instrumentation:
-        vfclibinst_online_ll = libprismdir + os.path.sep
-        static_dispatch = args.online_instrumentation_dispatch == "static"
-        if args.online_instrumentation == "up-down":
-            vfclibinst_online_ll += (
-                "ud_hw" + ("-native" if static_dispatch else "") + ".ll"
+    if args.prism_backend:
+        vfclibinst_prism_ll = libprismdir + os.path.sep
+        static_dispatch = args.prism_backend_dispatch == "static"
+        if args.prism_backend == prism_modes.up_down:
+            vfclibinst_prism_ll += (
+                "ud_vector" + ("-native" if static_dispatch else "") + ".ll"
             )
-        elif args.online_instrumentation == "sr":
-            vfclibinst_online_ll += (
-                "sr_hw" + ("-native" if static_dispatch else "") + ".ll"
+        elif args.prism_backend == prism_modes.stochastic_rounding:
+            vfclibinst_prism_ll += (
+                "sr_vector" + ("-native" if static_dispatch else "") + ".ll"
             )
 
-        libvfcinst = libvfcinstrumentonline
-        extra_args += f" -vfclibinst-mode {args.online_instrumentation} "
-        extra_args += f" -vfclibinst-dispatch {args.online_instrumentation_dispatch} "
-        extra_args += f" -vfclibinst-sr-file {vfclibinst_online_ll} "
-        if args.online_instrumentation_debug:
-            extra_args += f" -vfclibinst-debug "
-            for debug in args.online_instrumentation_debug:
+        libvfcinst = libvfcinstrumentprism
+        extra_args += f" -vfclibinst-mode {args.prism_backend} "
+        extra_args += f" -vfclibinst-dispatch {args.prism_backend_dispatch} "
+        extra_args += f" -vfclibinst-sr-file {vfclibinst_prism_ll} "
+        if args.prism_backend_debug:
+            extra_args += " -vfclibinst-debug "
+            for debug in args.prism_backend_debug:
                 extra_args += f" -vfclibinst-debug-{debug} "
     else:
         libvfcinst = libvfcinstrument
@@ -289,7 +308,7 @@ def apply_mca_instrumentation_pass(
 def compiler_mode(sources, options, output, args):
     extra_args = "-static " if args.static else "-fPIC "
 
-    if not args.online_instrumentation:
+    if not args.prism_backend:
         vfcwrapper_ir = get_tmp_filename(".vfcwrapper", ".ll", args)
         compile_vfcwrapper(vfcwrapper, vfcwrapper_ir.name, args, emit_llvm=True)
     else:
@@ -431,26 +450,26 @@ def parse_args():
         help="emit an LLVM bitcode with the instrumentation built-in",
     )
     parser.add_argument(
-        "--online-instrumentation",
-        action="store",
-        choices=["up-down", "sr"],
+        "--prism-backend",
+        action=PrismModeAction,
+        choices=PrismModeAction.PRISM_MODES,
         type=str,
-        help="Online instrumentation. (mode: up-down, sr)",
+        help=f"PRISM backend. (modes: {', '.join(PrismModeAction.PRISM_MODES)})",
     )
     parser.add_argument(
-        "--online-instrumentation-dispatch",
+        "--prism-backend-dispatch",
         action="store",
         choices=["static", "dynamic"],
         default="dynamic",
-        help="Set the dispatching method for online instrumentation. Use 'dynamic' for portable code or 'static' for ISA-specific code (default: dynamic).",
+        help="Set the dispatching method for PRISM backend. Use 'dynamic' for portable code or 'static' for ISA-specific code (default: dynamic)",
     )
     parser.add_argument(
-        "--online-instrumentation-debug",
+        "--prism-backend-debug",
         action="store",
         nargs="*",
         default=[],
         choices=["getoperands", "abi", "targetfeatures", ""],
-        help="Enable online instrumentation debug",
+        help="Enable prism backend instrumentation debug modes",
     )
 
     args, other = parser.parse_known_args()

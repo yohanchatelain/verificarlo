@@ -1,5 +1,0 @@
-build:clang --action_env=BAZEL_COMPILER=clang
-build --repo_env=CC=clang
-build --repo_env=CXX=clang++
-
-build:debug --define=debug=1

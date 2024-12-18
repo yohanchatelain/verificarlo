@@ -337,7 +337,7 @@ struct VfclibInst : public ModulePass {
     auto newM = parseIRFile(irFile, err, M.getContext());
     if (newM.get() == nullptr) {
       err.print(irFile.c_str(), errs());
-      report_fatal_error("libVFCInstrumentOnline fatal error");
+      report_fatal_error("libVFCInstrumentPRISM fatal error");
     }
     return newM;
   }
@@ -383,7 +383,7 @@ struct VfclibInst : public ModulePass {
     // if ir is null, an error message has already been printed
     if (stoLibModule.get() == nullptr) {
       report_fatal_error(
-          "libVFCInstrumentOnline fatal error while reading SR library IR");
+          "libVFCInstrumentPRISM fatal error while reading SR library IR");
     }
     getDemangledNamesLibSR(stoLibModule.get());
 
