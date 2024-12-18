@@ -133,7 +133,6 @@ const std::string up_down_mode = "up-down";
 const std::string up_down_ns = "up";
 const std::string stochastic_rounding_mode = "stochastic-rounding";
 const std::string stochastic_rounding_ns = "sr";
-const std::string stochastic_rounding_mode = "stochastic-rounding";
 
 static cl::opt<std::string> VfclibInstMode(
     "vfclibinst-mode",
