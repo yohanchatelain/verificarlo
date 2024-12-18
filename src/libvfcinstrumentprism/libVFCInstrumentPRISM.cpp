@@ -130,7 +130,7 @@ static cl::opt<bool> VfclibInstVerbose("vfclibinst-verbose",
                                        cl::init(false));
 
 const std::string up_down_mode = "up-down";
-const std::string up_down_ns = "up";
+const std::string up_down_ns = "ud";
 const std::string stochastic_rounding_mode = "stochastic-rounding";
 const std::string stochastic_rounding_ns = "sr";
 
