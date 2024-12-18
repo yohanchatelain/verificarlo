@@ -72,7 +72,7 @@ class PrismModeAction(argparse.Action):
     PRISM_MODES = list(_PRISM_MODES_MAP.keys()) + list(_PRISM_MODES_MAP.values())
 
     def __call__(self, parser, namespace, values, option_string):
-        arg = values[0]
+        arg = values
         if arg in PrismModeAction._PRISM_MODES_MAP:
             value = arg
         else:
