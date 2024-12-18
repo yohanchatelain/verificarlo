@@ -16,7 +16,7 @@ endif
 
 
 ifdef debug
-DEBUG=--show-cmd --verbose --save-temps --online-instrumentation-debug
+DEBUG=--show-cmd --verbose --save-temps --prism-backend-debug
 endif
 
 ifdef size
@@ -31,12 +31,12 @@ INCLUDE=
 endif
 
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi -Wno-unknown-warning-option --online-instrumentation=sr $(DEBUG)
-LDFLAGS=--online-instrumentation=sr -lm $(DEBUG)
+CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi -Wno-unknown-warning-option --prism-backend=sr $(DEBUG)
+LDFLAGS=--prism-backend=sr -lm $(DEBUG)
 
 ifdef static
-CFLAGS+=--online-instrumentation-dispatch=static
-LDFLAGS+=--online-instrumentation-dispatch=static
+CFLAGS+=--prism-backend-dispatch=static
+LDFLAGS+=--prism-backend-dispatch=static
 endif
 
 ifdef native
