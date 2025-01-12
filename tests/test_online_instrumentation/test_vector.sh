@@ -5,17 +5,28 @@ set -e
 export SAMPLES=100
 
 # check if variable static is set
-if [[ -z ${STATIC_DISPATCH+x} ]]; then
-    DISPATCH=
-else
+: ${STATIC_DISPATCH:=0}
+
+if [[ $STATIC_DISPATCH -eq 1 ]]; then
     DISPATCH="static=1"
+else
+    DISPATCH=
 fi
 
-# check if variable march_native is set
-if [[ -z ${MARCH_NATIVE+x} ]]; then
-    MARCH=""
-else
+# check if variable march_native is equal to 1
+# Ensure MARCH_NATIVE is set to either 1 or 0
+: ${MARCH_NATIVE:=0}
+
+if [[ $MARCH_NATIVE -eq 1 ]]; then
     MARCH="native=1"
+else
+    MARCH=""
+fi
+
+if [[ -z ${VERBOSE+x} ]]; then
+    VERBOSE=0
+else
+    VERBOSE=1
 fi
 
 check_status() {
@@ -68,7 +79,9 @@ run_test() {
     local bin=.bin/test_${type}_${optimization}_${op_name}_${size}
     local file=.results/tmp.$type.x$size.$op_name.$optimization.txt
 
-    echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
+    if [[ $VERBOSE == 1 ]]; then
+        echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
+    fi
 
     rm -f $file
 
@@ -101,8 +114,10 @@ run_test() {
 }
 
 export -f run_test
+export CHAR_POSITION=0
 
 if [[ ${TEST_DEBUG} -eq 1 ]]; then
+    VERBOSE=1
     echo "Running in debug mode"
     parallel --header : "run_test {type} {optimization} {op} {size}" \
         ::: type double float \
@@ -110,12 +125,15 @@ if [[ ${TEST_DEBUG} -eq 1 ]]; then
         ::: optimization "${optimizations[@]}" \
         ::: size 2 4 8 16
 else
-    parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
+    parallel --bar --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
         ::: type double float \
         ::: op "+" "-" "x" "/" \
         ::: optimization "${optimizations[@]}" \
         ::: size 2 4 8 16
 fi
 
-echo "Success!"
+if [[ $VERBOSE == 1 ]]; then
+    echo "Success!"
+fi
+
 exit 0

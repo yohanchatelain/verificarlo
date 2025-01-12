@@ -8,7 +8,7 @@ endif
 
 libvfcinstrumentprism_la_CXXFLAGS = @LLVM_CPPFLAGS@ -I@INTERFLOP_INCLUDEDIR@ -Wfatal-errors 
 libvfcinstrumentprism_la_LDFLAGS = @LLVM_LDFLAGS@
-libvfcinstrumentprism_la_SOURCES = libVFCInstrumentPRISM.cpp
+libvfcinstrumentprism_la_SOURCES = libVFCInstrumentPRISM.cpp TargetFeatures.hpp
 
 
 # include_HEADERS = rand/src/rand.hpp rand/src/xoroshiro128+.cpp rand/src/shishua.h

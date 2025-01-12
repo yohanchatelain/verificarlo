@@ -16,7 +16,7 @@ endif
 
 
 ifdef debug
-DEBUG=--show-cmd --verbose --save-temps --prism-backend-debug
+DEBUG=--show-cmd --verbose --save-temps --prism-backend-debug --prism-backend-debug=abi --prism-backend-debug=getoperands  
 endif
 
 ifdef size
@@ -46,4 +46,4 @@ endif
 all:
 	@mkdir -p .objects .bin
 	$(CC) $(CFLAGS) -c $(SOURCE) -o .objects/$(BINARY).o
-	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS)
+	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS) 

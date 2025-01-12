@@ -16,7 +16,12 @@ endif
 
 
 ifdef debug
-DEBUG=--show-cmd --verbose --save-temps --prism-backend-debug
+DEBUG=--show-cmd \
+	--verbose \
+	--save-temps \
+	--prism-backend-debug \
+	--prism-backend-debug=abi \
+	--prism-backend-debug=getoperands  
 endif
 
 ifdef size
@@ -31,8 +36,20 @@ INCLUDE=
 endif
 
 CC=verificarlo-c
-CFLAGS=-g -Wall -DREAL_TYPE=$(REAL_TYPE) $(optimization) $(vector_size) $(INCLUDE) -Wno-psabi -Wno-unknown-warning-option --prism-backend=up-down $(DEBUG) 
-LDFLAGS=--prism-backend=up-down -lm  $(DEBUG)
+
+CFLAGS=-g -Wall \
+	-DREAL_TYPE=$(REAL_TYPE) \
+	$(optimization) \
+	$(vector_size) \
+	$(INCLUDE) \
+	-Wno-psabi \
+	-Wno-unknown-warning-option \
+	--prism-backend=up-down \
+	$(DEBUG)
+
+LDFLAGS=--prism-backend=up-down \
+	-lm \
+	$(DEBUG)
 
 ifdef static
 CFLAGS+=--prism-backend-dispatch=static
@@ -46,4 +63,4 @@ endif
 all:
 	@mkdir -p .objects .bin
 	$(CC) $(CFLAGS) -c $(SOURCE) -o .objects/$(BINARY).o
-	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS)
+	$(CC) .objects/$(BINARY).o -o .bin/$(BINARY) $(LDFLAGS) 

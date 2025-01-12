@@ -1,3 +1,3 @@
 #!/bin/bash
 
-rm -Rf *~ .objects .bin .results *.ll
+rm -Rf *~ .objects .bin .results *.ll *.vfcwrapper*

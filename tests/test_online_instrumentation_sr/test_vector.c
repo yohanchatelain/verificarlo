@@ -159,8 +159,8 @@ define_fma_vector(16);
 define_fmaf_vector(16);
 
 #define define_operator_vector(type, size)                                     \
-  type##size operator_##size##x_##type(char op, type##size a, type##size b,    \
-                                       type##size c) {                         \
+  __attribute__((noinline)) type##size operator_##size##x_##type(              \
+      char op, type##size a, type##size b, type##size c) {                     \
     switch (op) {                                                              \
     case '+':                                                                  \
       return add##_##size##x##_##type(a, b);                                   \

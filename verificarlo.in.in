@@ -186,11 +186,15 @@ def compile_vfcwrapper(source, output, args, emit_llvm=False):
 def linker_mode(sources, options, libraries, output, args):
     if args.prism_backend:
         vfcwrapper_o = ""
-        libprism = (
-            "-lprism" if args.prism_backend_dispatch == "dynamic" else "-lprism-native"
-        )
+        if args.prism_backend_dispatch == "dynamic":
+            libprism = "-lprism-dynamic"
+        elif args.prism_backend_dispatch == "static":
+            libprism = "-lprism-static"
+        else:
+            fail("Invalid dispatching method for PRISM backend")
         if args.prism_backend_debug:
             libprism += "-dbg"
+        # libprism += " -lprism-rng "
         libraries += f" {libprism} -lhwy -lstdc++ "
     else:
         vfcwrapper_o = get_tmp_name(".vfcwrapper.", ".o")
@@ -273,24 +277,20 @@ def apply_mca_instrumentation_pass(
 ):
     if args.prism_backend:
         vfclibinst_prism_ll = libprismdir + os.path.sep
-        static_dispatch = args.prism_backend_dispatch == "static"
-        if args.prism_backend == prism_modes.up_down:
-            vfclibinst_prism_ll += (
-                "ud_vector" + ("-native" if static_dispatch else "") + ".ll"
-            )
-        elif args.prism_backend == prism_modes.stochastic_rounding:
-            vfclibinst_prism_ll += (
-                "sr_vector" + ("-native" if static_dispatch else "") + ".ll"
-            )
-
+        vfclibinst_prism_dynamic_ll = os.path.join(libprismdir, "prism-dynamic.ll")
+        vfclibinst_prism_static_ll = os.path.join(libprismdir, "prism-static.ll")
         libvfcinst = libvfcinstrumentprism
         extra_args += f" -vfclibinst-mode {args.prism_backend} "
         extra_args += f" -vfclibinst-dispatch {args.prism_backend_dispatch} "
-        extra_args += f" -vfclibinst-sr-file {vfclibinst_prism_ll} "
+        extra_args += f" -vfclibinst-prism-static-ir-file {vfclibinst_prism_static_ll} "
+        extra_args += (
+            f" -vfclibinst-prism-dynamic-ir-file {vfclibinst_prism_dynamic_ll} "
+        )
         if args.prism_backend_debug:
             extra_args += " -vfclibinst-debug "
             for debug in args.prism_backend_debug:
-                extra_args += f" -vfclibinst-debug-{debug} "
+                if debug:
+                    extra_args += f" -vfclibinst-debug-{debug} "
     else:
         libvfcinst = libvfcinstrument
         extra_args += f" -vfclibinst-vfcwrapper-file {vfcwrapper_ir.name} "

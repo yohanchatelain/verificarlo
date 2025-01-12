@@ -4,6 +4,26 @@ set -e
 
 export SAMPLES=100
 
+# check if variable static is set
+if [[ -z ${STATIC_DISPATCH+x} ]]; then
+    DISPATCH=
+else
+    DISPATCH="static=1"
+fi
+
+# check if variable march_native is set
+if [[ -z ${MARCH_NATIVE+x} ]]; then
+    MARCH=""
+else
+    MARCH="native=1"
+fi
+
+if [[ -z ${VERBOSE+x} ]]; then
+    VERBOSE=0
+else
+    VERBOSE=1
+fi
+
 check_status() {
     if [[ $? != 0 ]]; then
         echo "Fail"
@@ -24,7 +44,7 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator}" \
+parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} ${DISPATCH} ${MARCH}" \
     ::: type float double \
     ::: optimization "${optimizations[@]}" \
     ::: operator add sub mul div
@@ -53,7 +73,9 @@ run_test() {
     local bin=.bin/test_${type}_${optimization}_${op_name}
     local file=.results/tmp.$type.$op_name.$optimization.txt
 
-    echo "Running test $type $op $optimization on ${args["$type$op"]}..."
+    if [[ $VERBOSE == 1 ]]; then
+        echo "Running test $type $op $optimization $op_name"
+    fi
 
     rm -f $file
 
@@ -71,6 +93,9 @@ run_test() {
         echo "Failed!"
         echo "File $file failed"
         sort -u $file
+        echo "To reproduce the error run:"
+        echo "  make --silent type=$type optimization=$optimization operator=$op"
+        echo "  $bin $op 0.1 0.2"
         exit 1
     fi
 
@@ -84,7 +109,7 @@ run_test() {
 
 export -f run_test
 
-parallel --halt now,fail=1 --header : "run_test {type} {optimization} {op}" \
+parallel --bar --halt now,fail=1 --header : "run_test {type} {optimization} {op}" \
     ::: type float double \
     ::: op "+" "-" "x" "/" \
     ::: optimization "${optimizations[@]}"
@@ -94,5 +119,8 @@ if [[ $? != 0 ]]; then
     exit 1
 fi
 
-echo "Success!"
+if [[ $VERBOSE == 1 ]]; then
+    echo "Success!"
+fi
+
 exit 0
