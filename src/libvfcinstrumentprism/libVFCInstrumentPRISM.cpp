@@ -142,30 +142,31 @@ auto getName(const type &ty) -> std::string {
 
 auto isFMA(const Instruction *I) -> bool {
   if (isa<CallInst>(I)) {
-    auto *call = cast<CallInst>(I);
-    auto name = call->getCalledFunction()->getName();
-    return name.startswith("llvm.fma");
+    const auto *call = dyn_cast<CallInst>(I);
+    if (call->getCalledFunction() != nullptr) {
+      auto name = call->getCalledFunction()->getName();
+      return (name.empty()) ? false : name.startswith("llvm.fma");
+    }
   }
   return false;
 }
 
 auto getOpCode(const Instruction *I) -> type {
-  if (isa<BinaryOperator>(I)) {
-    switch (cast<BinaryOperator>(I)->getOpcode()) {
-    case Instruction::FAdd:
-      return type::ADD;
-    case Instruction::FSub:
-      return type::SUB;
-    case Instruction::FMul:
-      return type::MUL;
-    case Instruction::FDiv:
-      return type::DIV;
-    default:
-      return type::IGNORE;
-    }
-  } else if (isFMA(I)) {
-    return type::FMA;
-  } else {
+  switch (I->getOpcode()) {
+  case Instruction::FAdd:
+    return type::ADD;
+  case Instruction::FSub:
+
+    return type::SUB;
+  case Instruction::FMul:
+
+    return type::MUL;
+  case Instruction::FDiv:
+
+    return type::DIV;
+  case Instruction::Call:
+    return (isFMA(I)) ? type::FMA : type::IGNORE;
+  default:
     return type::IGNORE;
   }
 }
@@ -716,8 +717,8 @@ struct VfclibInst : public ModulePass {
 
     bool modified = false;
 
-    for (Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi) {
-      modified |= runOnBasicBlock(M, *bi);
+    for (auto &bi : F) {
+      modified |= runOnBasicBlock(M, bi);
     }
     return modified;
   }
