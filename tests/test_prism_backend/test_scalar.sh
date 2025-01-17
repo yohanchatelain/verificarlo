@@ -29,6 +29,13 @@ else
     VERBOSE=1
 fi
 
+if [[ "$PRISM_BACKEND" != "up-down" && "$PRISM_BACKEND" != "sr" ]]; then
+    echo "Error: PRISM_BACKEND must be set to 'up-down' or 'sr'"
+    exit 1
+fi
+
+export MAKEFILE_OPTIONS="prism-backend=${PRISM_BACKEND} ${DISPATCH} ${MARCH}"
+
 check_status() {
     if [[ $? != 0 ]]; then
         echo "Fail"
@@ -49,14 +56,12 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} size={size} ${DISPATCH} ${MARCH}" \
-    ::: type float double \
-    ::: optimization "${optimizations[@]}" \
-    ::: operator add sub mul div \
-    ::: size 2 4 8 16
+parallel --halt now,fail=1 --header : \
+    "make --silent optimization={optimization} ${MAKEFILE_OPTIONS}" \
+    ::: optimization "${optimizations[@]}"
 
 run_test() {
-    declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div")
+    declare -A operation_name=(["+"]="add" ["-"]="sub" ["x"]="mul" ["/"]="div" ["s"]="sqrt" ["f"]="fma")
 
     declare -A args
     args["float+"]="0.1 0.01"
@@ -64,29 +69,31 @@ run_test() {
     args["floatx"]="0.1 0.001"
     args["float/"]="1 313"
     args["floats"]="0.1"
+    args["floatf"]="0.1 0.01 0.001"
+
     args["double+"]="0.1 0.01"
     args["double-"]="0.1 0.001"
     args["doublex"]="0.1 0.01"
     args["double/"]="1 3"
     args["doubles"]="0.1"
+    args["doublef"]="0.1 0.01 0.001"
 
     local type="$1"
     local optimization="$2"
     local op="$3"
-    local size="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=.bin/test_${type}_${optimization}_${op_name}_${size}
-    local file=.results/tmp.$type.x$size.$op_name.$optimization.txt
+    local bin=.bin/test_${optimization}
+    local file=.results/tmp.$type.$op_name.$optimization.txt
 
     if [[ $VERBOSE == 1 ]]; then
-        echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
+        echo "Running test $type $op $optimization $op_name"
     fi
 
     rm -f $file
 
     for i in $(seq 1 $SAMPLES); do
-        ./$bin $op ${args["$type$op"]} &>>$file
+        $bin $type $op ${args["$type$op"]} >>$file
     done
 
     if [[ $? != 0 ]]; then
@@ -100,8 +107,8 @@ run_test() {
         echo "File $file failed"
         sort -u $file
         echo "To reproduce the error run:"
-        echo "make --silent type=$type optimization=$optimization operator=$op size=$size ${DISPATCH} ${MARCH}"
-        echo "    ./$bin $op ${args["$type$op"]}"
+        echo "make --silent optimization=$optimization ${MAKEFILE_OPTIONS}"
+        echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 
@@ -109,27 +116,24 @@ run_test() {
     if [[ $(./check_variability.py $file) ]]; then
         echo "Failed!"
         echo "File $file failed"
+        echo "To reproduce the error run:"
+        echo "make --silent optimization=$optimization ${MAKEFILE_OPTIONS}"
+        echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 }
 
 export -f run_test
-export CHAR_POSITION=0
 
-if [[ ${TEST_DEBUG} -eq 1 ]]; then
-    VERBOSE=1
-    echo "Running in debug mode"
-    parallel --header : "run_test {type} {optimization} {op} {size}" \
-        ::: type double float \
-        ::: op "+" "-" "x" "/" \
-        ::: optimization "${optimizations[@]}" \
-        ::: size 2 4 8 16
-else
-    parallel --bar --halt now,fail=1 --header : "run_test {type} {optimization} {op} {size}" \
-        ::: type double float \
-        ::: op "+" "-" "x" "/" \
-        ::: optimization "${optimizations[@]}" \
-        ::: size 2 4 8 16
+parallel --bar --halt now,fail=1 --header : \
+    "run_test {type} {optimization} {op}" \
+    ::: type float double \
+    ::: op "+" "-" "x" "/" \
+    ::: optimization "${optimizations[@]}"
+
+if [[ $? != 0 ]]; then
+    echo "Failed!"
+    exit 1
 fi
 
 if [[ $VERBOSE == 1 ]]; then

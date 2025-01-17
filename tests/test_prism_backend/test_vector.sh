@@ -29,6 +29,13 @@ else
     VERBOSE=1
 fi
 
+if [[ "$PRISM_BACKEND" != "up-down" && "$PRISM_BACKEND" != "sr" ]]; then
+    echo "Error: PRISM_BACKEND must be set to 'up-down' or 'sr'"
+    exit 1
+fi
+
+MAKEFILE_OPTIONS="prism-backend=${PRISM_BACKEND} ${DISPATCH} ${MARCH}"
+
 check_status() {
     if [[ $? != 0 ]]; then
         echo "Fail"
@@ -49,10 +56,9 @@ optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
 
 export VFC_BACKENDS_LOGGER=False
 
-parallel --halt now,fail=1 --header : "make --silent type={type} optimization={optimization} operator={operator} size={size} ${DISPATCH} ${MARCH}" \
-    ::: type float double \
+parallel --halt now,fail=1 --header : \
+    "make --silent optimization={optimization} size={size} ${MAKEFILE_OPTIONS}" \
     ::: optimization "${optimizations[@]}" \
-    ::: operator add sub mul div \
     ::: size 2 4 8 16
 
 run_test() {
@@ -64,11 +70,14 @@ run_test() {
     args["floatx"]="0.1 0.001"
     args["float/"]="1 313"
     args["floats"]="0.1"
+    args["floatf"]="0.1 0.01 0.001"
+
     args["double+"]="0.1 0.01"
     args["double-"]="0.1 0.001"
     args["doublex"]="0.1 0.01"
     args["double/"]="1 3"
     args["doubles"]="0.1"
+    args["doublef"]="0.1 0.01 0.001"
 
     local type="$1"
     local optimization="$2"
@@ -76,7 +85,7 @@ run_test() {
     local size="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=.bin/test_${type}_${optimization}_${op_name}_${size}
+    local bin=.bin/test_${optimization}_${size}
     local file=.results/tmp.$type.x$size.$op_name.$optimization.txt
 
     # skip if double and size is 16
@@ -91,7 +100,7 @@ run_test() {
     rm -f $file
 
     for i in $(seq 1 $SAMPLES); do
-        ./$bin $op ${args["$type$op"]} &>>$file
+        $bin $type $op ${args["$type$op"]} &>>$file
     done
 
     if [[ $? != 0 ]]; then
@@ -105,8 +114,8 @@ run_test() {
         echo "File $file failed"
         sort -u $file
         echo "To reproduce the error run:"
-        echo "make --silent type=$type optimization=$optimization operator=$op_name size=$size ${DISPATCH} ${MARCH}"
-        echo "    ./$bin $op ${args["$type$op"]}"
+        echo "make --silent optimization=$optimization size=$size ${MAKEFILE_OPTIONS}"
+        echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 
@@ -115,8 +124,8 @@ run_test() {
         echo "Failed!"
         echo "File $file failed"
         echo "To reproduce the error run:"
-        echo "make --silent type=$type optimization=$optimization operator=$op_name size=$size ${DISPATCH} ${MARCH}"
-        echo "    ./$bin $op ${args["$type$op"]}"
+        echo "make --silent optimization=$optimization size=$size ${MAKEFILE_OPTIONS}"
+        echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 }

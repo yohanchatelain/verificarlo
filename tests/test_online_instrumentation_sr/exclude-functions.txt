@@ -1,7 +1,0 @@
-* twosum_float
-* twosum_double
-* sr_rounding_float
-* sr_rounding_double
-* run_test
-* operator_double
-* operator_float

@@ -1,6 +1,0 @@
-* fma*
-* mul*
-* div*
-* fma*
-* add*
-* sub*

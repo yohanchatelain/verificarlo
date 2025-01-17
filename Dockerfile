@@ -12,9 +12,9 @@ ARG LLVM_VERSION=7
 ARG GCC_VERSION=7
 ARG WITH_FLANG=flang
 # ARG GCC_PATH=/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}
-ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
-ENV PATH /usr/local/bin:$PATH
-ENV PYTHONPATH /usr/local/lib/python${PYTHON_VERSION}/site-packages/:${PYTHONPATH}
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+ENV PATH=/usr/local/bin:$PATH
+ENV PYTHONPATH=/usr/local/lib/python${PYTHON_VERSION}/site-packages/:${PYTHONPATH}
 
 # Avoid being stuck with tzdata time zone configuration
 ENV DEBIAN_FRONTEND=noninteractive
@@ -59,6 +59,7 @@ RUN if [ "$WITH_FLANG" = "flang" ]; then \
     else \
     export FLANG_OPTION="--without-flang"; \
     fi && \
+    git submodule update --init --recursive && \
     ./autogen.sh && \
     ./configure \
     --with-llvm=$(llvm-config-${LLVM_VERSION} --prefix) \

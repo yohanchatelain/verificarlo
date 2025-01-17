@@ -5,7 +5,6 @@ from pandas import isna
 import numpy as np
 
 np.seterr(all="ignore")
-
 import argparse
 import sys
 import significantdigits as sd
