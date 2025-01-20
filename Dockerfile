@@ -34,7 +34,7 @@ RUN export UBUNTU_VERSION=$(grep 'VERSION_ID' /etc/os-release | cut -d'=' -f2 | 
     ${LIBCLANG_RT} \
     gcc-${GCC_VERSION} g++-${GCC_VERSION} \
     gfortran-${GCC_VERSION} libgfortran-${GCC_VERSION}-dev ${WITH_FLANG} \
-    python3 python3-pip python3-dev cython3 parallel && \
+    python3 python3-pip python3-dev cython3 parallel npm && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build/
@@ -48,6 +48,8 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 3
 
 ENV LIBRARY_PATH ${GCC_PATH}:$LIBRARY_PATH
 
+# install bazelisk for prism
+RUN npm install -g @bazel/bazelisk
 
 # Download and configure verificarlo from git master
 COPY . /build/verificarlo/
