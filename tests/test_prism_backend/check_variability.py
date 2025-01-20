@@ -1,41 +1,40 @@
 #!/bin/env python3
 
-from math import isinf
-from pandas import isna
 import numpy as np
 
 np.seterr(all="ignore")
 import argparse
 import sys
+import os
+import re
 import significantdigits as sd
 
-
 def read_file(filename):
-    # use np.loadtxt to read the file where each lines is float numbers in hex format separated by a space
-    with open(filename, "r") as file:
-        raw = [
-            [float.fromhex(f.strip()) for f in line.split()]
-            for line in file.readlines()
-            if not line.startswith("#")
-        ]
-    x = np.array(raw, dtype=np.float64)
+    basename = os.path.basename(filename)
+    vecsize = re.search(r'\.x(\d+)', basename)
+    if vecsize:
+        vecsize = int(vecsize.group(1))
+    else:
+        vecsize = 1
 
-    return x
+    conv = {i : float.fromhex for i in range(vecsize)}
+    return np.genfromtxt(filename, converters=conv, autostrip=True, encoding='utf-8')
 
 
 def compute_sig(x, verbose):
-    mean = np.mean(x, axis=0)
-    std = np.std(x, axis=0, dtype=np.float64)
+    mean = x.mean(axis=0)
+    std = x.std(axis=0, dtype=np.float64)
     sig = sd.significant_digits(x, reference=mean, basis=10)
     sig_min = np.min(sig)
-    mean_min = np.min(np.abs(mean))
+    mean_min = np.fabs(mean).min()
     if verbose:
         print(f"Mean: {mean}")
         print(f"Min mean: ", mean_min.hex())
         print(f"Std: {std}")
-        print(f"Signficant digits: {sig}")
-        print(f"Min significant digits: {sig_min}")
+       print(f"Signficant digits: {sig}")
+       print(f"Min significant digits: {sig_min}")
     return sig_min, mean_min, std
+    return mean_min, std
 
 
 def deduce_type(filename, fp_type):
