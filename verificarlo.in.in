@@ -33,6 +33,7 @@ PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
 libinterflop_stdlib = "@INTERFLOP_PREFIX@"
 libinterflop_stdlib_include = "@INTERFLOP_INCLUDEDIR@"
 libinterflop_stdlib_lib = "@INTERFLOP_LIBDIR@"
+libvfcwrapper = LIBDIR + "/libvfcwrapper.so"
 libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
 libvfcinstrumentprism = LIBDIR + "/libvfcinstrumentprism.so"
@@ -206,7 +207,12 @@ def linker_mode(sources, options, libraries, output, args):
 
     sources = " ".join([os.path.splitext(s)[0] + ".o" for s in sources])
     interflop_libs = " ".join(
-        ["-linterflop_stdlib", "-linterflop_hashmap", "-linterflop_logger"]
+        [
+            "-libinterflop_vfcwrapper",
+            "-linterflop_stdlib",
+            "-linterflop_hashmap",
+            "-linterflop_logger",
+        ]
     )
     interflop_stdlib_flags = f" -L{libinterflop_stdlib_lib} {interflop_libs} "
 

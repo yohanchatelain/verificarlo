@@ -39,6 +39,7 @@
 
 #include "interflop/interflop.h"
 #include "interflop/interflop_stdlib.h"
+#include "vfcwrapper.h"
 
 /* In delta-debug we retrieve the return address of
  * instrumented operations. Call op size allows us
@@ -87,6 +88,7 @@ struct interflop_backend_interface_t backends[MAX_BACKENDS];
 void *contexts[MAX_BACKENDS] = {NULL};
 unsigned char loaded_backends = 0;
 unsigned char already_initialized = 0;
+unsigned char ddebug_enabled = 0;
 
 /* Logger functions */
 
@@ -192,26 +194,26 @@ void ddebug_generate_inclusion(char *dd_generate_path, vfc_hashmap_t map) {
   close(output);
 }
 
-__attribute__((destructor(0))) static void vfc_atexit(void) {
+void vfc_atexit(const vfc_options_t *options) {
 
   /* Send finalize message to backends */
   for (int i = 0; i < loaded_backends; i++)
     if (backends[i].interflop_finalize)
       backends[i].interflop_finalize(contexts[i]);
 
-#ifdef DDEBUG
-  if (dd_generate_path) {
-    ddebug_generate_inclusion(dd_generate_path, dd_must_instrument);
-    logger_info("ddebug: generated complete inclusion file at %s\n",
-                dd_generate_path);
+  if (options->ddebug) {
+    if (dd_generate_path) {
+      ddebug_generate_inclusion(dd_generate_path, dd_must_instrument);
+      logger_info("ddebug: generated complete inclusion file at %s\n",
+                  dd_generate_path);
+    }
+    vfc_hashmap_destroy(dd_must_instrument);
+    vfc_hashmap_destroy(dd_mustnot_instrument);
   }
-  vfc_hashmap_destroy(dd_must_instrument);
-  vfc_hashmap_destroy(dd_mustnot_instrument);
-#endif
 
-#ifdef INST_FUNC
-  vfc_quit_func_inst();
-#endif
+  if (options->inst_func) {
+    vfc_quit_func_inst();
+  }
 }
 
 /* Checks that a least one of the loaded backend implements the chosen
@@ -231,7 +233,6 @@ __attribute__((destructor(0))) static void vfc_atexit(void) {
                    "Include one backend in VFC_BACKENDS that provides it");    \
   } while (0)
 
-#if DDEBUG
 /* vfc_read_filter_file reads an inclusion/exclusion ddebug file and returns
  * an address map */
 static void vfc_read_filter_file(const char *dd_filter_path,
@@ -254,7 +255,6 @@ static void vfc_read_filter_file(const char *dd_filter_path,
     }
   }
 }
-#endif
 
 /* Parse the different VFC_BACKENDS variables per priorty order */
 /* 1- VFC_BACKENDS */
@@ -385,7 +385,7 @@ void _vfc_panic(const char *msg) {
 }
 
 /* vfc_init is run when loading vfcwrapper and initializes vfc backends */
-__attribute__((constructor(0))) static void vfc_init(void) {
+void vfc_init(const vfc_options_t *options) {
 
   /* The vfcwrapper library constructor may be loaded multiple times.  This
    * happends for example, when a .so compiled with Verificarlo is loaded with
@@ -430,9 +430,9 @@ __attribute__((constructor(0))) static void vfc_init(void) {
   logger_init(_vfc_panic, stderr, "verificarlo");
 
   /* Initialize instumentation */
-#ifdef INST_FUNC
-  vfc_init_func_inst();
-#endif
+  if (options->inst_func) {
+    vfc_init_func_inst();
+  }
 
   char *vfc_backends = NULL, *vfc_backends_env = NULL;
   parse_vfc_backends_env(&vfc_backends, &vfc_backends_env);
@@ -520,71 +520,68 @@ __attribute__((constructor(0))) static void vfc_init(void) {
   check_backends_implements(double, sub);
   check_backends_implements(double, mul);
   check_backends_implements(double, div);
-#ifdef INST_FCMP
-  check_backends_implements(float, cmp);
-  check_backends_implements(double, cmp);
-#endif
-#ifdef INST_FMA
+  if (options->inst_fcmp) {
+    check_backends_implements(float, cmp);
+    check_backends_implements(double, cmp);
+  }
+  if (options->inst_fma) {
+    check_backends_implements(float, fma);
+    check_backends_implements(double, fma);
+  }
   check_backends_implements(float, fma);
   check_backends_implements(double, fma);
-#endif
-#ifdef INST_CAST
-  check_backends_implements(double_to_float, cast);
-#endif
+  if (options->inst_cast) {
+    check_backends_implements(double_to_float, cast);
+  }
 
-#ifdef DDEBUG
-  /* Initialize ddebug */
-  dd_must_instrument = vfc_hashmap_create();
-  dd_mustnot_instrument = vfc_hashmap_create();
-  dd_exclude_path = getenv("VFC_DDEBUG_EXCLUDE");
-  dd_include_path = getenv("VFC_DDEBUG_INCLUDE");
-  dd_generate_path = getenv("VFC_DDEBUG_GEN");
-  if (dd_include_path && dd_generate_path) {
-    logger_error(
-        "VFC_DDEBUG_INCLUDE and VFC_DDEBUG_GEN should not be both defined "
-        "at the same time");
+  if (options->ddebug) {
+    /* Initialize ddebug */
+    ddebug_enabled = 1;
+    dd_must_instrument = vfc_hashmap_create();
+    dd_mustnot_instrument = vfc_hashmap_create();
+    dd_exclude_path = getenv("VFC_DDEBUG_EXCLUDE");
+    dd_include_path = getenv("VFC_DDEBUG_INCLUDE");
+    dd_generate_path = getenv("VFC_DDEBUG_GEN");
+    if (dd_include_path && dd_generate_path) {
+      logger_error(
+          "VFC_DDEBUG_INCLUDE and VFC_DDEBUG_GEN should not be both defined "
+          "at the same time");
+    }
+    if (dd_include_path) {
+      vfc_read_filter_file(dd_include_path, dd_must_instrument);
+      logger_info("ddebug: only %zu addresses will be instrumented\n",
+                  vfc_hashmap_num_items(dd_must_instrument));
+    }
+    if (dd_exclude_path) {
+      vfc_read_filter_file(dd_exclude_path, dd_mustnot_instrument);
+      logger_info("ddebug: %zu addresses will not be instrumented\n",
+                  vfc_hashmap_num_items(dd_mustnot_instrument));
+    }
   }
-  if (dd_include_path) {
-    vfc_read_filter_file(dd_include_path, dd_must_instrument);
-    logger_info("ddebug: only %zu addresses will be instrumented\n",
-                vfc_hashmap_num_items(dd_must_instrument));
-  }
-  if (dd_exclude_path) {
-    vfc_read_filter_file(dd_exclude_path, dd_mustnot_instrument);
-    logger_info("ddebug: %zu addresses will not be instrumented\n",
-                vfc_hashmap_num_items(dd_mustnot_instrument));
-  }
-#endif
 }
 
 /* Arithmetic wrappers */
-#ifdef DDEBUG
 /* When delta-debug run flags are passed, check filter rules,
  *  - exclude rules are applied first and have priority
  * */
 #define ddebug(operation)                                                      \
-  void *addr = __builtin_return_address(0);                                    \
-  if (dd_exclude_path) {                                                       \
-    /* Ignore addr in exclude file */                                          \
-    if (vfc_hashmap_have(dd_mustnot_instrument, (size_t)addr)) {               \
-      return operation;                                                        \
+  if (ddebug_enabled) {                                                        \
+    void *addr = __builtin_return_address(0);                                  \
+    if (dd_exclude_path) {                                                     \
+      /* Ignore addr in exclude file */                                        \
+      if (vfc_hashmap_have(dd_mustnot_instrument, (size_t)addr)) {             \
+        return operation;                                                      \
+      }                                                                        \
     }                                                                          \
-  }                                                                            \
-  if (dd_include_path) {                                                       \
-    /* Ignore addr not in include file */                                      \
-    if (!vfc_hashmap_have(dd_must_instrument, (size_t)addr)) {                 \
-      return operation;                                                        \
+    if (dd_include_path) {                                                     \
+      /* Ignore addr not in include file */                                    \
+      if (!vfc_hashmap_have(dd_must_instrument, (size_t)addr)) {               \
+        return operation;                                                      \
+      }                                                                        \
+    } else if (dd_generate_path) {                                             \
+      vfc_hashmap_insert(dd_must_instrument, (size_t)addr, addr);              \
     }                                                                          \
-  } else if (dd_generate_path) {                                               \
-    vfc_hashmap_insert(dd_must_instrument, (size_t)addr, addr);                \
   }
-
-#else
-/* When delta-debug flags are not passed do nothing */
-#define ddebug(operation)                                                      \
-  do {                                                                         \
-  } while (0)
-#endif
 
 void interflop_call(interflop_call_id id, ...) {
   va_list ap;
@@ -644,7 +641,6 @@ int _doublecmp(enum FCMP_PREDICATE p, double a, double b) {
   precision##size _##size##x##precision##operation(const precision##size a,    \
                                                    const precision##size b) {  \
     precision##size c;                                                         \
-                                                                               \
     _Pragma("unroll") for (int i = 0; i < size; i++) {                         \
       c[i] = _##precision##operation(a[i], b[i]);                              \
     }                                                                          \
