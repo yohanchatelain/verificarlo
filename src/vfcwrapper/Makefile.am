@@ -21,9 +21,12 @@ libinterflop_vfcwrapper_la_CFLAGS = \
     $(LTO_FLAGS) -O3 \
     $(WARNING_FLAGS)
 
-libinterflop_vfcwrapper_la_LDFLAGS = -O3
+libinterflop_vfcwrapper_la_LDFLAGS = -O3 -ldl
 
 libinterflop_vfcwrapper_la_LIBADD = \
     @INTERFLOP_LIBDIR@/libinterflop_logger.la \
     @INTERFLOP_LIBDIR@/libinterflop_stdlib.la \
     @INTERFLOP_LIBDIR@/libinterflop_hashmap.la 
+
+includesdir=$(includedir)/interflop
+include_HEADERS = vfcwrapper.c vfcwrapper.h operator.h
