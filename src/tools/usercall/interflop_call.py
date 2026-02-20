@@ -99,7 +99,10 @@ def _get_interflop_call():
         pass
 
     # Fall back to loading libvfcwrapper explicitly.
-    lib_name = ctypes.util.find_library("vfcwrapper") or "libvfcwrapper.so"
+    lib_name = (
+        ctypes.util.find_library("libinterflop_vfcwrapper")
+        or "libinterflop_vfcwrapper.so"
+    )
     try:
         fn = ctypes.CDLL(lib_name).interflop_call
         fn.restype = None
@@ -111,7 +114,7 @@ def _get_interflop_call():
     raise RuntimeError(
         "interflop_call not found. "
         "Load a verificarlo-instrumented shared library before calling "
-        "these functions, or make sure libvfcwrapper.so is on LD_LIBRARY_PATH."
+        "these functions, or make sure libinterflop_vfcwrapper.so is on LD_LIBRARY_PATH."
     )
 
 
