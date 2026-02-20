@@ -13,7 +13,7 @@ else
 WARNING_FLAGS = 
 endif
 
-libinterflop_vfcwrapper_la_SOURCES = main.c hashset.c funcinstr.c
+libinterflop_vfcwrapper_la_SOURCES = main.c funcinstr.c
 
 libinterflop_vfcwrapper_la_CFLAGS = \
     -I@INTERFLOP_INCLUDEDIR@ \
@@ -25,4 +25,5 @@ libinterflop_vfcwrapper_la_LDFLAGS = -O3
 
 libinterflop_vfcwrapper_la_LIBADD = \
     @INTERFLOP_LIBDIR@/libinterflop_logger.la \
-    @INTERFLOP_LIBDIR@/libinterflop_stdlib.la
+    @INTERFLOP_LIBDIR@/libinterflop_stdlib.la \
+    @INTERFLOP_LIBDIR@/libinterflop_hashmap.la 

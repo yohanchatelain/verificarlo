@@ -17,7 +17,22 @@
  *     Verificarlo Contributors                                              *\
  *                                                                           *\
  ****************************************************************************/
+
+#include <stdio.h>
+
+#include "interflop/hashmap/vfc_hashmap.h"
+#include "interflop/interflop_stdlib.h"
+#include "interflop/iostream/logger.h"
+
+#include "funcinstr.h"
+
 #define _VFC_CALL_STACK_MAXSIZE 4096
+
+#define MAX_BACKENDS 16
+
+extern unsigned char loaded_backends;
+extern struct interflop_backend_interface_t backends[MAX_BACKENDS];
+extern void *contexts[MAX_BACKENDS];
 
 /************************************************************
  *                       Hash Functions                     *

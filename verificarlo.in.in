@@ -208,7 +208,7 @@ def linker_mode(sources, options, libraries, output, args):
     sources = " ".join([os.path.splitext(s)[0] + ".o" for s in sources])
     interflop_libs = " ".join(
         [
-            "-libinterflop_vfcwrapper",
+            "-linterflop_vfcwrapper",
             "-linterflop_stdlib",
             "-linterflop_hashmap",
             "-linterflop_logger",
