@@ -226,7 +226,7 @@ def linker_mode(sources, options, libraries, output, args):
     if args.static:
         cmd = (
             f"{output} {sources} {options} {libraries} {vfcwrapper_o} "
-            f" -static -lgmp -lm -ldl {interflop_stdlib_flags} "
+            f" -static -lgmp -lm {interflop_stdlib_flags} -ldl "
         )
     else:
         cmd = (

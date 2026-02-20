@@ -37,6 +37,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "funcinstr.h"
 #include "interflop/hashmap/vfc_hashmap.h"
 #include "interflop/interflop.h"
 #include "interflop/interflop_stdlib.h"
@@ -55,6 +56,12 @@
 #define CALL_OP_SIZE 4
 #endif
 
+/* clang-format off */
+#if @LLVM_VERSION_MAJOR@ <= 8
+/* clang-format on */
+#define ADDR2LINE_BIN "addr2line"
+#define ADDR2LINE_PATH "/usr/bin/addr2line"
+#else
 #define ADDR2LINE_BIN "@LLVM_BINDIR@/llvm-addr2line"
 #define ADDR2LINE_PATH "@LLVM_BINDIR@/llvm-addr2line"
 
@@ -586,12 +593,23 @@ int _doublecmp(enum FCMP_PREDICATE p, double a, double b) {
   return c;
 }
 
+/* Turns DO_PRAGMA(GCC unroll 4) into _Pragma("GCC unroll 4") */
+#define DO_PRAGMA(x) _Pragma(#x)
+
+#if defined(__clang__)
+#define UNROLL(n) DO_PRAGMA(clang loop unroll_count(n))
+#elif defined(__GNUC__)
+#define UNROLL(n) DO_PRAGMA(GCC unroll n)
+#else
+#define UNROLL(n)
+#endif
+
 /* Arithmetic vector wrappers */
 #define define_vectorized_arithmetic_wrapper(precision, operation, size)       \
   precision##size _##size##x##precision##operation(const precision##size a,    \
                                                    const precision##size b) {  \
     precision##size c;                                                         \
-    _Pragma("unroll") for (int i = 0; i < size; i++) {                         \
+    UNROLL(size) for (int i = 0; i < size; i++) {                              \
       c[i] = _##precision##operation(a[i], b[i]);                              \
     }                                                                          \
     return c;                                                                  \
@@ -642,7 +660,7 @@ define_vectorized_arithmetic_wrapper(double, div, 16);
   int##size _##size##x##precision##cmp(enum FCMP_PREDICATE p,                  \
                                        precision##size a, precision##size b) { \
     int##size c;                                                               \
-    _Pragma("unroll") for (int i = 0; i < size; i++) {                         \
+    UNROLL(size) for (int i = 0; i < size; i++) {                              \
       c[i] = _##precision##cmp(p, a[i], b[i]);                                 \
     }                                                                          \
     return c;                                                                  \
