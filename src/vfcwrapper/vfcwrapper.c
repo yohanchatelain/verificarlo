@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "interflop/iostream/logger.h"
-#include "operator.h"
 #include "vfcwrapper.h"
 
 extern void vfc_atexit(const vfc_options_t *options);

@@ -526,11 +526,45 @@ struct VfclibInst : public ModulePass {
   Function *getMCAFunction(Module &M, Instruction *I, FPOps opCode) {
     const std::string mcaFunctionName = getMCAFunctionName(I, opCode);
     Function *vfcwrapperF = vfcwrapperM->getFunction(mcaFunctionName);
-    FunctionCallee callee =
-        M.getOrInsertFunction(mcaFunctionName, vfcwrapperF->getFunctionType(),
-                              vfcwrapperF->getAttributes());
+    FunctionCallee callee = M.getOrInsertFunction(
+        name, vfcwrapperF->getFunctionType(), vfcwrapperF->getAttributes());
     Function *newVfcWrapperF = dyn_cast<Function>(callee.getCallee());
     return newVfcWrapperF;
+  }
+
+  /* Returns the MCA function.
+   *
+   * For vector operations the pass first tries to find an ISA-specific variant
+   * (e.g. "_4xfloatadd_avx2") in the vfcwrapper IR that matches the caller's
+   * target-features.  If no such variant exists it falls back to the generic
+   * wrapper (e.g. "_4xfloatadd") compiled into backends.c.
+   *
+   * Scalar operations always use the generic scalar dispatch wrapper.
+   */
+  Function *getMCAFunction(Module &M, Instruction *I, FPOps opCode) {
+    const std::string baseName = getMCAFunctionName(I, opCode);
+
+    // For vector operations attempt an ISA-specific lookup first
+    bool isVector = I->getOperand(0)->getType()->isVectorTy();
+    if (isVector && opCode != FOP_CAST) {
+      std::string isaSuffix = getISASuffix(I->getFunction());
+      if (!isaSuffix.empty()) {
+        const std::string isaName = baseName + isaSuffix;
+        Function *isaF = vfcwrapperM->getFunction(isaName);
+        if (isaF != nullptr) {
+          return declareFromWrapper(M, isaF);
+        }
+      }
+    }
+
+    // Generic fallback (scalar ops always land here)
+    Function *vfcwrapperF = vfcwrapperM->getFunction(baseName);
+    if (vfcwrapperF == nullptr) {
+      errs() << "Cannot find wrapper function " << baseName
+             << " in vfcwrapper IR\n";
+      report_fatal_error("libVFCInstrument fatal error");
+    }
+    return declareFromWrapper(M, vfcwrapperF);
   }
 
   // Returns true if the caller and the callee agree on how args will be
@@ -540,6 +574,58 @@ struct VfclibInst : public ModulePass {
             caller->getFnAttribute("target-features")) and
            (callee->getFnAttribute("target-cpu") !=
             caller->getFnAttribute("target-cpu"));
+  }
+
+  /* Returns the ISA suffix for the caller's target-features/cpu.
+   *
+   * The suffix is used to select the most specific ISA variant of a vector
+   * dispatch function (e.g. "_avx2", "_sve2") that was compiled into the
+   * vfcwrapper IR.  Checking order follows hardware capability hierarchy so
+   * the most capable level wins.
+   *
+   * x86:  +avx512f → "_avx512"  |  +avx2 → "_avx2"  |  +avx → "_avx"  |  +sse2
+   * → "_sse2" AMD:  znver5 cpu → "_avx512_zen5"  |  znver4 cpu → "_avx512_zen4"
+   * ARM:  +sve2 → "_sve2"  |  +sve → "_sve"  |  +neon → "_neon"
+   *
+   * Returns "" when no specific variant is known; callers fall back to the
+   * generic (non-ISA-specific) wrapper.
+   */
+  std::string getISASuffix(Function *caller) {
+    // AMD Zen: distinguish Zen 4 vs Zen 5 via CPU name before checking
+    // features, because both advertise avx512f.
+    Attribute targetCPU = caller->getFnAttribute("target-cpu");
+    if (targetCPU.isStringAttribute()) {
+      StringRef cpu = targetCPU.getValueAsString();
+      if (cpu.find("znver5") != StringRef::npos)
+        return "_avx512_zen5";
+      if (cpu.find("znver4") != StringRef::npos)
+        return "_avx512_zen4";
+    }
+
+    Attribute targetFeatures = caller->getFnAttribute("target-features");
+    if (!targetFeatures.isStringAttribute())
+      return "";
+    StringRef features = targetFeatures.getValueAsString();
+
+    // x86 — ordered from most to least capable
+    if (features.find("+avx512f") != StringRef::npos)
+      return "_avx512";
+    if (features.find("+avx2") != StringRef::npos)
+      return "_avx2";
+    if (features.find("+avx") != StringRef::npos)
+      return "_avx";
+    if (features.find("+sse2") != StringRef::npos)
+      return "_sse2";
+
+    // ARM AArch64 — ordered from most to least capable
+    if (features.find("+sve2") != StringRef::npos)
+      return "_sve2";
+    if (features.find("+sve") != StringRef::npos)
+      return "_sve";
+    if (features.find("+neon") != StringRef::npos)
+      return "_neon";
+
+    return "";
   }
 
   Value *replaceWithMCACall(Module &M, Instruction *I, FPOps opCode) {
