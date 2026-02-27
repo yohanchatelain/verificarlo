@@ -21,25 +21,7 @@
 
 #include "backends.h"
 #include "interflop/interflop.h"
-
-/* =========================================================================
- * Vector type definitions (GCC/Clang vector extensions)
- * ========================================================================= */
-
-typedef float float2 __attribute__((vector_size(2 * sizeof(float))));
-typedef float float4 __attribute__((vector_size(4 * sizeof(float))));
-typedef float float8 __attribute__((vector_size(8 * sizeof(float))));
-typedef float float16 __attribute__((vector_size(16 * sizeof(float))));
-
-typedef double double2 __attribute__((vector_size(2 * sizeof(double))));
-typedef double double4 __attribute__((vector_size(4 * sizeof(double))));
-typedef double double8 __attribute__((vector_size(8 * sizeof(double))));
-typedef double double16 __attribute__((vector_size(16 * sizeof(double))));
-
-typedef int32_t int2 __attribute__((vector_size(2 * sizeof(int32_t))));
-typedef int32_t int4 __attribute__((vector_size(4 * sizeof(int32_t))));
-typedef int32_t int8 __attribute__((vector_size(8 * sizeof(int32_t))));
-typedef int32_t int16 __attribute__((vector_size(16 * sizeof(int32_t))));
+#include "vector_ext.h"
 
 /* =========================================================================
  * ISA target descriptors
@@ -99,8 +81,8 @@ typedef int32_t int16 __attribute__((vector_size(16 * sizeof(int32_t))));
     for (int i = 0; i < loaded_backends; i++) {                                \
       UNROLL(size)                                                             \
       for (int j = 0; j < (size); j++) {                                       \
-        c[j] = backends[i].interflop_##operation##_##precision(a[j], b[j],     \
-                                                               contexts[i]);   \
+        backends[i].interflop_##operation##_##precision(a[j], b[j], &c[j],     \
+                                                        contexts[i]);          \
       }                                                                        \
     }                                                                          \
     return c;                                                                  \
@@ -130,8 +112,8 @@ typedef int32_t int16 __attribute__((vector_size(16 * sizeof(int32_t))));
     for (int i = 0; i < loaded_backends; i++) {                                \
       UNROLL(size)                                                             \
       for (int j = 0; j < (size); j++) {                                       \
-        c[j] =                                                                 \
-            backends[i].interflop_cmp_##precision(p, a[j], b[j], contexts[i]); \
+        backends[i].interflop_cmp_##precision(p, a[j], b[j], &c[j],            \
+                                              contexts[i]);                    \
       }                                                                        \
     }                                                                          \
     return c;                                                                  \

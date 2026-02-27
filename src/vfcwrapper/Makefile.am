@@ -28,5 +28,4 @@ libinterflop_vfcwrapper_la_LIBADD = \
     @INTERFLOP_LIBDIR@/libinterflop_stdlib.la \
     @INTERFLOP_LIBDIR@/libinterflop_hashmap.la 
 
-headersdir=$(includedir)/interflop
-headers_HEADERS = vfcwrapper.c vfcwrapper.h 
+include_HEADERS = vfcwrapper.c vfcwrapper.h 

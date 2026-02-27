@@ -57,12 +57,6 @@
 #define CALL_OP_SIZE 4
 #endif
 
-/* clang-format off */
-#if @LLVM_VERSION_MAJOR@ <= 8
-/* clang-format on */
-#define ADDR2LINE_BIN "addr2line"
-#define ADDR2LINE_PATH "/usr/bin/addr2line"
-#else
 #define ADDR2LINE_BIN "@LLVM_BINDIR@/llvm-addr2line"
 #define ADDR2LINE_PATH "@LLVM_BINDIR@/llvm-addr2line"
 
@@ -471,4 +465,3 @@ void vfc_init(const vfc_options_t *options) {
     }
   }
 }
-

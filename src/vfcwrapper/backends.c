@@ -25,6 +25,7 @@
 #include "interflop/interflop.h"
 
 #include "backends.h"
+#include "vector_ext.h"
 
 #define DO_PRAGMA(x) _Pragma(#x)
 
@@ -166,17 +167,21 @@ float _doubletofloatcast(double a) {
 #define define_vectorized_arithmetic_wrapper(precision, operation, size)       \
   precision##size _##size##x##precision##operation(const precision##size a,    \
                                                    const precision##size b) {  \
-    precision##size c;                                                         \
+    typedef union {                                                            \
+      precision##size v;                                                       \
+      precision a[size];                                                       \
+    } fvec;                                                                    \
+    fvec au = {.v = a}, bu = {.v = b}, cu;                                     \
     for (int i = 0; i < loaded_backends; i++) {                                \
       if (backends[i].interflop_##operation##_##precision) {                   \
         UNROLL(size)                                                           \
         for (int j = 0; j < (size); j++) {                                     \
-          c[j] = backends[i].interflop_##operation##_##precision(a[j], b[j],   \
-                                                                 contexts[i]); \
+          backends[i].interflop_##operation##_##precision(                     \
+              au.a[j], bu.a[j], &(cu.a[j]), contexts[i]);                      \
         }                                                                      \
       }                                                                        \
     }                                                                          \
-    return c;                                                                  \
+    return cu.v;                                                               \
   }
 
 /* Define vector of size 2 */
@@ -224,16 +229,25 @@ define_vectorized_arithmetic_wrapper(double, div, 16);
 #define define_vectorized_comparison_wrapper(precision, size)                  \
   int##size _##size##x##precision##cmp(enum FCMP_PREDICATE p,                  \
                                        precision##size a, precision##size b) { \
-    int##size c;                                                               \
+    typedef union {                                                            \
+      int##size v;                                                             \
+      int a[size];                                                             \
+    } ivec;                                                                    \
+    typedef union {                                                            \
+      precision##size v;                                                       \
+      precision a[size];                                                       \
+    } fvec;                                                                    \
+    fvec au = {.v = a}, bu = {.v = b};                                         \
+    ivec cu;                                                                   \
     for (int i = 0; i < loaded_backends; i++) {                                \
       if (backends[i].interflop_cmp_##precision) {                             \
         UNROLL(size) for (int j = 0; j < (size); j++) {                        \
-          c[j] = backends[i].interflop_cmp_##precision(p, a[j], b[j],          \
-                                                       contexts[i]);           \
+          backends[i].interflop_cmp_##precision(p, au.a[j], bu.a[j],           \
+                                                &(cu.a[j]), contexts[i]);      \
         }                                                                      \
       }                                                                        \
     }                                                                          \
-    return c;                                                                  \
+    return cu.v;                                                               \
   }
 
 define_vectorized_comparison_wrapper(float, 2);
@@ -254,17 +268,21 @@ define_vectorized_comparison_wrapper(double, 16);
   precision##size _##size##x##precision##fma(const precision##size a,          \
                                              const precision##size b,          \
                                              const precision##size c) {        \
-    precision##size d;                                                         \
+    typedef union {                                                            \
+      precision##size v;                                                       \
+      precision a[size];                                                       \
+    } fvec;                                                                    \
+    fvec au = {.v = a}, bu = {.v = b}, cu = {.v = c}, du;                      \
     for (int i = 0; i < loaded_backends; i++) {                                \
       if (backends[i].interflop_fma_##precision) {                             \
         UNROLL(size)                                                           \
         for (int j = 0; j < (size); j++) {                                     \
-          backends[i].interflop_fma_##precision(a[j], b[j], c[j], &d[j],       \
-                                                contexts[i]);                  \
+          backends[i].interflop_fma_##precision(au.a[j], bu.a[j], cu.a[j],     \
+                                                &(du.a[j]), contexts[i]);      \
         }                                                                      \
       }                                                                        \
     }                                                                          \
-    return d;                                                                  \
+    return du.v;                                                               \
   }
 
 define_vectorized_fma_wrapper(float, 2);

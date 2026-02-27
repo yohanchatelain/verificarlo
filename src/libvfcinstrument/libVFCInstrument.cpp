@@ -97,9 +97,6 @@ static cl::opt<bool> VfclibInstInstrumentCast(
     cl::desc("Instrument floating point cast instructions"),
     cl::value_desc("InstrumentCast"), cl::init(false));
 
-/* pointer that hold the vfcwrapper Module */
-static Module *vfcwrapperM = nullptr;
-
 namespace {
 // Define an enum type to classify the floating points operations
 // that are instrumented by verificarlo
@@ -249,22 +246,8 @@ struct VfclibInst : public ModulePass {
     return std::regex(moduleRegex);
   }
 
-  /* Load vfcwrapper.ll Module */
-  void loadVfcwrapperIR(Module &M) {
-    SMDiagnostic err;
-    std::unique_ptr<Module> _M =
-        parseIRFile(VfclibInstVfcwrapper, err, M.getContext());
-    if (_M.get() == nullptr) {
-      err.print(VfclibInstVfcwrapper.c_str(), errs());
-      report_fatal_error("libVFCInstrument fatal error");
-    }
-    vfcwrapperM = _M.release();
-  }
-
   bool runOnModule(Module &M) {
     bool modified = false;
-
-    loadVfcwrapperIR(M);
 
     // Parse both included and excluded function set
     std::regex includeFunctionRgx =
@@ -506,30 +489,13 @@ struct VfclibInst : public ModulePass {
   /* Replace cast instruction with MCA */
   Value *replaceCastWithMCACall(IRBuilder<> &Builder, Function *F,
                                 Instruction *I) {
-
-    Type *srcType = I->getOperand(0)->getType();
     Type *dstType = I->getType();
-
     Value *op = I->getOperand(0);
-
     op = updateOperand(Builder, F, op, 0);
-
     CallInst *newInst = Builder.CreateCall(F, {op});
     newInst->setAttributes(F->getAttributes());
-
     newInst = dyn_cast<CallInst>(updateReturn(Builder, newInst, dstType));
-
     return newInst;
-  }
-
-  /* Returns the MCA function */
-  Function *getMCAFunction(Module &M, Instruction *I, FPOps opCode) {
-    const std::string mcaFunctionName = getMCAFunctionName(I, opCode);
-    Function *vfcwrapperF = vfcwrapperM->getFunction(mcaFunctionName);
-    FunctionCallee callee = M.getOrInsertFunction(
-        name, vfcwrapperF->getFunctionType(), vfcwrapperF->getAttributes());
-    Function *newVfcWrapperF = dyn_cast<Function>(callee.getCallee());
-    return newVfcWrapperF;
   }
 
   /* Returns the MCA function.
@@ -542,38 +508,45 @@ struct VfclibInst : public ModulePass {
    * Scalar operations always use the generic scalar dispatch wrapper.
    */
   Function *getMCAFunction(Module &M, Instruction *I, FPOps opCode) {
-    const std::string baseName = getMCAFunctionName(I, opCode);
+    std::string name = getMCAFunctionName(I, opCode);
 
     // For vector operations attempt an ISA-specific lookup first
     bool isVector = I->getOperand(0)->getType()->isVectorTy();
-    if (isVector && opCode != FOP_CAST) {
+    if (isVector and opCode != FOP_CAST) {
       std::string isaSuffix = getISASuffix(I->getFunction());
-      if (!isaSuffix.empty()) {
-        const std::string isaName = baseName + isaSuffix;
-        Function *isaF = vfcwrapperM->getFunction(isaName);
-        if (isaF != nullptr) {
-          return declareFromWrapper(M, isaF);
-        }
+      if (not isaSuffix.empty()) {
+        name += isaSuffix;
       }
     }
 
-    // Generic fallback (scalar ops always land here)
-    Function *vfcwrapperF = vfcwrapperM->getFunction(baseName);
-    if (vfcwrapperF == nullptr) {
-      errs() << "Cannot find wrapper function " << baseName
-             << " in vfcwrapper IR\n";
-      report_fatal_error("libVFCInstrument fatal error");
+    // Build parameter type list based on operation kind
+    std::vector<Type *> paramTypes;
+    if (opCode == FOP_CMP) {
+      // predicate (i32) + two fp operands
+      paramTypes = {Type::getInt32Ty(M.getContext()),
+                    I->getOperand(0)->getType(), I->getOperand(1)->getType()};
+    } else if (opCode == FOP_FMA) {
+      paramTypes = {I->getOperand(0)->getType(), I->getOperand(1)->getType(),
+                    I->getOperand(2)->getType()};
+    } else if (opCode == FOP_CAST) {
+      paramTypes = {I->getOperand(0)->getType()};
+    } else {
+      // Binary arithmetic (ADD, SUB, MUL, DIV)
+      paramTypes = {I->getOperand(0)->getType(), I->getOperand(1)->getType()};
     }
-    return declareFromWrapper(M, vfcwrapperF);
+
+    // Generic fallback (scalar ops always land here)
+    auto vfcwrapperF = M.getOrInsertFunction(
+        name, FunctionType::get(I->getType(), paramTypes, false));
+    return cast<Function>(vfcwrapperF.getCallee());
   }
 
-  // Returns true if the caller and the callee agree on how args will be
-  // passed Available in TargetTransformInfoImpl since llvm-8
+  // Returns true if the caller and the callee do NOT agree on how args will be
+  // passed. Available in TargetTransformInfoImpl since llvm-8
   bool areFunctionArgsABICompatible(Function *caller, Function *callee) {
-    return (callee->getFnAttribute("target-features") !=
-            caller->getFnAttribute("target-features")) and
-           (callee->getFnAttribute("target-cpu") !=
-            caller->getFnAttribute("target-cpu"));
+    return (callee->getReturnType() != caller->getReturnType()) or
+           (callee->getFunctionType()->getParamType(0) !=
+            caller->getFunctionType()->getParamType(0));
   }
 
   /* Returns the ISA suffix for the caller's target-features/cpu.
@@ -641,11 +614,16 @@ struct VfclibInst : public ModulePass {
 
     // If the caller and the callee (mcaFunction) have different ABI we set the
     // caller attributes to the callee ones.
+    // Guard with isValid(): getFnAttribute returns a null Attribute when the
+    // attribute is absent, and addFnAttr on an invalid Attribute corrupts the
+    // IR and crashes the LLVM verifier.
     if (areFunctionArgsABICompatible(caller, mcaFunction)) {
       auto target_features = mcaFunction->getFnAttribute("target-features");
       auto target_cpu = mcaFunction->getFnAttribute("target-cpu");
-      caller->addFnAttr(target_features);
-      caller->addFnAttr(target_cpu);
+      if (target_features.isValid())
+        caller->addFnAttr(target_features);
+      if (target_cpu.isValid())
+        caller->addFnAttr(target_cpu);
     }
 
     // We call directly a hardcoded helper function
