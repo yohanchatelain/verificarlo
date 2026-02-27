@@ -96,10 +96,12 @@ typedef int32_t int16 __attribute__((vector_size(16 * sizeof(int32_t))));
   precision##size _##size##x##precision##operation##_##TARGET_SUFFIX(          \
       const precision##size a, const precision##size b) {                      \
     precision##size c;                                                         \
-    UNROLL(size)                                                               \
-    for (int i = 0; i < (size); i++) {                                         \
-      c[i] = backends[i].interflop_##precision##operation(a[i], b[i],          \
-                                                          contexts[i]);        \
+    for (int i = 0; i < loaded_backends; i++) {                                \
+      UNROLL(size)                                                             \
+      for (int j = 0; j < (size); j++) {                                       \
+        c[j] = backends[i].interflop_##operation##_##precision(a[j], b[j],     \
+                                                               contexts[i]);   \
+      }                                                                        \
     }                                                                          \
     return c;                                                                  \
   }
@@ -125,10 +127,12 @@ typedef int32_t int16 __attribute__((vector_size(16 * sizeof(int32_t))));
   int##size _##size##x##precision##cmp##_##TARGET_SUFFIX(                      \
       enum FCMP_PREDICATE p, precision##size a, precision##size b) {           \
     int##size c;                                                               \
-    UNROLL(size)                                                               \
-    for (int i = 0; i < (size); i++) {                                         \
-      c[i] =                                                                   \
-          backends[i].interflop_##precision##cmp(p, a[i], b[i], contexts[i]);  \
+    for (int i = 0; i < loaded_backends; i++) {                                \
+      UNROLL(size)                                                             \
+      for (int j = 0; j < (size); j++) {                                       \
+        c[j] =                                                                 \
+            backends[i].interflop_cmp_##precision(p, a[j], b[j], contexts[i]); \
+      }                                                                        \
     }                                                                          \
     return c;                                                                  \
   }
@@ -152,9 +156,9 @@ typedef int32_t int16 __attribute__((vector_size(16 * sizeof(int32_t))));
     precision##size d;                                                         \
     for (unsigned char i = 0; i < loaded_backends; i++) {                      \
       UNROLL(size)                                                             \
-      for (int i = 0; i < (size); i++) {                                       \
-        d[i] = backends[i].interflop_##precision##fma(a[i], b[i], c[i],        \
-                                                      contexts[i]);            \
+      for (int j = 0; j < (size); j++) {                                       \
+        backends[i].interflop_fma_##precision(a[j], b[j], c[j], &d[j],         \
+                                              contexts[i]);                    \
       }                                                                        \
     }                                                                          \
     return d;                                                                  \

@@ -26,6 +26,16 @@
 
 #include "backends.h"
 
+#define DO_PRAGMA(x) _Pragma(#x)
+
+#if defined(__clang__)
+#define UNROLL(n) DO_PRAGMA(clang loop unroll_count(n))
+#elif defined(__GNUC__)
+#define UNROLL(n) DO_PRAGMA(GCC unroll n)
+#else
+#define UNROLL(n)
+#endif
+
 /* --- Global backend state ------------------------------------------------ */
 
 struct interflop_backend_interface_t backends[MAX_BACKENDS];
@@ -157,9 +167,14 @@ float _doubletofloatcast(double a) {
   precision##size _##size##x##precision##operation(const precision##size a,    \
                                                    const precision##size b) {  \
     precision##size c;                                                         \
-    _Pragma("unroll") for (int i = 0; i < (size); i++) {                       \
-      c[i] = backends[i].interflop_##operation##_##precision(a[i], b[i],       \
-                                                             contexts[i]);     \
+    for (int i = 0; i < loaded_backends; i++) {                                \
+      if (backends[i].interflop_##operation##_##precision) {                   \
+        UNROLL(size)                                                           \
+        for (int j = 0; j < (size); j++) {                                     \
+          c[j] = backends[i].interflop_##operation##_##precision(a[j], b[j],   \
+                                                                 contexts[i]); \
+        }                                                                      \
+      }                                                                        \
     }                                                                          \
     return c;                                                                  \
   }
@@ -210,9 +225,13 @@ define_vectorized_arithmetic_wrapper(double, div, 16);
   int##size _##size##x##precision##cmp(enum FCMP_PREDICATE p,                  \
                                        precision##size a, precision##size b) { \
     int##size c;                                                               \
-    _Pragma("unroll") for (int i = 0; i < (size); i++) {                       \
-      c[i] =                                                                   \
-          backends[i].interflop_cmp_##precision(p, a[i], b[i], contexts[i]);   \
+    for (int i = 0; i < loaded_backends; i++) {                                \
+      if (backends[i].interflop_cmp_##precision) {                             \
+        UNROLL(size) for (int j = 0; j < (size); j++) {                        \
+          c[j] = backends[i].interflop_cmp_##precision(p, a[j], b[j],          \
+                                                       contexts[i]);           \
+        }                                                                      \
+      }                                                                        \
     }                                                                          \
     return c;                                                                  \
   }
@@ -236,9 +255,14 @@ define_vectorized_comparison_wrapper(double, 16);
                                              const precision##size b,          \
                                              const precision##size c) {        \
     precision##size d;                                                         \
-    _Pragma("unroll") for (int i = 0; i < (size); i++) {                       \
-      d[i] = backends[i].interflop_fma_##precision(a[i], b[i], c[i],           \
-                                                   contexts[i]);               \
+    for (int i = 0; i < loaded_backends; i++) {                                \
+      if (backends[i].interflop_fma_##precision) {                             \
+        UNROLL(size)                                                           \
+        for (int j = 0; j < (size); j++) {                                     \
+          backends[i].interflop_fma_##precision(a[j], b[j], c[j], &d[j],       \
+                                                contexts[i]);                  \
+        }                                                                      \
+      }                                                                        \
     }                                                                          \
     return d;                                                                  \
   }
