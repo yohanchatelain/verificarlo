@@ -125,7 +125,7 @@ float Ffloat(float a, float b) {
 int main(int argc, char const *argv[]) {
   if (argc < 3) {
     fprintf(stderr,
-            "./test_mantissa [double mantissa_size] [float mantissa_size]\n");
+            "./test_mantissa [double significand_size] [float significand_size]\n");
     abort();
   }
 
@@ -133,7 +133,7 @@ int main(int argc, char const *argv[]) {
   int size_32 = atoi(argv[2]);
 
   if (size_64 != -1) {
-    t_64.i = pow(2, 52 - size_64) - 1;
+    t_64.i = pow(2, 53 - size_64) - 1;
 
     double out1 = Fdouble(t_64.f, t_64.f);
     print_log(&out1, NULL, " <= Output");
@@ -144,7 +144,7 @@ int main(int argc, char const *argv[]) {
   }
 
   if (size_32 != -1) {
-    t_32.i = pow(2, 23 - size_32) - 1;
+    t_32.i = pow(2, 24 - size_32) - 1;
 
     float out2 = Ffloat(t_32.f, t_32.f);
     print_log(NULL, &out2, " <= Output");

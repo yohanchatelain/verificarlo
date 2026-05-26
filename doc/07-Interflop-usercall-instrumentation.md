@@ -44,26 +44,28 @@ where:
 ### `INTERFLOP_SET_PRECISION_BINARY64`
 
 Allows changing the virtual precision used for floating-point operations in double precision.
-For the VPREC backend, allows changing the length of the pseudo-mantissa for floating-point operations in double precision.
+For the VPREC backend, allows changing the significand bit length (including the implicit
+leading bit) for floating-point operations in double precision.
 Signature: 
 ```C
 void interflop_call(interflop_call_id id, int precision);
 ```
 where:
 - `id`: must be set to `INTERFLOP_SET_PRECISION_BINARY64`
-- `precision`: new virtual precision (pseudo-mantissa bit length in VPREC), must be positive.
+- `precision`: new virtual precision in significand bits (1–53 for VPREC binary64), must be positive.
 
 ### `INTERFLOP_SET_PRECISION_BINARY32`
 
 Allows changing the virtual precision used for floating-point operations in single precision.
-For the VPREC backend, allows changing the length of the pseudo-mantissa for floating-point operations in single precision.
+For the VPREC backend, allows changing the significand bit length (including the implicit
+leading bit) for floating-point operations in single precision.
 Signature: 
 ```C
 void interflop_call(interflop_call_id id, int precision);
 ```
 where:
 - `id`: must be set to `INTERFLOP_SET_PRECISION_BINARY32`
-- `precision`: new virtual precision (pseudo-mantissa bit length in VPREC), must be positive.
+- `precision`: new virtual precision in significand bits (1–24 for VPREC binary32), must be positive.
 
 ### `INTERFLOP_SET_RANGE_BINARY64`
 

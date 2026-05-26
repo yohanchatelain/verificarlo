@@ -188,10 +188,10 @@ long get_precision() {
   }
 
   if (verbose_mode) {
-    print_debug_int("[MPFR] (info)", "precision = ", precision + 1);
+    print_debug_int("[MPFR] (info)", "precision = ", precision);
   }
 
-  vprec_precision = precision + 1;
+  vprec_precision = precision;
   return vprec_precision;
 }
 
@@ -205,7 +205,8 @@ mpfr_exp_t get_emin() {
   int range = get_range();
   int precision = get_precision();
   int emin = 1 << (range - 1);
-  emin = -emin - precision + 4;
+  /* precision - 1 converts significand bits to mantissa bits */
+  emin = -emin - (precision - 1) + 3;
   return emin;
 }
 
@@ -216,7 +217,7 @@ void get_smallest_positive_subnormal_number(fptype_t type) {
   int range = get_range();
   int emax = (1 << (range - 1)) - 1;
   int emin = 1 - emax;
-  // Precision withiout the implicit bit
+  /* precision without the implicit bit (i.e. mantissa bits) */
   int precision = get_precision() - 1;
 
   mpfr_set_emin(mpfr_get_emin_min());
@@ -242,7 +243,7 @@ void get_largest_positive_normal_number(fptype_t type) {
 
   int range = get_range();
   int emax = (1 << (range - 1)) - 1;
-  // Precision withiout the implicit bit
+  /* precision without the implicit bit (i.e. mantissa bits) */
   int precision = get_precision() - 1;
 
   mpfr_set_emin(mpfr_get_emin_min());

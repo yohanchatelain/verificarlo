@@ -59,12 +59,12 @@ for mode in ${modelist}; do
     for realType in ${typeList}; do
         if [ "${realType}" = "float" ]; then
             rangelist=$(seq 4 ${inc} 8)
-            precisionlist=$(seq 3 ${inc} 23)
+            precisionlist=$(seq 3 ${inc} 24)
         fi
 
         if [ "${realType}" = "double" ]; then
             rangelist=$(seq 5 ${inc} 11)
-            precisionlist=$(seq 4 ${inc} 52)
+            precisionlist=$(seq 4 ${inc} 53)
         fi
 
         for range in ${rangelist}; do

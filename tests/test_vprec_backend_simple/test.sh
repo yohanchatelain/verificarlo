@@ -24,7 +24,7 @@ test1() {
 0x1.8p-1 0x1.8p-1
 0x1.f41e5c48bb0b8p-2 -0x1.2df365dba47ecp-1
 EOF
-    ../compare.sh OB 2 3 float x input.txt
+    ../compare.sh OB 2 4 float x input.txt
 }
 
 test2() {
@@ -37,7 +37,7 @@ test2() {
 0x1.8p-1 0x1.8p-1
 0x1.f41e5c48bb0b8p-2 -0x1.2df365dba47ecp-1
 EOF
-    ../compare.sh FULL 2 3 float x input.txt
+    ../compare.sh FULL 2 4 float x input.txt
 }
 
 test3() {
@@ -46,7 +46,7 @@ test3() {
     cat >input.txt <<EOF
 -0x1.eee201b1c85d4p-1 0x1.22034fafd4a10p-4
 EOF
-    ../compare.sh FULL 2 23 float x input.txt
+    ../compare.sh FULL 2 24 float x input.txt
 }
 
 test4() {
@@ -55,7 +55,7 @@ test4() {
     cat >input.txt <<EOF
 -0x1.a65cfc73c8a8ep-1 0x1.2e9e4e7fa94eap-1
 EOF
-    ../compare.sh FULL 2 2 double x input.txt
+    ../compare.sh FULL 2 3 double x input.txt
 }
 
 test5() {
@@ -64,7 +64,7 @@ test5() {
     cat >input.txt <<EOF
 0x1.e6527affea0d8p-3 0x1.959edd6d29896p-1
 EOF
-    ../compare.sh FULL 2 3 double x input.txt
+    ../compare.sh FULL 2 4 double x input.txt
 }
 
 test6() {
@@ -73,7 +73,7 @@ test6() {
     cat >input.txt <<EOF
 -0x0.5c8e727e02168p-1022 -0x0.ffd401e0541ecp-1022
 EOF
-    ../compare.sh IB 11 2 double - input.txt
+    ../compare.sh IB 11 3 double - input.txt
 }
 
 test7() {
@@ -82,7 +82,7 @@ test7() {
     cat >input.txt <<EOF
 -0x0.5c8e727e02168p-1022 -0x0.ffd401e0541ecp-1022
 EOF
-    ../compare.sh OB 11 2 double - input.txt
+    ../compare.sh OB 11 3 double - input.txt
 }
 
 test8() {
@@ -91,7 +91,7 @@ test8() {
     cat >input.txt <<EOF
 -0x0.5c8e727e02168p-1022 -0x0.ffd401e0541ecp-1022
 EOF
-    ../compare.sh FULL 11 2 double - input.txt
+    ../compare.sh FULL 11 3 double - input.txt
 }
 
 

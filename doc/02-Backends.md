@@ -317,10 +317,12 @@ backends.
 The option `--precision-binary64=PRECISION` controls the virtual
 precision used for the floating point operations in double precision
 (respectively for single precision with --precision-binary32) It
-accepts an integer value that represents the virtual precision at
-which MCA operations are performed. Its default value is 53 for
-binary64 and 24 for binary32. For the Bitmask backend, the virtual
-precision corresponds to the number of preserved bits in the mantissa.
+accepts an integer value that represents the virtual precision (in
+significand bits, including the implicit leading 1) at which operations
+are performed. Its default value is 53 for binary64 and 24 for
+binary32 (full hardware precision). For the Bitmask backend, the
+virtual precision corresponds to the number of preserved significand
+bits.
 
 The option `--seed` fixes the random generator seed. It should not
 generally be used except to reproduce a particular Bitmask
@@ -400,11 +402,12 @@ The option `--mode=MODE` controls the arithmetic error mode. It accepts the foll
  * `ob`: OutBound precision only (*default mode*)
  * `full`: Inbound and outbound mode combined
 
-The option `--precision-binary64=PRECISION` controls the pseudo-mantissa bit length of
+The option `--precision-binary64=PRECISION` controls the significand bit length of
 the new tested format for floating-point operations in double precision
 (respectively for single precision with --precision-binary32).
-It accepts an integer value that represents the precision at which
-the rounding will be done.
+It accepts a positive integer representing the number of significand bits
+(including the implicit leading bit). The maximum is 53 for binary64 and 24
+for binary32 (which correspond to full hardware precision, no rounding).
 
 The option `--range-binary64=PRECISION` controls the exponent bit length of
 the new tested format for floating-point operations in double precision
@@ -430,9 +433,9 @@ A detailed description of the backend is given [here](https://hal.archives-ouver
 The following example shows the computation with single precision and the simulation of the `bfloat16` format with VPREC:
 
 ```bash
-   $ VFC_BACKENDS="libinterflop_vprec.so --precision-binary32=23 --range-binary32=8" ./a.out
+   $ VFC_BACKENDS="libinterflop_vprec.so --precision-binary32=24 --range-binary32=8" ./a.out
    (2.903225*2.903225)*16384.000000 = 138096.062500
-   $ VFC_BACKENDS="libinterflop_vprec.so --precision-binary32=10 --range-binary32=5" ./a.out
+   $ VFC_BACKENDS="libinterflop_vprec.so --precision-binary32=11 --range-binary32=5" ./a.out
    (2.903225*2.903225)*16384.000000 = inf
 ```
 

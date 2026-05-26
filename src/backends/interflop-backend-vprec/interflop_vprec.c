@@ -102,7 +102,8 @@ void _set_vprec_precision_binary32(int precision, vprec_context_t *ctx) {
                  "Must be lower than %d",
                  VPREC_PRECISION_BINARY32_MAX);
   } else {
-    ctx->binary32_precision = precision;
+    /* Store as mantissa bits (significand bits - 1) for internal rounding */
+    ctx->binary32_mantissa = precision - 1;
   }
 }
 
@@ -130,7 +131,8 @@ void _set_vprec_precision_binary64(int precision, vprec_context_t *ctx) {
                  "Must be lower than %d",
                  VPREC_PRECISION_BINARY64_MAX);
   } else {
-    ctx->binary64_precision = precision;
+    /* Store as mantissa bits (significand bits - 1) for internal rounding */
+    ctx->binary64_mantissa = precision - 1;
   }
 }
 
@@ -249,29 +251,29 @@ void _set_vprec_ftz(bool ftz, vprec_context_t *ctx) { ctx->ftz = ftz; }
  ***************************************************************/
 extern int compute_absErr_vprec_binary32(bool isDenormal,
                                          vprec_context_t *currentContext,
-                                         int expDiff, int binary32_precision);
+                                         int expDiff, int binary32_mantissa);
 inline int compute_absErr_vprec_binary32(bool isDenormal,
                                          vprec_context_t *currentContext,
-                                         int expDiff, int binary32_precision) {
+                                         int expDiff, int binary32_mantissa) {
   /* this function is used only when in vprec error mode abs and all,
    * so there is no need to handle vprec error mode rel */
   if (isDenormal == true) {
     /* denormal, or underflow case */
     if (currentContext->relErr == true) {
       /* vprec error mode all */
-      if (abs(currentContext->absErr_exp) < binary32_precision) {
+      if (abs(currentContext->absErr_exp) < binary32_mantissa) {
         return currentContext->absErr_exp;
       }
-      return binary32_precision;
+      return binary32_mantissa;
     } /* vprec error mode abs */
     return currentContext->absErr_exp;
   } /* normal case */
   if (currentContext->relErr == true) {
     /* vprec error mode all */
-    if (expDiff < binary32_precision) {
+    if (expDiff < binary32_mantissa) {
       return expDiff;
     }
-    return binary32_precision;
+    return binary32_mantissa;
   } /* vprec error mode abs */
   if (expDiff < FLOAT_PMAN_SIZE) {
     return expDiff;
@@ -280,30 +282,30 @@ inline int compute_absErr_vprec_binary32(bool isDenormal,
 }
 extern int compute_absErr_vprec_binary64(bool isDenormal,
                                          vprec_context_t *currentContext,
-                                         int expDiff, int binary64_precision);
+                                         int expDiff, int binary64_mantissa);
 inline int compute_absErr_vprec_binary64(bool isDenormal,
                                          vprec_context_t *currentContext,
-                                         int expDiff, int binary64_precision) {
+                                         int expDiff, int binary64_mantissa) {
   /* this function is used only when in vprec error mode abs and all,
    * so there is no need to handle vprec error mode rel */
   if (isDenormal == true) {
     /* denormal, or underflow case */
     if (currentContext->relErr == true) {
       /* vprec error mode all */
-      if (abs(currentContext->absErr_exp) < binary64_precision) {
+      if (abs(currentContext->absErr_exp) < binary64_mantissa) {
         return currentContext->absErr_exp;
       }
-      return binary64_precision;
+      return binary64_mantissa;
     } /* vprec error mode abs */
     return currentContext->absErr_exp;
 
   } /* normal case */
   if (currentContext->relErr == true) {
     /* vprec error mode all */
-    if (expDiff < binary64_precision) {
+    if (expDiff < binary64_mantissa) {
       return expDiff;
     }
-    return binary64_precision;
+    return binary64_mantissa;
 
   } /* vprec error mode abs */
   if (expDiff < DOUBLE_PMAN_SIZE) {
@@ -313,10 +315,10 @@ inline int compute_absErr_vprec_binary64(bool isDenormal,
 }
 
 extern float handle_binary32_normal_absErr(float a, int32_t aexp,
-                                           int binary32_precision,
+                                           int binary32_mantissa,
                                            vprec_context_t *currentContext);
 inline float handle_binary32_normal_absErr(float a, int32_t aexp,
-                                           int binary32_precision,
+                                           int binary32_mantissa,
                                            vprec_context_t *currentContext) {
   /* absolute error mode, or both absolute and relative error modes */
   int expDiff = aexp - currentContext->absErr_exp;
@@ -333,19 +335,19 @@ inline float handle_binary32_normal_absErr(float a, int32_t aexp,
     retVal = copysignf(fpow2i(currentContext->absErr_exp), a);
   } else {
     /* normal case for the absolute error mode */
-    int binary32_precision_adjusted = compute_absErr_vprec_binary32(
-        false, currentContext, expDiff, binary32_precision);
-    retVal = round_binary32_normal(a, binary32_precision_adjusted);
+    int binary32_mantissa_adjusted = compute_absErr_vprec_binary32(
+        false, currentContext, expDiff, binary32_mantissa);
+    retVal = round_binary32_normal(a, binary32_mantissa_adjusted);
   }
 
   return retVal;
 }
 
 extern double handle_binary64_normal_absErr(double a, int64_t aexp,
-                                            int binary64_precision,
+                                            int binary64_mantissa,
                                             vprec_context_t *currentContext);
 inline double handle_binary64_normal_absErr(double a, int64_t aexp,
-                                            int binary64_precision,
+                                            int binary64_mantissa,
                                             vprec_context_t *currentContext) {
   /* absolute error mode, or both absolute and relative error modes */
   int64_t expDiff = aexp - currentContext->absErr_exp;
@@ -362,9 +364,9 @@ inline double handle_binary64_normal_absErr(double a, int64_t aexp,
     retVal = copysign(pow2i(currentContext->absErr_exp), a);
   } else {
     /* normal case for the absolute error mode */
-    int binary64_precision_adjusted = compute_absErr_vprec_binary64(
-        false, currentContext, (int)expDiff, binary64_precision);
-    retVal = round_binary64_normal(a, binary64_precision_adjusted);
+    int binary64_mantissa_adjusted = compute_absErr_vprec_binary64(
+        false, currentContext, (int)expDiff, binary64_mantissa);
+    retVal = round_binary64_normal(a, binary64_mantissa_adjusted);
   }
 
   return retVal;
@@ -417,7 +419,7 @@ inline double handle_binary64_normal_absErr(double a, int64_t aexp,
 
 // Round the float with the given precision
 float _vprec_round_binary32(float a, char is_input, void *context,
-                            int binary32_range, int binary32_precision) {
+                            int binary32_range, int binary32_mantissa) {
   vprec_context_t *currentContext = (vprec_context_t *)context;
   /* test if 'a' is a special case */
   if (!isfinite(a)) {
@@ -438,7 +440,7 @@ float _vprec_round_binary32(float a, char is_input, void *context,
     if (aexp.s32 == emax) {
       /* For values close to MAX_FLOAT, overflow should be checked after
        * rounding. */
-      float b = round_binary32_normal(a, binary32_precision);
+      float b = round_binary32_normal(a, binary32_mantissa);
       binary32 bexp = {.f32 = b};
       bexp.s32 = (int32_t)((FLOAT_GET_EXP & bexp.u32) >> FLOAT_PMAN_SIZE) -
                  FLOAT_EXP_COMP;
@@ -464,12 +466,12 @@ float _vprec_round_binary32(float a, char is_input, void *context,
     }
     if (currentContext->absErr == true) {
       /* absolute error mode, or both absolute and relative error modes */
-      int binary32_precision_adjusted = compute_absErr_vprec_binary32(
-          true, currentContext, 0, binary32_precision);
-      a = handle_binary32_denormal(a, emin, binary32_precision_adjusted);
+      int binary32_mantissa_adjusted = compute_absErr_vprec_binary32(
+          true, currentContext, 0, binary32_mantissa);
+      a = handle_binary32_denormal(a, emin, binary32_mantissa_adjusted);
     } else {
       /* relative error mode */
-      a = handle_binary32_denormal(a, emin, binary32_precision);
+      a = handle_binary32_denormal(a, emin, binary32_mantissa);
     }
 
   } else {
@@ -477,11 +479,11 @@ float _vprec_round_binary32(float a, char is_input, void *context,
      previously rounded and truncated as denormal */
     if (currentContext->absErr == true) {
       /* absolute error mode, or both absolute and relative error modes */
-      a = handle_binary32_normal_absErr(a, aexp.s32, binary32_precision,
+      a = handle_binary32_normal_absErr(a, aexp.s32, binary32_mantissa,
                                         currentContext);
     } else {
       /* relative error mode */
-      a = round_binary32_normal(a, binary32_precision);
+      a = round_binary32_normal(a, binary32_mantissa);
     }
   }
 
@@ -490,7 +492,7 @@ float _vprec_round_binary32(float a, char is_input, void *context,
 
 // Round the double with the given precision
 double _vprec_round_binary64(double a, char is_input, void *context,
-                             int binary64_range, int binary64_precision) {
+                             int binary64_range, int binary64_mantissa) {
   vprec_context_t *currentContext = (vprec_context_t *)context;
 
   /* test if 'a' is a special case */
@@ -513,7 +515,7 @@ double _vprec_round_binary64(double a, char is_input, void *context,
     if (aexp.s64 == emax) {
       /* For values close to MAX_FLOAT, overflow should be checked after
        * rounding. */
-      double b = round_binary64_normal(a, binary64_precision);
+      double b = round_binary64_normal(a, binary64_mantissa);
       binary64 bexp = {.f64 = b};
       bexp.s64 = (int64_t)((DOUBLE_GET_EXP & bexp.u64) >> DOUBLE_PMAN_SIZE) -
                  DOUBLE_EXP_COMP;
@@ -539,12 +541,12 @@ double _vprec_round_binary64(double a, char is_input, void *context,
     }
     if (currentContext->absErr == true) {
       /* absolute error mode, or both absolute and relative error modes */
-      int binary64_precision_adjusted = compute_absErr_vprec_binary64(
-          true, currentContext, 0, binary64_precision);
-      a = handle_binary64_denormal(a, emin, binary64_precision_adjusted);
+      int binary64_mantissa_adjusted = compute_absErr_vprec_binary64(
+          true, currentContext, 0, binary64_mantissa);
+      a = handle_binary64_denormal(a, emin, binary64_mantissa_adjusted);
     } else {
       /* relative error mode */
-      a = handle_binary64_denormal(a, emin, binary64_precision);
+      a = handle_binary64_denormal(a, emin, binary64_mantissa);
     }
 
   } else {
@@ -552,11 +554,11 @@ double _vprec_round_binary64(double a, char is_input, void *context,
      previously rounded and truncated as denormal */
     if (currentContext->absErr == true) {
       /* absolute error mode, or both absolute and relative error modes */
-      a = handle_binary64_normal_absErr(a, aexp.s64, binary64_precision,
+      a = handle_binary64_normal_absErr(a, aexp.s64, binary64_mantissa,
                                         currentContext);
     } else {
       /* relative error mode */
-      a = round_binary64_normal(a, binary64_precision);
+      a = round_binary64_normal(a, binary64_mantissa);
     }
   }
 
@@ -573,9 +575,9 @@ static inline float _vprec_binary32_binary_op(float a, float b,
 
   if ((ctx->mode == vprecmode_full) || (ctx->mode == vprecmode_ib)) {
     a = _vprec_round_binary32(a, 1, context, ctx->binary32_range,
-                              ctx->binary32_precision);
+                              ctx->binary32_mantissa);
     b = _vprec_round_binary32(b, 1, context, ctx->binary32_range,
-                              ctx->binary32_precision);
+                              ctx->binary32_mantissa);
     logger_debug("[Round ] binary32: a=%+.6a b=%+.6a op=%c\n", a, b, op);
   }
 
@@ -584,7 +586,7 @@ static inline float _vprec_binary32_binary_op(float a, float b,
 
   if ((ctx->mode == vprecmode_full) || (ctx->mode == vprecmode_ob)) {
     res = _vprec_round_binary32(res, 0, context, ctx->binary32_range,
-                                ctx->binary32_precision);
+                                ctx->binary32_mantissa);
     logger_debug("[Round ] binary32: res=%+.6a\n", res);
   }
 
@@ -600,9 +602,9 @@ static inline double _vprec_binary64_binary_op(double a, double b,
 
   if ((ctx->mode == vprecmode_full) || (ctx->mode == vprecmode_ib)) {
     a = _vprec_round_binary64(a, 1, context, ctx->binary64_range,
-                              ctx->binary64_precision);
+                              ctx->binary64_mantissa);
     b = _vprec_round_binary64(b, 1, context, ctx->binary64_range,
-                              ctx->binary64_precision);
+                              ctx->binary64_mantissa);
     logger_debug("[Round ] binary64: a=%+.13a b=%+.13a op=%c\n", a, b, op);
   }
 
@@ -611,7 +613,7 @@ static inline double _vprec_binary64_binary_op(double a, double b,
 
   if ((ctx->mode == vprecmode_full) || (ctx->mode == vprecmode_ob)) {
     res = _vprec_round_binary64(res, 0, context, ctx->binary64_range,
-                                ctx->binary64_precision);
+                                ctx->binary64_mantissa);
     logger_debug("[Round ] binary64: res=%+.13a\n", res);
   }
 
@@ -626,18 +628,18 @@ static inline float _vprec_binary32_ternary_op(float a, float b, float c,
   float res = 0;
   if (ctx->mode == vprecmode_ib || ctx->mode == vprecmode_full) {
     a = _vprec_round_binary32(a, 1, context, ctx->binary32_range,
-                              ctx->binary32_precision);
+                              ctx->binary32_mantissa);
     b = _vprec_round_binary32(b, 1, context, ctx->binary32_range,
-                              ctx->binary32_precision);
+                              ctx->binary32_mantissa);
     c = _vprec_round_binary32(c, 1, context, ctx->binary32_range,
-                              ctx->binary32_precision);
+                              ctx->binary32_mantissa);
   }
 
   perform_ternary_op(op, res, a, b, c);
 
   if (ctx->mode == vprecmode_ob || ctx->mode == vprecmode_full) {
     res = _vprec_round_binary32(res, 0, context, ctx->binary32_range,
-                                ctx->binary32_precision);
+                                ctx->binary32_mantissa);
   }
 
   return res;
@@ -650,18 +652,18 @@ static inline double _vprec_binary64_ternary_op(double a, double b, double c,
   double res = 0;
   if (ctx->mode == vprecmode_ib || ctx->mode == vprecmode_full) {
     a = _vprec_round_binary64(a, 1, context, ctx->binary64_range,
-                              ctx->binary64_precision);
+                              ctx->binary64_mantissa);
     b = _vprec_round_binary64(b, 1, context, ctx->binary64_range,
-                              ctx->binary64_precision);
+                              ctx->binary64_mantissa);
     c = _vprec_round_binary64(c, 1, context, ctx->binary64_range,
-                              ctx->binary64_precision);
+                              ctx->binary64_mantissa);
   }
 
   perform_ternary_op(op, res, a, b, c);
 
   if (ctx->mode == vprecmode_ob || ctx->mode == vprecmode_full) {
     res = _vprec_round_binary64(res, 0, context, ctx->binary64_range,
-                                ctx->binary64_precision);
+                                ctx->binary64_mantissa);
   }
 
   return res;
@@ -736,7 +738,7 @@ void INTERFLOP_VPREC_API(cast_double_to_float)(double a, float *b,
 
   if ((ctx->mode == vprecmode_ob)) {
     *b = (float)_vprec_round_binary64(a, 0, context, ctx->binary32_range,
-                                      ctx->binary32_precision);
+                                      ctx->binary32_mantissa);
     return;
   }
 
@@ -745,7 +747,7 @@ void INTERFLOP_VPREC_API(cast_double_to_float)(double a, float *b,
     // daz is ignored (switch O to 1 does not solve the problem: denormal
     // depends on ctx->binary64_*) hypothesis  ctx->binary32_* < ctx->binary64_*
     *b = (float)_vprec_round_binary64(a, 0, context, ctx->binary32_range,
-                                      ctx->binary32_precision);
+                                      ctx->binary32_mantissa);
     return;
   }
 
@@ -753,7 +755,7 @@ void INTERFLOP_VPREC_API(cast_double_to_float)(double a, float *b,
     // double rounding is avoided thanks to MACROMIN and float constant
     *b = (float)_vprec_round_binary64(
         a, 1, context, MACROMIN(ctx->binary64_range, VPREC_RANGE_BINARY32_MAX),
-        MACROMIN(ctx->binary64_precision, VPREC_PRECISION_BINARY32_MAX));
+        MACROMIN(ctx->binary64_mantissa, FLOAT_PMAN_SIZE));
     return;
   }
 }
@@ -834,9 +836,9 @@ void _vprec_alloc_context(void **context) {
 
 /* intialize the context */
 static void _vprec_init_context(vprec_context_t *ctx) {
-  ctx->binary32_precision = VPREC_PRECISION_BINARY32_DEFAULT;
+  ctx->binary32_mantissa = FLOAT_PMAN_SIZE;
   ctx->binary32_range = VPREC_RANGE_BINARY32_DEFAULT;
-  ctx->binary64_precision = VPREC_PRECISION_BINARY64_DEFAULT;
+  ctx->binary64_mantissa = DOUBLE_PMAN_SIZE;
   ctx->binary64_range = VPREC_RANGE_BINARY64_DEFAULT;
   ctx->mode = VPREC_MODE_DEFAULT;
   ctx->relErr = true;
@@ -874,9 +876,9 @@ static const struct argp_option options[] = {
      "select a default PRESET setting among {binary16, binary32, binary64, "
      "bfloat16, tensorfloat, fp24, PXR24}\n"
      "Format (range, precision) : "
-     "binary16 (5, 10), binary32 (8, 23), "
-     "bfloat16 (8, 7), tensorfloat (8, 10), "
-     "fp24 (7, 16), PXR24 (8, 15)",
+     "binary16 (5, 11), binary32 (8, 24), "
+     "bfloat16 (8, 8), tensorfloat (8, 11), "
+     "fp24 (7, 17), PXR24 (8, 16)",
      0},
     {key_mode_str, KEY_MODE, "MODE", 0,
      "select VPREC mode among {ieee, full, ib, ob}", 0},
@@ -1126,9 +1128,13 @@ static void print_information_header(void *context) {
   vprec_context_t *ctx = (vprec_context_t *)context;
 
   logger_info("load backend with: \n");
-  logger_info("%s = %d\n", key_prec_b32_str, ctx->binary32_precision);
+  logger_info("mantissa-binary32 = %d\n", ctx->binary32_mantissa);
+  logger_info("precision-binary32 = %d (significand bits)\n",
+              ctx->binary32_mantissa + 1);
   logger_info("%s = %d\n", key_range_b32_str, ctx->binary32_range);
-  logger_info("%s = %d\n", key_prec_b64_str, ctx->binary64_precision);
+  logger_info("mantissa-binary64 = %d\n", ctx->binary64_mantissa);
+  logger_info("precision-binary64 = %d (significand bits)\n",
+              ctx->binary64_mantissa + 1);
   logger_info("%s = %d\n", key_range_b64_str, ctx->binary64_range);
   logger_info("%s = %s\n", key_mode_str, VPREC_MODE_STR[ctx->mode]);
   logger_info("%s = %s\n", key_err_mode_str, _get_error_mode_str(ctx));

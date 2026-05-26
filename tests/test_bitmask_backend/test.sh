@@ -62,8 +62,8 @@ check_executable test_double
 rm -f run_parallel
 
 for op in "+" "-" "x" "/"; do
-    check 23 4 FLOAT RAND ${SEED} ${op}
-    check 52 3 DOUBLE RAND ${SEED} ${op}
+    check 24 4 FLOAT RAND ${SEED} ${op}
+    check 53 3 DOUBLE RAND ${SEED} ${op}
 done
 
 parallel -j $(nproc) <run_parallel

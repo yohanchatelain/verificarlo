@@ -31,16 +31,16 @@
 
 /* default values of precision and range for binary32 */
 #define VPREC_PRECISION_BINARY32_MIN 1
-#define VPREC_PRECISION_BINARY32_MAX FLOAT_PMAN_SIZE
-#define VPREC_PRECISION_BINARY32_DEFAULT FLOAT_PMAN_SIZE
+#define VPREC_PRECISION_BINARY32_MAX FLOAT_PREC
+#define VPREC_PRECISION_BINARY32_DEFAULT FLOAT_PREC
 #define VPREC_RANGE_BINARY32_MIN 2
 #define VPREC_RANGE_BINARY32_MAX FLOAT_EXP_SIZE
 #define VPREC_RANGE_BINARY32_DEFAULT FLOAT_EXP_SIZE
 
 /* default values of precision and range for binary64 */
 #define VPREC_PRECISION_BINARY64_MIN 1
-#define VPREC_PRECISION_BINARY64_MAX DOUBLE_PMAN_SIZE
-#define VPREC_PRECISION_BINARY64_DEFAULT DOUBLE_PMAN_SIZE
+#define VPREC_PRECISION_BINARY64_MAX DOUBLE_PREC
+#define VPREC_PRECISION_BINARY64_DEFAULT DOUBLE_PREC
 #define VPREC_RANGE_BINARY64_MIN 2
 #define VPREC_RANGE_BINARY64_MAX DOUBLE_EXP_SIZE
 #define VPREC_RANGE_BINARY64_DEFAULT DOUBLE_EXP_SIZE
@@ -106,12 +106,12 @@ typedef enum {
 } vprec_preset;
 
 typedef enum {
-  vprec_preset_precision_binary16 = 10,
-  vprec_preset_precision_binary32 = 23,
-  vprec_preset_precision_bfloat16 = 7,
-  vprec_preset_precision_tensorfloat = 10,
-  vprec_preset_precision_fp24 = 16,
-  vprec_preset_precision_PXR24 = 15,
+  vprec_preset_precision_binary16 = 11,
+  vprec_preset_precision_binary32 = 24,
+  vprec_preset_precision_bfloat16 = 8,
+  vprec_preset_precision_tensorfloat = 11,
+  vprec_preset_precision_fp24 = 17,
+  vprec_preset_precision_PXR24 = 16,
   _vprec_preset_precision_end_
 } vprec_preset_precision;
 
@@ -130,9 +130,9 @@ typedef struct {
   /* structure holding vprec function instrumentation variables */
   t_context_vfi *vfi;
   /* arithmetic variables */
-  int binary32_precision;
+  int binary32_mantissa;
   int binary32_range;
-  int binary64_precision;
+  int binary64_mantissa;
   int binary64_range;
   int absErr_exp;
   vprec_mode mode;
@@ -160,9 +160,9 @@ void _set_vprec_range_binary32(int range, vprec_context_t *ctx);
 void _set_vprec_precision_binary64(int precision, vprec_context_t *ctx);
 void _set_vprec_range_binary64(int range, vprec_context_t *ctx);
 float _vprec_round_binary32(float a, char is_input, void *context,
-                            int binary32_range, int binary32_precision);
+                            int binary32_range, int binary32_mantissa);
 double _vprec_round_binary64(double a, char is_input, void *context,
-                             int binary64_range, int binary64_precision);
+                             int binary64_range, int binary64_mantissa);
 extern struct argp vfi_argp;
 
 const char *get_vprec_mode_name(vprec_mode mode);

@@ -89,9 +89,9 @@ double getUlp(double a, int range, int precision) {
         return INFINITY;
     }
 
-    int64_t expoUlp = expo - precision;
-    if (expoUlp < myemin - precision) {
-        expoUlp = myemin - precision;
+    int64_t expoUlp = expo - (precision - 1);
+    if (expoUlp < myemin - (precision - 1)) {
+        expoUlp = myemin - (precision - 1);
     }
     binary64 res;
     if (expoUlp >= emin(11)) {
@@ -126,7 +126,7 @@ double getUlp(double a, int range, int precision) {
 double floatMax(int range, int precision) {
     int64_t one = 1;
     int64_t mantissa = 0;
-    for (int shift = 0; shift < precision; shift++) {
+    for (int shift = 0; shift < precision - 1; shift++) {
         mantissa += (one << (DOUBLE_PMAN_SIZE - 1 - shift));
     }
 
@@ -147,7 +147,7 @@ double floatMinNorm(int range, int precision) {
 }
 
 double floatMinDeNorm(int range, int64_t precision) {
-    int64_t myexpo = emin(range) + (int64_t)1023 - precision;
+    int64_t myexpo = emin(range) + (int64_t)1023 - (precision - 1);
     binary64 res;
     if (myexpo > 0) {
         res.ieee.sign = 0;
@@ -167,7 +167,7 @@ double floatMinDeNorm(int range, int64_t precision) {
 double ulpOne(int64_t precision) {
     binary64 res;
     res.ieee.sign = 0;
-    res.ieee.exponent = 0 + (int64_t)1023 - precision;
+    res.ieee.exponent = 0 + (int64_t)1023 - (precision - 1);
     res.ieee.mantissa = 0;
     return res.f64;
 }

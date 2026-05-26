@@ -156,16 +156,22 @@ static void _set_bitmask_operator(const bitmask_operator bitmask,
 static void _set_bitmask_precision_binary32(const int precision,
                                             void *context) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
+  /* Convert significand bits to mantissa bits for internal storage */
+  const int mantissa_bits = precision - 1;
   _set_precision(BITMASK, precision, ctx->binary32_precision, (float)0);
-  _set_bitmask_precision(precision, ctx->binary32_precision,
+  ctx->binary32_precision = mantissa_bits;
+  _set_bitmask_precision(mantissa_bits, mantissa_bits,
                          (typeof(binary32_bitmask))0, (float)0);
 }
 
 static void _set_bitmask_precision_binary64(const int precision,
                                             void *context) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
+  /* Convert significand bits to mantissa bits for internal storage */
+  const int mantissa_bits = precision - 1;
   _set_precision(BITMASK, precision, ctx->binary64_precision, (double)0);
-  _set_bitmask_precision(precision, ctx->binary64_precision,
+  ctx->binary64_precision = mantissa_bits;
+  _set_bitmask_precision(mantissa_bits, mantissa_bits,
                          (typeof(binary64_bitmask))0, (double)0);
 }
 
@@ -657,8 +663,12 @@ void _bitmask_alloc_context(void **context) {
 static void _bitmask_init_context(bitmask_context_t *ctx) {
   ctx->mode = BITMASK_MODE_DEFAULT;
   ctx->operator= BITMASK_OPERATOR_DEFAULT;
-  ctx->binary32_precision = BITMASK_PRECISION_BINARY32_DEFAULT;
-  ctx->binary64_precision = BITMASK_PRECISION_BINARY64_DEFAULT;
+  /* Initialize directly to mantissa bits (significand bits - 1) */
+  ctx->binary32_precision = FLOAT_PMAN_SIZE;
+  ctx->binary64_precision = DOUBLE_PMAN_SIZE;
+  /* Initialize bitmasks to all-ones (no masking at full precision) */
+  binary32_bitmask = FLOAT_MASK_ONE;
+  binary64_bitmask = DOUBLE_MASK_ONE;
   ctx->choose_seed = false;
   ctx->seed = BITMASK_SEED_DEFAULT;
   ctx->daz = BITMASK_DAZ_DEFAULT;

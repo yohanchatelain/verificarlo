@@ -60,7 +60,7 @@ mpfr_exp_t get_emax_for_mpfr(int range) {
 mpfr_exp_t get_emin_for_mpfr(int range, int precision) {
   int e = 1 << (range - 1);
   /* emin formula from: stackoverflow.com/questions/38664778 */
-  e = -e - precision + 3;
+  e = -e - (precision - 1) + 3;
   return e;
 }
 
@@ -76,7 +76,7 @@ void get_smallest_positive_subnormal_number(mpfr_t smallest_subnormal,
   mpfr_set_emax(mpfr_get_emax_max());
 
   mpfr_init2(smallest_subnormal, 256);
-  mpfr_set_ui_2exp(smallest_subnormal, 1, emn - precision, MPFR_RNDN);
+  mpfr_set_ui_2exp(smallest_subnormal, 1, emn - (precision - 1), MPFR_RNDN);
 
   mpfr_set_emin(_emin);
   mpfr_set_emax(_emax);
@@ -119,7 +119,7 @@ void get_largest_positive_normal_number(mpfr_t largest_normal, int range,
 
   mpfr_init2(largest_normal, 256);
 
-  mpfr_set_ui_2exp(largest_normal, 1, -precision, MPFR_RNDN);
+  mpfr_set_ui_2exp(largest_normal, 1, -(precision - 1), MPFR_RNDN);
   mpfr_ui_sub(largest_normal, 2, largest_normal, MPFR_RNDN);
   mpfr_mul_2ui(largest_normal, largest_normal, emx, MPFR_RNDN);
 
@@ -179,9 +179,9 @@ void overUnderFlow(mpfr_t x, int range, int precision) {
 void apply_operation(mpfr_t res, mpfr_t *args, const char op, fptype_t type) {
   mpfr_clear_flags();
 
-  const int precision = (type == float_type) ? 23 : 52;
+  const int precision = (type == float_type) ? 24 : 53;
   const int range = (type == float_type) ? 8 : 11;
-  mpfr_set_default_prec(precision + 1);
+  mpfr_set_default_prec(precision);
 
   mpfr_exp_t emx = get_emax_for_mpfr(range);
   mpfr_exp_t emn = get_emin_for_mpfr(range, precision);
@@ -189,7 +189,7 @@ void apply_operation(mpfr_t res, mpfr_t *args, const char op, fptype_t type) {
   mpfr_t resLocal;
   mpfr_set_emax(emx);
   mpfr_set_emin(emn);
-  mpfr_inits2(precision + 1, resLocal, (mpfr_ptr)0);
+  mpfr_inits2(precision, resLocal, (mpfr_ptr)0);
 
   int i = 0;
   switch (op) {
@@ -233,7 +233,7 @@ bool vprec_rounding(mpfr_t x, int range, int precision) {
   mpfr_t xRound;
   mpfr_set_emax(emx);
   mpfr_set_emin(emn);
-  mpfr_inits2(precision + 1, xRound, (mpfr_ptr)0);
+  mpfr_inits2(precision, xRound, (mpfr_ptr)0);
   int i = mpfr_set(xRound, x, MPFR_RNDN);
   i = mpfr_check_range(xRound, i, MPFR_RNDN);
   i = mpfr_subnormalize(xRound, i, MPFR_RNDN);
@@ -325,7 +325,7 @@ int main(int argc, char *argv[]) {
   int fpRangeMax[] = {8, 11};
 
   int fpPrecisionMin[] = {2, 2};
-  int fpPrecisionMax[] = {23, 52};
+  int fpPrecisionMax[] = {24, 53};
 
   /* Operations: +, -, x, /, f (fma). No sqrt. */
   char opTabStr[] = {'+', '-', 'x', '/', 'f'};
