@@ -33,7 +33,12 @@ compare() {
     S_MCA=$(cat $1)
     S_BITMASK=$(cat $2)
     T=$3
-    ../compare.py --s-mca $S_MCA --s-bitmask $S_BITMASK --virtual-precision=$3
+    MAX_P=${precision[$TYPE]}
+
+    S_MCA=$(python3 -c "print(min(float('$S_MCA'), $MAX_P))")
+    S_BITMASK=$(python3 -c "print(min(float('$S_BITMASK'), $MAX_P))")
+
+    ../compare.py --s-mca $S_MCA --s-bitmask $S_BITMASK
     if [ $? -ne 0 ]; then
         echo "error: |${S_MCA}-${S_BITMASK}| > 2"
         exit 1

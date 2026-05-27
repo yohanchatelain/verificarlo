@@ -55,7 +55,7 @@ export VFC_BACKENDS_LOGGER=False
 
 # Test operates at different precisions, and different operands.
 # It compares that results are equivalents up to the bit.
-parallel --header : "verificarlo-c --function=operator --verbose -D REAL={type} -D SAMPLES=$SAMPLES -O3 test.c -o test_{type} -lm" ::: type float double
+parallel --header : "verificarlo-c --function=operator --verbose -D REAL={type} -D SAMPLES=$SAMPLES -O0 test.c -o test_{type} -lm" ::: type float double
 check_executable test_float
 check_executable test_double
 

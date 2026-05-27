@@ -29,7 +29,7 @@ typedef union {
     abort();                                                                   \
   }
 
-REAL operator(char op, REAL a, REAL b) { OPERATOR(a, b) }
+__attribute__((noinline)) REAL operator(char op, REAL a, REAL b) { OPERATOR(a, b) }
 
 double get_rand_double() {
   binary64 b64 = {.s64 = mrand48() % DOUBLE_PLUS_INF};
