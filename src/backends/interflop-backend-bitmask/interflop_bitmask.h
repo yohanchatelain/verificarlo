@@ -5,7 +5,7 @@
  *  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception.                 *\
  *  See https://llvm.org/LICENSE.txt for license information.                *\
  *                                                                           *\
- *  Copyright (c) 2019-2024                                                  *\
+ *  Copyright (c) 2019-2026                                                  *\
  *     Verificarlo Contributors                                              *\
  *                                                                           *\
  ****************************************************************************/
@@ -13,6 +13,7 @@
 #ifndef __INTERFLOP_BITMASK_H__
 #define __INTERFLOP_BITMASK_H__
 
+#include "interflop/common/float_const.h"
 #include "interflop/interflop_stdlib.h"
 
 #define INTERFLOP_BITMASK_API(name) interflop_bitmask_##name
@@ -50,8 +51,8 @@ typedef enum {
 /* Interflop context */
 typedef struct {
   IUint64_t seed;
-  int binary32_precision;
-  int binary64_precision;
+  int binary32_mantissa;
+  int binary64_mantissa;
   bitmask_operator operator;
   bitmask_mode mode;
   IBool choose_seed;

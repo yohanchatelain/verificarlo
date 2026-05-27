@@ -90,7 +90,7 @@ static const char *const BITMASK_OPERATOR_STR[] = {
     [bitmask_operator_rand] = "rand"};
 
 #define GET_BINARYN_T(X)                                                       \
-  _Generic(X, float: ctx->binary32_precision, double: ctx->binary64_precision)
+  _Generic(X, float: ctx->binary32_mantissa, double: ctx->binary64_mantissa)
 
 /* possible op values */
 typedef enum {
@@ -146,7 +146,7 @@ static void _set_bitmask_operator(const bitmask_operator bitmask,
 #define _set_bitmask_precision(precision, VIRTUAL_PRECISION, Y, X)             \
   {                                                                            \
     typeof(Y) *bitmask = GET_BITMASK((typeof(X) *)0);                          \
-    const int32_t PREC = GET_PREC(X);                                          \
+    const int32_t PREC = GET_PMAN_SIZE(X);                                     \
     typeof(Y) MASK_ONE = GET_MASK_ONE(X);                                      \
     *bitmask = ((VIRTUAL_PRECISION) <= PREC)                                   \
                    ? MASK_ONE << (PREC - (VIRTUAL_PRECISION))                  \
@@ -158,8 +158,8 @@ static void _set_bitmask_precision_binary32(const int precision,
   bitmask_context_t *ctx = (bitmask_context_t *)context;
   /* Convert significand bits to mantissa bits for internal storage */
   const int mantissa_bits = precision - 1;
-  _set_precision(BITMASK, precision, ctx->binary32_precision, (float)0);
-  ctx->binary32_precision = mantissa_bits;
+  _set_precision(BITMASK, precision, ctx->binary32_mantissa, (float)0);
+  ctx->binary32_mantissa = mantissa_bits;
   _set_bitmask_precision(mantissa_bits, mantissa_bits,
                          (typeof(binary32_bitmask))0, (float)0);
 }
@@ -169,8 +169,8 @@ static void _set_bitmask_precision_binary64(const int precision,
   bitmask_context_t *ctx = (bitmask_context_t *)context;
   /* Convert significand bits to mantissa bits for internal storage */
   const int mantissa_bits = precision - 1;
-  _set_precision(BITMASK, precision, ctx->binary64_precision, (double)0);
-  ctx->binary64_precision = mantissa_bits;
+  _set_precision(BITMASK, precision, ctx->binary64_mantissa, (double)0);
+  ctx->binary64_mantissa = mantissa_bits;
   _set_bitmask_precision(mantissa_bits, mantissa_bits,
                          (typeof(binary64_bitmask))0, (double)0);
 }
@@ -333,7 +333,7 @@ static uint64_t get_random_binary64_mask() {
 
 static void _inexact_binary32(void *context, float *x) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
-  if (_MUST_NOT_BE_NOISED(*x, ctx->binary32_precision, ctx->mode)) {
+  if (_MUST_NOT_BE_NOISED(*x, ctx->binary32_mantissa, ctx->mode)) {
     return;
   }
   binary32 b32 = {.f32 = *x};
@@ -342,7 +342,7 @@ static void _inexact_binary32(void *context, float *x) {
 
 static void _inexact_binary64(void *context, double *x) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
-  if (_MUST_NOT_BE_NOISED(*x, ctx->binary64_precision, ctx->mode)) {
+  if (_MUST_NOT_BE_NOISED(*x, ctx->binary64_mantissa, ctx->mode)) {
     return;
   }
   binary64 b64 = {.f64 = *x};
@@ -664,8 +664,8 @@ static void _bitmask_init_context(bitmask_context_t *ctx) {
   ctx->mode = BITMASK_MODE_DEFAULT;
   ctx->operator= BITMASK_OPERATOR_DEFAULT;
   /* Initialize directly to mantissa bits (significand bits - 1) */
-  ctx->binary32_precision = FLOAT_PMAN_SIZE;
-  ctx->binary64_precision = DOUBLE_PMAN_SIZE;
+  ctx->binary32_mantissa = FLOAT_PMAN_SIZE;
+  ctx->binary64_mantissa = DOUBLE_PMAN_SIZE;
   /* Initialize bitmasks to all-ones (no masking at full precision) */
   binary32_bitmask = FLOAT_MASK_ONE;
   binary64_bitmask = DOUBLE_MASK_ONE;
@@ -704,8 +704,8 @@ void INTERFLOP_BITMASK_API(configure)(void *configure, void *context) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
   bitmask_conf_t *conf = (bitmask_conf_t *)configure;
   _set_bitmask_seed(conf->seed, ctx);
-  _set_bitmask_precision_binary32(conf->binary32_precision, ctx);
-  _set_bitmask_precision_binary64(conf->binary64_precision, ctx);
+  _set_bitmask_precision_binary32(conf->binary32_mantissa, ctx);
+  _set_bitmask_precision_binary64(conf->binary64_mantissa, ctx);
   _set_bitmask_mode(conf->mode, ctx);
   _set_bitmask_operator(conf->operator, ctx);
   _set_bitmask_daz(conf->daz, ctx);
@@ -726,8 +726,12 @@ static void print_information_header(void *context) {
 
   bitmask_context_t *ctx = (bitmask_context_t *)context;
   logger_info("load backend with: \n");
-  logger_info("%s = %d\n", key_prec_b32_str, ctx->binary32_precision);
-  logger_info("%s = %d\n", key_prec_b64_str, ctx->binary64_precision);
+  logger_info("mantissa-binary32 = %d\n", ctx->binary32_mantissa);
+  logger_info("%s = %d (significand bits)\n", key_prec_b32_str,
+              ctx->binary32_mantissa + 1);
+  logger_info("mantissa-binary64 = %d\n", ctx->binary64_mantissa);
+  logger_info("%s = %d (significand bits)\n", key_prec_b64_str,
+              ctx->binary64_mantissa + 1);
   logger_info("%s = %s\n", key_mode_str, BITMASK_MODE_STR[ctx->mode]);
   logger_info("%s = %s\n", key_operator_str,
               BITMASK_OPERATOR_STR[ctx->operator]);
