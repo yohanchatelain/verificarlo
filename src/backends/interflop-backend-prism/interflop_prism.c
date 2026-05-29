@@ -71,12 +71,30 @@ static const struct argp_option options[] = {
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   prism_context_t *ctx = (prism_context_t *)state->input;
   switch (key) {
-  case KEY_PRECISION_BINARY32:
-    ctx->precision_binary32 = (int32_t)atoi(arg);
+  case KEY_PRECISION_BINARY32: {
+    char *endptr = NULL;
+    long val = strtol(arg, &endptr, 10);
+    if (arg[0] == '\0' || *endptr != '\0' || val < 1 ||
+        val > DEFAULT_PRECISION_BINARY32) {
+      logger_error("--precision-binary32 invalid value provided, must be an "
+                   "integer between 1 and %d",
+                   DEFAULT_PRECISION_BINARY32);
+    }
+    ctx->precision_binary32 = (int32_t)val;
     break;
-  case KEY_PRECISION_BINARY64:
-    ctx->precision_binary64 = (int32_t)atoi(arg);
+  }
+  case KEY_PRECISION_BINARY64: {
+    char *endptr = NULL;
+    long val = strtol(arg, &endptr, 10);
+    if (arg[0] == '\0' || *endptr != '\0' || val < 1 ||
+        val > DEFAULT_PRECISION_BINARY64) {
+      logger_error("--precision-binary64 invalid value provided, must be an "
+                   "integer between 1 and %d",
+                   DEFAULT_PRECISION_BINARY64);
+    }
+    ctx->precision_binary64 = (int32_t)val;
     break;
+  }
   default:
     return ARGP_ERR_UNKNOWN;
   }
