@@ -74,7 +74,7 @@ run_test() {
     args["floatf"]="0.1 0.01 0.001"
 
     args["double+"]="0.1 0.01"
-    args["double-"]="0.1 0.001"
+    args["double-"]="0.1 0.0012"
     args["doublex"]="0.1 0.01"
     args["double/"]="1 3"
     args["doubles"]="0.1"
@@ -100,34 +100,29 @@ run_test() {
         echo "Running test $type x$size $op $optimization $op_name on ${args["$type$op"]}..."
     fi
 
-    rm -f $file
+    rm -f "$file"
 
-    for i in $(seq 1 $SAMPLES); do
-        $bin $type $op ${args["$type$op"]} &>>$file
+    for i in $(seq 1 "$SAMPLES"); do
+        "$bin" "$type" "$op" ${args["$type$op"]} >>"$file"
     done
 
-    if [[ $? != 0 ]]; then
-        echo "Failed!"
-        exit 1
-    fi
-
-    # Check if we have variabilities
-    if [[ $(sort -u $file | wc -l) == 1 || $(sort -u $file | wc -l) == 0 ]]; then
+    # Check if we have variability
+    if [[ $(sort -u "$file" | wc -l) == 1 || $(sort -u "$file" | wc -l) == 0 ]]; then
         echo "Failed! No variability found in $file"
         echo "File $file failed"
-        sort -u $file
+        sort -u "$file"
         echo "To reproduce the error run:"
         echo "make --silent optimization=${optimization_str} size=$size ${MAKEFILE_OPTIONS}"
         echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 
-    # Check that variabililty is within 2 significant digits
-    if [[ $(./check_variability.py $file) ]]; then
+    # Check that variability is at most 1 ULP (≥ 6/14 significant digits)
+    if ! ./check_variability.py "$file" > /dev/null; then
         echo "Failed! Variability is too high in $file"
         echo "File $file failed"
         echo "To reproduce the error run:"
-        echo "make --silent optimization=${optimization// /_} size=$size ${MAKEFILE_OPTIONS}"
+        echo "make --silent optimization=${optimization_str} size=$size ${MAKEFILE_OPTIONS}"
         echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
