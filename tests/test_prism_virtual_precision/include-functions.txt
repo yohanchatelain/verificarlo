@@ -1,0 +1,6 @@
+# Instrument only the computation functions.
+# The analysis code (main, check_*, run_op dispatch) uses regular IEEE arithmetic.
+* *do_div*
+* *do_add*
+* *do_mul*
+* *do_fma*
