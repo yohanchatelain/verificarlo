@@ -445,10 +445,12 @@ The PRISM backend implements Stochastic Rounding [Fasi, 2020](https://ieeexplore
 
 It is built upon the [PRISM](https://github.com/yohanchatelain/prism.git) library and utilizes the [Highway](https://github.com/google/highway.git) library for vectorized operations.
 
-Unlike other backends, the PRISM backend does not conform to the interflop interface or support dynamic loading. Instead, it must be specified during instrumentation using the `--prism-backend=MODE` option, where `MODE` can be:
+Unlike other backends, PRISM instruments floating-point operations at the IR level during compilation rather than intercepting them at runtime. The rounding mode must be selected at compile time using the `--prism-backend=MODE` option, where `MODE` can be:
 
 * `up-down`: Implements Up & Down rounding.
 * `sr`: Implements Stochastic Rounding.
+
+Runtime parameters (virtual precision and seed) are controlled through the standard `VFC_BACKENDS` mechanism via `libinterflop_prism.so`.
 
 The PRISM backend fully instruments vector instructions without serializing them, enabling better performance. However, challenges may arise when user code and backend code are compiled with differing architecture flags (e.g., `--march=native`). To address this, the backend provides two dispatching modes:
 
@@ -464,7 +466,32 @@ The PRISM backend fully instruments vector instructions without serializing them
    - Leverages Highway’s dynamic dispatching to select the best implementation based on the architecture (e.g., AVX, AVX2, AVX-512).
    - While dynamic dispatch incurs overhead from pointer passing, it mitigates this with vectorized implementations.
 
-#### Debug Options 
+#### Backend Options
+
+```
+VFC_BACKENDS="libinterflop_prism.so --help" ./test
+test: verificarlo loaded backend libinterflop_prism.so
+Usage: libinterflop_prism.so [OPTION...]
+
+      --precision-binary32=N   Virtual precision for binary32 (default: 24)
+      --precision-binary64=N   Virtual precision for binary64 (default: 53)
+  -s, --seed=SEED              Fix the random generator seed (default: random)
+  -?, --help                   Give this help list
+      --usage                  Give a short usage message
+```
+
+The option `--precision-binary32=N` (respectively `--precision-binary64=N`) sets
+the virtual precision for single (respectively double) precision operations.
+It accepts an integer between 1 and 24 for binary32 (1 and 53 for binary64),
+representing the number of significand bits retained after rounding. The default
+value matches IEEE 754 hardware precision (24 for binary32, 53 for binary64).
+
+The option `--seed=SEED` fixes the random generator seed, which is useful for
+reproducing a particular stochastic rounding trace. Without this option, a
+random seed is chosen at startup (equivalent to setting the `PRISM_SEED`
+environment variable).
+
+#### Debug Options
 
 The PRISM backend provides several debug options:
 
@@ -484,19 +511,21 @@ Although it should support all architectures supported by [Highway](https://goog
 
 **Build Limitations**: On some platforms (particularly AArch64), the PRISM backend dependencies (Bazel/Highway) may fail to build. If you encounter build issues with the PRISM backend, you can disable it during configuration using `--without-prism`. This will build Verificarlo without PRISM backend support while preserving all other functionality.
 
-#### Usage Example
+#### Usage Examples
 
-To use the PRISM backend with stochastic rounding and dynamic dispatch:
+Compile with stochastic rounding and dynamic dispatch, then run at reduced precision
+with a fixed seed:
 
 ```bash
-$ verificarlo-c --prism-backend=sr --prism-backend-dispatch=dynamic" test.c -o test
-$ ./test
+$ verificarlo-c --prism-backend=sr --prism-backend-dispatch=dynamic test.c -o test
+$ VFC_BACKENDS="libinterflop_prism.so --precision-binary64 10 --seed 42" ./test
 ```
 
-For up & down rounding with static dispatch:
+Compile with up & down rounding and static dispatch, then run at default (IEEE)
+precision:
 
 ```bash
-$ verificarlo-c --prism-backend=up-down --prism-backend-dispatch=static" test.c -o test
-$ ./test
+$ verificarlo-c --prism-backend=up-down --prism-backend-dispatch=static test.c -o test
+$ VFC_BACKENDS="libinterflop_prism.so" ./test
 ```
 
