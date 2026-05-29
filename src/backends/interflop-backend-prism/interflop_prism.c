@@ -25,6 +25,7 @@
 
 #include <argp.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,22 +34,21 @@
 #include "interflop/interflop.h"
 #include "interflop/interflop_stdlib.h"
 #include "interflop/iostream/logger.h"
+#include "prism_api.h"
 
 /* Default precisions match IEEE 754 hardware precision */
 #define DEFAULT_PRECISION_BINARY32 24
 #define DEFAULT_PRECISION_BINARY64 53
 
 typedef struct {
+  uint64_t seed;
   int32_t precision_binary32;
   int32_t precision_binary64;
+  IBool choose_seed;
 } prism_context_t;
 
 static const char backend_name[] = "interflop-prism";
 static const char backend_version[] = "1.x-dev";
-
-/* Prism public API (defined in libprism-dynamic.so / libprism-static.so) */
-extern void interflop_prism_set_default_virtual_precision_binary32(int32_t);
-extern void interflop_prism_set_default_virtual_precision_binary64(int32_t);
 
 const char *interflop_get_backend_name(void) { return backend_name; }
 
@@ -59,6 +59,7 @@ const char *interflop_get_backend_version(void) { return backend_version; }
 typedef enum {
   KEY_PRECISION_BINARY32 = 'f',
   KEY_PRECISION_BINARY64 = 'd',
+  KEY_SEED = 's',
 } key_args;
 
 static const struct argp_option options[] = {
@@ -66,6 +67,8 @@ static const struct argp_option options[] = {
      "Virtual precision for binary32 (default: 24)", 0},
     {"precision-binary64", KEY_PRECISION_BINARY64, "N", 0,
      "Virtual precision for binary64 (default: 53)", 0},
+    {"seed", KEY_SEED, "SEED", 0,
+     "Fix the random generator seed (default: random)", 0},
     {0, 0, 0, 0, 0, 0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -93,6 +96,17 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                    DEFAULT_PRECISION_BINARY64);
     }
     ctx->precision_binary64 = (int32_t)val;
+    break;
+  }
+  case KEY_SEED: {
+    int error = 0;
+    char *endptr = NULL;
+    long val = interflop_strtol(arg, &endptr, &error);
+    if (error != 0) {
+      logger_error("--seed invalid value provided, must be an integer");
+    }
+    ctx->seed = (uint64_t)val;
+    ctx->choose_seed = true;
     break;
   }
   default:
@@ -133,6 +147,8 @@ void interflop_pre_init(interflop_panic_t panic, File *stream, void **context) {
       (prism_context_t *)interflop_malloc(sizeof(prism_context_t));
   ctx->precision_binary32 = DEFAULT_PRECISION_BINARY32;
   ctx->precision_binary64 = DEFAULT_PRECISION_BINARY64;
+  ctx->seed = 0ULL;
+  ctx->choose_seed = false;
   *context = ctx;
 }
 
@@ -154,6 +170,12 @@ struct interflop_backend_interface_t interflop_init(void *context) {
       ctx->precision_binary32);
   interflop_prism_set_default_virtual_precision_binary64(
       ctx->precision_binary64);
+
+  if (ctx->choose_seed) {
+    interflop_prism_set_seed(ctx->seed);
+  }
+  logger_info("seed = %lu%s\n", interflop_prism_get_seed(),
+              ctx->choose_seed ? " (fixed)" : " (random)");
 
   struct interflop_backend_interface_t iface = {
       .interflop_add_float = NULL,
