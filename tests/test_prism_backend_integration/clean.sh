@@ -1,2 +1,3 @@
 #!/bin/bash
-rm -f test test.o
+
+rm -Rf ./*~ .objects .bin .results ./*.ll ./*.bc ./*.vfcwrapper* ./*.log

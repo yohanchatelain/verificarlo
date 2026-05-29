@@ -5,7 +5,7 @@ set -e
 export SAMPLES=100
 
 # check if variable static is set
-: ${STATIC_DISPATCH:=0}
+: "${STATIC_DISPATCH:=0}"
 
 if [[ $STATIC_DISPATCH -eq 1 ]]; then
     DISPATCH="static=1"
@@ -15,7 +15,7 @@ fi
 
 # check if variable march_native is equal to 1
 # Ensure MARCH_NATIVE is set to either 1 or 0
-: ${MARCH_NATIVE:=0}
+: "${MARCH_NATIVE:=0}"
 
 if [[ $MARCH_NATIVE -eq 1 ]]; then
     MARCH="native=1"
@@ -52,7 +52,7 @@ check_executable() {
 
 mkdir -p .bin .objects .results
 
-optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
+optimizations=('-O0' '-O1' '-O2' '-O3' '-O3 -ffast-math')
 
 export VFC_BACKENDS_LOGGER=False
 
@@ -81,12 +81,14 @@ run_test() {
 
     local type="$1"
     local optimization="$2"
+    local optimization_str="${optimization// /_}"
     local op="$3"
     local size="$4"
     local op_name=${operation_name[$op]}
 
-    local bin=.bin/test_${optimization}_${size}
-    local file=.results/tmp.$type.x$size.$op_name.$optimization.txt
+
+    local bin=.bin/test_${optimization_str}_${size}
+    local file=.results/tmp.$type.x$size.$op_name.${optimization_str}.txt
 
     # skip if double and size is 16
     if [[ $type == "double" && $size == 16 ]]; then
@@ -110,21 +112,21 @@ run_test() {
 
     # Check if we have variabilities
     if [[ $(sort -u $file | wc -l) == 1 || $(sort -u $file | wc -l) == 0 ]]; then
-        echo "Failed!"
+        echo "Failed! No variability found in $file"
         echo "File $file failed"
         sort -u $file
         echo "To reproduce the error run:"
-        echo "make --silent optimization=$optimization size=$size ${MAKEFILE_OPTIONS}"
+        echo "make --silent optimization=${optimization_str} size=$size ${MAKEFILE_OPTIONS}"
         echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 
     # Check that variabililty is within 2 significant digits
     if [[ $(./check_variability.py $file) ]]; then
-        echo "Failed!"
+        echo "Failed! Variability is too high in $file"
         echo "File $file failed"
         echo "To reproduce the error run:"
-        echo "make --silent optimization=$optimization size=$size ${MAKEFILE_OPTIONS}"
+        echo "make --silent optimization=${optimization// /_} size=$size ${MAKEFILE_OPTIONS}"
         echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi

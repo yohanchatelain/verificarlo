@@ -19,12 +19,13 @@ DEBUG=--show-cmd \
 	--prism-backend-debug=getoperands  
 endif
 
+space := $(empty) $(empty)
 ifdef size
 vector_size=-DSIZE=$(size)
-BINARY=test_$(optimization)_$(size)
+BINARY=test_$(subst $(space),_,$(optimization))_$(size)
 SOURCE=test_vector.cpp
 else
-BINARY=test_$(optimization)
+BINARY=test_$(subst $(space),_,$(optimization))
 SOURCE=test_scalar.cpp
 endif
 

@@ -5,7 +5,7 @@ set -e
 export SAMPLES=100
 
 # check if variable static is set
-: ${STATIC_DISPATCH:=0}
+: "${STATIC_DISPATCH:=0}"
 
 if [[ $STATIC_DISPATCH -eq 1 ]]; then
     DISPATCH="static=1"
@@ -15,7 +15,7 @@ fi
 
 # check if variable march_native is equal to 1
 # Ensure MARCH_NATIVE is set to either 1 or 0
-: ${MARCH_NATIVE:=0}
+: "${MARCH_NATIVE:=0}"
 
 if [[ $MARCH_NATIVE -eq 1 ]]; then
     MARCH="native=1"
@@ -50,9 +50,9 @@ check_executable() {
     fi
 }
 
-mkdir -p .bin .objects .results
 
-optimizations=('-O0' '-O1' '-O2' '-O3' '-Ofast')
+mkdir -p .bin .objects .results
+optimizations=('-O0' '-O1' '-O2' '-O3' '-O3 -ffast-math')
 
 export VFC_BACKENDS_LOGGER=False
 
@@ -83,11 +83,11 @@ run_test() {
     local op="$3"
     local op_name=${operation_name[$op]}
 
-    local bin=.bin/test_${optimization}
-    local file=.results/tmp.$type.$op_name.$optimization.txt
+    local bin=.bin/test_${optimization// /_}
+    local file=.results/tmp.$type.$op_name.${optimization// /_}.txt
 
     if [[ $VERBOSE == 1 ]]; then
-        echo "Running test $type $op $optimization $op_name"
+        echo "Running test $type $op ${optimization// /_} $op_name"
     fi
 
     rm -f $file
@@ -103,21 +103,21 @@ run_test() {
 
     # Check if we have variabilities
     if [[ $(sort -u $file | wc -l) == 1 || $(sort -u $file | wc -l) == 0 ]]; then
-        echo "Failed!"
+        echo "Failed! No variability in $file"
         echo "File $file failed"
         sort -u $file
         echo "To reproduce the error run:"
-        echo "make --silent optimization=$optimization ${MAKEFILE_OPTIONS}"
+        echo "make --silent optimization=${optimization// /_} ${MAKEFILE_OPTIONS}"
         echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
 
     # Check that variabililty is within 2 significant digits
     if [[ $(./check_variability.py $file) ]]; then
-        echo "Failed!"
+        echo "Failed! Variability is too high in $file"
         echo "File $file failed"
         echo "To reproduce the error run:"
-        echo "make --silent optimization=$optimization ${MAKEFILE_OPTIONS}"
+        echo "make --silent optimization=${optimization// /_} ${MAKEFILE_OPTIONS}"
         echo "    $bin $type $op ${args["$type$op"]}"
         exit 1
     fi
@@ -125,11 +125,20 @@ run_test() {
 
 export -f run_test
 
-parallel --bar --halt now,fail=1 --header : \
-    "run_test {type} {optimization} {op}" \
-    ::: type float double \
-    ::: op "+" "-" "x" "/" \
-    ::: optimization "${optimizations[@]}"
+if [[ ${TEST_DEBUG} -eq 1 ]]; then
+    VERBOSE=1
+    echo "Running in debug mode"
+    parallel --header : "run_test {type} {optimization} {op}" \
+        ::: type float double \
+        ::: op "+" "-" "x" "/" \
+        ::: optimization "${optimizations[@]}"
+else
+    parallel --bar --halt now,fail=1 --header : \
+        "run_test {type} {optimization} {op}" \
+        ::: type float double \
+        ::: op "+" "-" "x" "/" \
+        ::: optimization "${optimizations[@]}"
+fi
 
 if [[ $? != 0 ]]; then
     echo "Failed!"

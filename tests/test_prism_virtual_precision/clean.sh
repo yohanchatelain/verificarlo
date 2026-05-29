@@ -1,2 +1,3 @@
 #!/bin/bash
-rm -f test_accuracy test_accuracy.o
+
+rm -f test_accuracy test.log

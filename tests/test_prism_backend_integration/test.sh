@@ -8,7 +8,7 @@
 #   2. interflop_call(INTERFLOP_SET_PRECISION_BINARY32/64, V)
 #      changes the PRISM virtual precision at runtime.
 
-set -ex
+set -e
 
 source "$(dirname "$0")/../paths.sh"
 
