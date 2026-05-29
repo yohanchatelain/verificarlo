@@ -55,6 +55,7 @@ mkdir -p .bin .objects .results
 optimizations=('-O0' '-O1' '-O2' '-O3' '-O3 -ffast-math')
 
 export VFC_BACKENDS_LOGGER=False
+export VFC_BACKENDS="libinterflop_prism.so"
 
 parallel --halt now,fail=1 --header : \
     "make --silent optimization={optimization} ${MAKEFILE_OPTIONS}" \
