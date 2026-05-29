@@ -439,112 +439,110 @@ __attribute__((constructor(0))) static void vfc_init(void) {
   bool prism_backend_loaded = false;
 
   if (vfc_backends == NULL) {
-#ifndef PRISM_BACKEND
     logger_error("At least one backend should be provided "
                  "by defining VFC_BACKENDS or VFC_BACKENDS_FROM_FILE "
                  "environment variables",
                  vfc_backends_env);
-#endif
-    /* PRISM handles arithmetic at the IR level; backends are optional. */
   }
 
   if (vfc_backends != NULL) {
 
-  /* Environnement variable to disable loading message */
-  char *silent_load_env = getenv("VFC_BACKENDS_SILENT_LOAD");
-  bool silent_load =
-      ((silent_load_env == NULL) || (strcasecmp(silent_load_env, "True") != 0))
-          ? false
-          : true;
+    /* Environnement variable to disable loading message */
+    char *silent_load_env = getenv("VFC_BACKENDS_SILENT_LOAD");
+    bool silent_load = ((silent_load_env == NULL) ||
+                        (strcasecmp(silent_load_env, "True") != 0))
+                           ? false
+                           : true;
 
-  /* For each backend, load and register the backend vtable interface
-     Backends .so are separated by semi-colons in the VFC_BACKENDS
-     env variable */
-  char *semicolonptr;
-  char *token = strtok_r(vfc_backends, ";", &semicolonptr);
-  while (token) {
-    /* Parse each backend arguments, argv[0] is the backend name */
-    int backend_argc = 0;
-    char *backend_argv[MAX_ARGS];
-    char *spaceptr;
-    char *arg = strtok_r(token, " ", &spaceptr);
-    while (arg) {
-      if (backend_argc >= MAX_ARGS) {
-        logger_error("%s syntax error: too many arguments", vfc_backends_env);
+    /* For each backend, load and register the backend vtable interface
+       Backends .so are separated by semi-colons in the VFC_BACKENDS
+       env variable */
+    char *semicolonptr;
+    char *token = strtok_r(vfc_backends, ";", &semicolonptr);
+    while (token) {
+      /* Parse each backend arguments, argv[0] is the backend name */
+      int backend_argc = 0;
+      char *backend_argv[MAX_ARGS];
+      char *spaceptr;
+      char *arg = strtok_r(token, " ", &spaceptr);
+      while (arg) {
+        if (backend_argc >= MAX_ARGS) {
+          logger_error("%s syntax error: too many arguments", vfc_backends_env);
+        }
+        backend_argv[backend_argc++] = arg;
+        arg = strtok_r(NULL, " ", &spaceptr);
       }
-      backend_argv[backend_argc++] = arg;
-      arg = strtok_r(NULL, " ", &spaceptr);
+      backend_argv[backend_argc] = NULL;
+
+      if (strstr(backend_argv[0], "libinterflop_prism") != NULL) {
+        prism_backend_loaded = true;
+      }
+
+      /* load the backend .so */
+      void *handle = dlopen(backend_argv[0], RTLD_NOW);
+      if (handle == NULL) {
+        logger_error("Cannot load backend %s: dlopen error\n%s", token,
+                     dlerror());
+      }
+
+      if (!silent_load)
+        logger_info("loaded backend %s\n", token);
+
+      /* get the addresses of the interflop_init, interflop_pre_init, and
+       * interflop_cli functions */
+      interflop_pre_init_t handle_pre_init =
+          (interflop_pre_init_t)load_function(token, handle,
+                                              "interflop_pre_init");
+      interflop_cli_t handle_cli =
+          (interflop_cli_t)load_function(token, handle, "interflop_cli");
+      interflop_init_t handle_init =
+          (interflop_init_t)load_function(token, handle, "interflop_init");
+
+      vfc_set_handlers(token, handle);
+
+      /* Register backend */
+      if (loaded_backends == MAX_BACKENDS) {
+        logger_error("No more than %d backends can be used simultaneously",
+                     MAX_BACKENDS);
+      }
+      handle_pre_init(_vfc_panic, stderr, &contexts[loaded_backends]);
+      handle_cli(backend_argc, backend_argv, contexts[loaded_backends]);
+      backends[loaded_backends] = handle_init(contexts[loaded_backends]);
+      loaded_backends++;
+
+      /* parse next backend token */
+      token = strtok_r(NULL, ";", &semicolonptr);
     }
-    backend_argv[backend_argc] = NULL;
 
-    if (strstr(backend_argv[0], "libinterflop_prism") != NULL) {
-      prism_backend_loaded = true;
+    if (loaded_backends == 0) {
+      logger_error("%s syntax error: at least one backend should be provided",
+                   vfc_backends_env);
     }
 
-    /* load the backend .so */
-    void *handle = dlopen(backend_argv[0], RTLD_NOW);
-    if (handle == NULL) {
-      logger_error("Cannot load backend %s: dlopen error\n%s", token,
-                   dlerror());
-    }
-
-    if (!silent_load)
-      logger_info("loaded backend %s\n", token);
-
-    /* get the addresses of the interflop_init, interflop_pre_init, and
-     * interflop_cli functions */
-    interflop_pre_init_t handle_pre_init = (interflop_pre_init_t)load_function(
-        token, handle, "interflop_pre_init");
-    interflop_cli_t handle_cli =
-        (interflop_cli_t)load_function(token, handle, "interflop_cli");
-    interflop_init_t handle_init =
-        (interflop_init_t)load_function(token, handle, "interflop_init");
-
-    vfc_set_handlers(token, handle);
-
-    /* Register backend */
-    if (loaded_backends == MAX_BACKENDS) {
-      logger_error("No more than %d backends can be used simultaneously",
-                   MAX_BACKENDS);
-    }
-    handle_pre_init(_vfc_panic, stderr, &contexts[loaded_backends]);
-    handle_cli(backend_argc, backend_argv, contexts[loaded_backends]);
-    backends[loaded_backends] = handle_init(contexts[loaded_backends]);
-    loaded_backends++;
-
-    /* parse next backend token */
-    token = strtok_r(NULL, ";", &semicolonptr);
-  }
-
-  if (loaded_backends == 0) {
-    logger_error("%s syntax error: at least one backend should be provided",
-                 vfc_backends_env);
-  }
-
-  /* Check that at least one backend implements each required operation.
-   * Skipped when the PRISM backend is loaded: PRISM replaces arithmetic
-   * at the IR level and does not go through the interflop dispatch table. */
-  if (!prism_backend_loaded) {
-    check_backends_implements(float, add);
-    check_backends_implements(float, sub);
-    check_backends_implements(float, mul);
-    check_backends_implements(float, div);
-    check_backends_implements(double, add);
-    check_backends_implements(double, sub);
-    check_backends_implements(double, mul);
-    check_backends_implements(double, div);
+    /* Check that at least one backend implements each required operation.
+     * Skipped when the PRISM backend is loaded: PRISM replaces arithmetic
+     * at the IR level and does not go through the interflop dispatch table. */
+    if (!prism_backend_loaded) {
+      check_backends_implements(float, add);
+      check_backends_implements(float, sub);
+      check_backends_implements(float, mul);
+      check_backends_implements(float, div);
+      check_backends_implements(double, add);
+      check_backends_implements(double, sub);
+      check_backends_implements(double, mul);
+      check_backends_implements(double, div);
 #ifdef INST_FCMP
-    check_backends_implements(float, cmp);
-    check_backends_implements(double, cmp);
+      check_backends_implements(float, cmp);
+      check_backends_implements(double, cmp);
 #endif
 #ifdef INST_FMA
-    check_backends_implements(float, fma);
-    check_backends_implements(double, fma);
+      check_backends_implements(float, fma);
+      check_backends_implements(double, fma);
 #endif
 #ifdef INST_CAST
-    check_backends_implements(double_to_float, cast);
+      check_backends_implements(double_to_float, cast);
 #endif
-  }
+    }
 
   } /* end if (vfc_backends != NULL) */
 
