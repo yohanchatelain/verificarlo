@@ -436,13 +436,19 @@ __attribute__((constructor(0))) static void vfc_init(void) {
 
   char *vfc_backends = NULL, *vfc_backends_env = NULL;
   parse_vfc_backends_env(&vfc_backends, &vfc_backends_env);
+  bool prism_backend_loaded = false;
 
   if (vfc_backends == NULL) {
+#ifndef PRISM_BACKEND
     logger_error("At least one backend should be provided "
                  "by defining VFC_BACKENDS or VFC_BACKENDS_FROM_FILE "
                  "environment variables",
                  vfc_backends_env);
+#endif
+    /* PRISM handles arithmetic at the IR level; backends are optional. */
   }
+
+  if (vfc_backends != NULL) {
 
   /* Environnement variable to disable loading message */
   char *silent_load_env = getenv("VFC_BACKENDS_SILENT_LOAD");
@@ -470,6 +476,10 @@ __attribute__((constructor(0))) static void vfc_init(void) {
       arg = strtok_r(NULL, " ", &spaceptr);
     }
     backend_argv[backend_argc] = NULL;
+
+    if (strstr(backend_argv[0], "libinterflop_prism") != NULL) {
+      prism_backend_loaded = true;
+    }
 
     /* load the backend .so */
     void *handle = dlopen(backend_argv[0], RTLD_NOW);
@@ -511,26 +521,32 @@ __attribute__((constructor(0))) static void vfc_init(void) {
                  vfc_backends_env);
   }
 
-  /* Check that at least one backend implements each required operation */
-  check_backends_implements(float, add);
-  check_backends_implements(float, sub);
-  check_backends_implements(float, mul);
-  check_backends_implements(float, div);
-  check_backends_implements(double, add);
-  check_backends_implements(double, sub);
-  check_backends_implements(double, mul);
-  check_backends_implements(double, div);
+  /* Check that at least one backend implements each required operation.
+   * Skipped when the PRISM backend is loaded: PRISM replaces arithmetic
+   * at the IR level and does not go through the interflop dispatch table. */
+  if (!prism_backend_loaded) {
+    check_backends_implements(float, add);
+    check_backends_implements(float, sub);
+    check_backends_implements(float, mul);
+    check_backends_implements(float, div);
+    check_backends_implements(double, add);
+    check_backends_implements(double, sub);
+    check_backends_implements(double, mul);
+    check_backends_implements(double, div);
 #ifdef INST_FCMP
-  check_backends_implements(float, cmp);
-  check_backends_implements(double, cmp);
+    check_backends_implements(float, cmp);
+    check_backends_implements(double, cmp);
 #endif
 #ifdef INST_FMA
-  check_backends_implements(float, fma);
-  check_backends_implements(double, fma);
+    check_backends_implements(float, fma);
+    check_backends_implements(double, fma);
 #endif
 #ifdef INST_CAST
-  check_backends_implements(double_to_float, cast);
+    check_backends_implements(double_to_float, cast);
 #endif
+  }
+
+  } /* end if (vfc_backends != NULL) */
 
 #ifdef DDEBUG
   /* Initialize ddebug */
