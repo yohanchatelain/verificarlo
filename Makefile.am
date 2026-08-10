@@ -1,10 +1,32 @@
 ACLOCAL_AMFLAGS=-I m4
 
+if ENABLE_RUST
+# Build all Rust libraries using cargo workspace
+all-local:
+	cargo build --workspace --release
+
+install-exec-local:
+	$(MKDIR_P) $(DESTDIR)$(libdir)
+	for lib in target/release/libinterflop_*.so; do \
+		if [ -f $$lib ]; then \
+			$(INSTALL) -m 0755 $$lib $(DESTDIR)$(libdir)/; \
+		fi; \
+	done
+	for lib in target/release/libvfc_probes.a target/release/libvfcwrapper.a; do \
+		if [ -f $$lib ]; then \
+			$(INSTALL) -m 0644 $$lib $(DESTDIR)$(libdir)/; \
+		fi; \
+	done
+	for component in hashmap fma rng; do \
+		ln -sf libinterflop_stdlib.so $(DESTDIR)$(libdir)/libinterflop_$$component.so 2>/dev/null || true; \
+	done
+endif
+
 all: $(SUBDIRS)
 
 SUBDIRS=src/
 
-dist_bin_SCRIPTS=verificarlo verificarlo-c verificarlo-f verificarlo-c++
+dist_bin_SCRIPTS=verificarlo verificarlo-c verificarlo-f verificarlo-c++ verificarlo-rust
 
 edit_script = $(SED) -e 's,%LIBDIR%,$(libdir),' -e 's,%INCLUDEDIR%,$(includedir),' $(NULL)
 
@@ -23,6 +45,9 @@ verificarlo-c++:
 verificarlo-f:
 	chmod a-w $@
 
+verificarlo-rust:
+	chmod a-w $@
+
 CLEANFILES = verificarlo
 
 check:
@@ -32,8 +57,8 @@ install-interflop-stdlib:
 	make -C src/interflop-stdlib install
 
 install-exec-hook: install-interflop-stdlib
-	$(PYTHON) -m pip install $(PYTHON_INSTALL_FLAGS) . && \
-	echo "Run 'source $(setenvdir)/set-env' to set environment variables"
+	-$(PYTHON) -m pip install $(PYTHON_INSTALL_FLAGS) . || true
+	@echo "Run 'source $(setenvdir)/set-env' to set environment variables"
 
 installcheck:
 # Run tests
@@ -50,7 +75,11 @@ installcheck:
 	fi
 
 # clean-local is a clean dependency of autotool clean target
-clean-local: cleanstdlib cleantests
+clean-local: cleanstdlib cleantests clean-rust
+
+clean-rust:
+	cargo clean 2>/dev/null || true
+	-rm -rf target
 
 cleanstdlib:
 # Clean interflop-stdlib directory

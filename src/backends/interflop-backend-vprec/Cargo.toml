@@ -1,0 +1,15 @@
+[package]
+name = "interflop_vprec"
+version = "2.5.1"
+edition = "2021"
+
+[lib]
+name = "interflop_vprec"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc.workspace = true
+interflop_stdlib = { path = "../../interflop-stdlib" }
+
+[build-dependencies]
+cc = "1.0"

@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/interflop-stdlib",
+    "src/backends/interflop-backend-ieee",
+    "src/backends/interflop-backend-cancellation",
+    "src/backends/interflop-backend-bitmask",
+    "src/backends/interflop-backend-mcaint",
+    "src/backends/interflop-backend-mcaquad",
+    "src/backends/interflop-backend-vprec",
+    "src/common",
+    "src/vfcwrapper",
+]
+
+[workspace.dependencies]
+libc = "0.2"
+lazy_static = "1.4"
+once_cell = "1.18"
+cc = "1.0"

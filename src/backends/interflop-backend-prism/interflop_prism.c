@@ -32,9 +32,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "interflop/interflop.h"
-#include "interflop/interflop_stdlib.h"
-#include "interflop/iostream/logger.h"
+#include "interflop.h"
+#include "interflop_stdlib.h"
+#include "iostream/logger.h"
 #include "prism_api.h"
 
 /* Default precisions match IEEE 754 hardware precision */

@@ -165,6 +165,16 @@ static void maybe_rehash_map(vfc_hashmap_t map) {
     map->mask = map->capacity - 1;
     map->items =
         (ISize_t *)interflop_calloc(map->capacity, 2 * sizeof(ISize_t));
+
+    if (map->items == Null) {
+      // Restore old state if allocation fails
+      map->nbits--;
+      map->capacity = old_capacity;
+      map->mask = old_capacity - 1;
+      map->items = old_items;
+      return;
+    }
+
     map->nitems = 0;
     map->n_deleted_items = 0;
     for (ii = 0; ii < old_capacity; ii++) {
@@ -247,6 +257,7 @@ ISize_t vfc_hashmap_str_function(const char *id) {
 // Free the hashmap
 void vfc_hashmap_free(vfc_hashmap_t map) {
   for (ISize_t ii = 0; ii < map->capacity; ii++)
-    if (get_value_at(map->items, ii) != 0 && get_value_at(map->items, ii) != 0)
+    // Check that value is not NULL and not a deleted marker (1)
+    if (get_value_at(map->items, ii) != 0 && get_value_at(map->items, ii) != 1)
       interflop_free((void *)get_value_at(map->items, ii));
 }

@@ -1,0 +1,12 @@
+[package]
+name = "interflop_bitmask"
+version = "2.5.1"
+edition = "2021"
+
+[lib]
+name = "interflop_bitmask"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc.workspace = true
+interflop_stdlib = { path = "../../interflop-stdlib" }

@@ -4,10 +4,14 @@ AC_PREREQ([2.69])
 AC_INIT([verificarlo], [VERIFICARLO_VERSION], [])
 AM_SILENT_RULES([yes])
 AC_CONFIG_AUX_DIR(autoconf)
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIRS([m4 src/interflop-stdlib/m4])
 AC_CONFIG_HEADERS([config.h])
 AC_REQUIRE_AUX_FILE([tap-driver.sh])
 AM_INIT_AUTOMAKE([subdir-objects silent-rules foreign])
+
+# Call these early so their conditionals are available to automake
+AX_LTO()
+AX_WARNINGS()
 
 LT_INIT
 AC_PROG_CXX
@@ -76,6 +80,20 @@ AC_ARG_WITH([prism],
   [with_prism="$withval"],
   [with_prism=yes])
 AM_CONDITIONAL([BUILD_PRISM], [test "x$with_prism" != "xno"])
+
+AC_ARG_ENABLE([rust],
+  AS_HELP_STRING([--enable-rust@<:@=yes|no@:>@], [enable Rust implementations of backends and stdlib (default: yes)]),
+  [enable_rust="$enableval"],
+  [enable_rust=yes])
+AM_CONDITIONAL([ENABLE_RUST], [test "x$enable_rust" != "xno"])
+
+if test "x$enable_rust" != "xno"; then
+  AC_PATH_PROG([CARGO], [cargo], [])
+  if test -z "$CARGO"; then
+    AC_MSG_ERROR([cargo not found. Please install Rust and Cargo to use --enable-rust.])
+  fi
+  AC_MSG_NOTICE([Rust support enabled via Cargo])
+fi
 
 if test "x$with_flang" = "xno"; then
    AC_MSG_NOTICE([--with-flang=no was given. Disabling Fortran support.])
@@ -246,8 +264,6 @@ if test "x$with_prism" != "xno"; then
    AC_CONFIG_SUBDIRS([src/backends/prism])
 fi
 
-AX_WARNINGS()
-AX_LTO()
 AX_INTERFLOP_STDLIB()
 AX_INTERFLOP_BACKENDS()
 

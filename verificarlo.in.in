@@ -37,7 +37,7 @@ libvfcinstrument = LIBDIR + "/libvfcinstrument.so"
 libvfcfuncinstrument = LIBDIR + "/libvfcfuncinstrument.so"
 libvfcinstrumentprism = LIBDIR + "/libvfcinstrumentprism.so"
 libprismdir = "%INCLUDEDIR%"
-mcalib_options = "-rpath {0} -L {0}".format(LIBDIR)
+mcalib_options = "-Wl,-rpath,{0} -L{0}".format(LIBDIR)
 mcalib_includes = PROJECT_ROOT + "/../include/"
 vfcwrapper = mcalib_includes + "vfcwrapper.c"
 llvm_bindir = "@LLVM_BINDIR@"
@@ -206,7 +206,7 @@ def linker_mode(sources, options, libraries, output, args):
 
     sources = " ".join([os.path.splitext(s)[0] + ".o" for s in sources])
     interflop_libs = " ".join(
-        ["-linterflop_stdlib", "-linterflop_hashmap", "-linterflop_logger"]
+        ["-Wl,--no-as-needed", "-linterflop_stdlib", "-linterflop_hashmap", "-linterflop_logger", "-Wl,--as-needed"]
     )
     interflop_stdlib_flags = f" -L{libinterflop_stdlib_lib} {interflop_libs} "
 

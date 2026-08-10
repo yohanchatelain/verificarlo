@@ -93,6 +93,11 @@ vfc_probes vfc_init_probes() {
   vfc_probes probes;
   probes.map = vfc_hashmap_create();
 
+  if (probes.map == NULL) {
+    fprintf(stderr, "Error [verificarlo]: failed to create hashmap for probes\n");
+    exit(1);
+  }
+
   return probes;
 }
 
@@ -119,10 +124,17 @@ void vfc_free_probes(vfc_probes *probes) {
 
 // Helper function to generate the key from test and variable name
 char *gen_probe_key(char *testName, char *varName) {
-  char *key = (char *)malloc(strlen(testName) + strlen(varName) + 2);
-  strcpy(key, testName);
-  strcat(key, ",");
-  strcat(key, varName);
+  size_t testLen = strlen(testName);
+  size_t varLen = strlen(varName);
+  char *key = (char *)malloc(testLen + varLen + 2);
+
+  if (key == NULL) {
+    fprintf(stderr, "Error [verificarlo]: memory allocation failed in gen_probe_key\n");
+    exit(1);
+  }
+
+  // Use snprintf for bounds-checked string operations
+  snprintf(key, testLen + varLen + 2, "%s,%s", testName, varName);
 
   return key;
 }
@@ -175,11 +187,27 @@ int vfc_probe_kernel(vfc_probes *probes, char *testName, char *varName,
 
   // Insert the element in the hashmap
   vfc_probe_node *newProbe = (vfc_probe_node *)malloc(sizeof(vfc_probe_node));
+  if (newProbe == NULL) {
+    fprintf(stderr, "Error [verificarlo]: memory allocation failed for probe node\n");
+    free(key);
+    exit(1);
+  }
+
   newProbe->key = key;
   newProbe->value = val;
   newProbe->accuracyThreshold = accuracyThreshold;
-  newProbe->mode = (char *)malloc(sizeof(char) * (strlen(mode) + 1));
-  strcpy(newProbe->mode, mode);
+
+  size_t modeLen = strlen(mode);
+  newProbe->mode = (char *)malloc(modeLen + 1);
+  if (newProbe->mode == NULL) {
+    fprintf(stderr, "Error [verificarlo]: memory allocation failed for probe mode\n");
+    free(key);
+    free(newProbe);
+    exit(1);
+  }
+
+  // Use snprintf for bounds-checked string copy
+  snprintf(newProbe->mode, modeLen + 1, "%s", mode);
 
   vfc_hashmap_insert(probes->map, vfc_hashmap_str_function(key), newProbe);
 

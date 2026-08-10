@@ -1,0 +1,12 @@
+[package]
+name = "interflop_ieee"
+version = "2.5.1"
+edition = "2021"
+
+[lib]
+name = "interflop_ieee"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc.workspace = true
+interflop_stdlib = { path = "../../interflop-stdlib" }

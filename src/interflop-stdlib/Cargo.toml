@@ -1,0 +1,15 @@
+[package]
+name = "interflop_stdlib"
+version = "2.5.1"
+edition = "2021"
+
+[lib]
+name = "interflop_stdlib"
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+libc.workspace = true
+lazy_static.workspace = true
+
+[build-dependencies]
+cc = "1.0"

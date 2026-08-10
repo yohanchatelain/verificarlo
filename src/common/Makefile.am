@@ -11,7 +11,7 @@ libvfc_probes_la_CFLAGS = \
     -I@INTERFLOP_INCLUDEDIR@ \
     $(WARNING_FLAGS)
 
-libvfc_probes_la_LIBADD = @INTERFLOP_LIBDIR@/libinterflop_hashmap.la 
+libvfc_probes_la_LIBADD = -L$(top_builddir)/target/release -linterflop_stdlib
 
 if BUILD_FLANG
 lib_LIBRARIES = libvfc_probes_f.a

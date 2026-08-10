@@ -223,7 +223,10 @@ int _vfi_scan_line(FILE *fi, char **tokens) {
   int nb_token = 0;
 #pragma unroll
   while (token) {
-    interflop_strcpy(tokens[nb_token], token);
+    // Use interflop_strncpy for bounds-checked copy to prevent buffer overflow
+    interflop_strncpy(tokens[nb_token], token, STRING_BUFF - 1);
+    // Ensure null-termination
+    tokens[nb_token][STRING_BUFF - 1] = '\0';
     nb_token++;
     token = interflop_strtok_r(NULL, "\t", &tabptr);
   }
@@ -236,7 +239,8 @@ int _vfi_scan_header(FILE *fi, _vfi_t *function_ptr) {
     return nb_token;
   }
 
-  interflop_strcpy(function_ptr->id, tokens_header[0]);
+  interflop_strncpy(function_ptr->id, tokens_header[0], FUNCTION_ID_MAX_LENGTH - 1);
+  function_ptr->id[FUNCTION_ID_MAX_LENGTH - 1] = '\0';
   function_ptr->isLibraryFunction =
       (char)_vfi_scan_int(tokens_header[1], "isLibraryFunction");
   function_ptr->isIntrinsicFunction =
@@ -261,7 +265,8 @@ int _vfi_scan_input(FILE *fi, _vfi_t *function_ptr, int arg_pos) {
   _vfi_argument_data_t *arg_data = &function_ptr->input_args[arg_pos];
 
   // tokens[0] == "input:"
-  interflop_strcpy(arg_data->arg_id, tokens_inputs[1]);
+  interflop_strncpy(arg_data->arg_id, tokens_inputs[1], ARG_ID_MAX_LENGTH - 1);
+  arg_data->arg_id[ARG_ID_MAX_LENGTH - 1] = '\0';
   arg_data->data_type = (short)_vfi_scan_int(tokens_inputs[2], "data_type");
   arg_data->mantissa_length =
       (int)_vfi_scan_int(tokens_inputs[3], "mantissa_length");
@@ -278,7 +283,8 @@ int _vfi_scan_output(FILE *fi, _vfi_t *function_ptr, int arg_pos) {
   _vfi_argument_data_t *arg_data = &function_ptr->output_args[arg_pos];
 
   // tokens[0] == "output:"
-  interflop_strcpy(arg_data->arg_id, tokens_outputs[1]);
+  interflop_strncpy(arg_data->arg_id, tokens_outputs[1], ARG_ID_MAX_LENGTH - 1);
+  arg_data->arg_id[ARG_ID_MAX_LENGTH - 1] = '\0';
   arg_data->data_type = (short)_vfi_scan_int(tokens_outputs[2], "data_type");
   arg_data->mantissa_length =
       (int)_vfi_scan_int(tokens_outputs[3], "mantissa_length");
@@ -424,7 +430,8 @@ void _vfi_finalize(void *context) {
 void _init_function_inst_arg(_vfi_argument_data_t *arg, char *arg_id,
                              enum FTYPES type) {
   arg->data_type = type;
-  interflop_strcpy(arg->arg_id, arg_id);
+  interflop_strncpy(arg->arg_id, arg_id, ARG_ID_MAX_LENGTH - 1);
+  arg->arg_id[ARG_ID_MAX_LENGTH - 1] = '\0';
   arg->min_range = INT_MAX;
   arg->max_range = INT_MIN;
   arg->exponent_length = (type == FDOUBLE || type == FDOUBLE_PTR)
@@ -563,7 +570,8 @@ void _vfi_enter_function(interflop_function_stack_t *stack, void *context,
     function_inst = interflop_malloc(sizeof(_vfi_t));
 
     // initialize the structure
-    interflop_strcpy(function_inst->id, function_info->id);
+    interflop_strncpy(function_inst->id, function_info->id, FUNCTION_ID_MAX_LENGTH - 1);
+    function_inst->id[FUNCTION_ID_MAX_LENGTH - 1] = '\0';
     function_inst->isLibraryFunction = function_info->isLibraryFunction;
     function_inst->isIntrinsicFunction = function_info->isIntrinsicFunction;
     function_inst->useFloat = function_info->useFloat;
@@ -630,12 +638,12 @@ void _vfi_enter_function(interflop_function_stack_t *stack, void *context,
     void *raw_value = va_arg(ap, void *);
 
     _vfi_argument_data_t *arg = &function_inst->input_args[i];
-    const int exponent_length = arg->exponent_length;
-    const int mantissa_length = arg->mantissa_length;
 
     if (new_flag) {
       _init_function_inst_arg(arg, arg_id, type);
     }
+    const int exponent_length = arg->exponent_length;
+    const int mantissa_length = arg->mantissa_length;
 
     if (type == FDOUBLE) {
       double *value = (double *)raw_value;
@@ -767,13 +775,13 @@ void _vfi_exit_function(interflop_function_stack_t *stack, void *context,
     void *raw_value = va_arg(ap, void *);
 
     _vfi_argument_data_t *arg = &function_inst->output_args[i];
-    const int exponent_length = arg->exponent_length;
-    const int mantissa_length = arg->mantissa_length;
 
     if (new_flag) {
       // initialize arguments data
       _init_function_inst_arg(arg, arg_id, type);
     }
+    const int exponent_length = arg->exponent_length;
+    const int mantissa_length = arg->mantissa_length;
 
     if (type == FDOUBLE) {
       double *value = (double *)raw_value;

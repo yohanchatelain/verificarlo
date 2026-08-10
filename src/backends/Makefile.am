@@ -15,6 +15,7 @@ INTERFLOP_PRISM_LIB = libinterflop_prism.so
 # subdir's install-exec-hook, which runs before this install-exec-local.
 install-exec-local:
 	$(CC) -shared -fPIC -O2 \
+	    -I$(top_srcdir)/src/interflop-stdlib \
 	    -I$(INTERFLOP_INCLUDEDIR) \
 	    -L$(INTERFLOP_LIBDIR) \
 	    $(INTERFLOP_PRISM_SRC) \

@@ -2,7 +2,7 @@ AC_INIT([interflop-backend-mcaint],[1.0],[interflop.project@gmail.com])
 AM_SILENT_RULES([yes])
 AC_CONFIG_AUX_DIR(autoconf)
 AM_INIT_AUTOMAKE([subdir-objects -Wall -Werror foreign])
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_MACRO_DIRS([m4 ../../interflop-stdlib/m4])
 AC_PROG_CC
 AM_PROG_AR
 AC_CONFIG_HEADERS([config.h])

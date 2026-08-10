@@ -1,0 +1,18 @@
+[package]
+name = "vfc_probes"
+version = "2.5.1"
+edition = "2021"
+
+[lib]
+name = "vfc_probes"
+crate-type = ["staticlib"]
+
+[dependencies]
+libc.workspace = true
+interflop_stdlib = { path = "../interflop-stdlib" }
+once_cell.workspace = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

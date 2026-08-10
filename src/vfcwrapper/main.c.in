@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
@@ -457,10 +458,8 @@ __attribute__((constructor(0))) static void vfc_init(void) {
 
     /* Environnement variable to disable loading message */
     char *silent_load_env = getenv("VFC_BACKENDS_SILENT_LOAD");
-    bool silent_load = ((silent_load_env == NULL) ||
-                        (strcasecmp(silent_load_env, "True") != 0))
-                           ? false
-                           : true;
+    bool silent_load =
+        (silent_load_env != NULL && strcasecmp(silent_load_env, "True") == 0);
 
     /* For each backend, load and register the backend vtable interface
        Backends .so are separated by semi-colons in the VFC_BACKENDS
@@ -493,9 +492,6 @@ __attribute__((constructor(0))) static void vfc_init(void) {
                      dlerror());
       }
 
-      if (!silent_load)
-        logger_info("loaded backend %s\n", token);
-
       /* get the addresses of the interflop_init, interflop_pre_init, and
        * interflop_cli functions */
       interflop_pre_init_t handle_pre_init =
@@ -514,6 +510,9 @@ __attribute__((constructor(0))) static void vfc_init(void) {
                      MAX_BACKENDS);
       }
       handle_pre_init(_vfc_panic, stderr, &contexts[loaded_backends]);
+
+      if (!silent_load)
+        logger_info("loaded backend %s\n", token);
       handle_cli(backend_argc, backend_argv, contexts[loaded_backends]);
       backends[loaded_backends] = handle_init(contexts[loaded_backends]);
       loaded_backends++;

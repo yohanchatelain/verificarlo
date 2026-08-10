@@ -35,3 +35,6 @@ libtool
 **/m4/ltversion.m4
 **/m4/lt~obsolete.m4
 venv/
+target/
+install/
+**/release/

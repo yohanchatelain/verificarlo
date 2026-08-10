@@ -1,0 +1,12 @@
+[package]
+name = "vfcwrapper"
+version = "2.5.1"
+edition = "2021"
+
+[lib]
+name = "vfcwrapper"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+libc.workspace = true
+interflop_stdlib = { path = "../interflop-stdlib" }
