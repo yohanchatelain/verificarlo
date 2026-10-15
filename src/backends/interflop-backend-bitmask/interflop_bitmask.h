@@ -30,6 +30,7 @@
 #define BITMASK_SEED_DEFAULT 0ULL
 #define BITMASK_DAZ_DEFAULT IFalse
 #define BITMASK_FTZ_DEFAULT IFalse
+#define BITMASK_RANDOM_BITS_DEFAULT 0
 
 /* define the available BITMASK modes of operation */
 typedef enum {
@@ -45,6 +46,10 @@ typedef enum {
   bitmask_operator_zero,
   bitmask_operator_one,
   bitmask_operator_rand,
+  bitmask_operator_center,   /* zero-mean dither, n+1 random bits      */
+  bitmask_operator_center_t, /* zero-mean amortized over 2 ops (toggle) */
+  bitmask_operator_sr,       /* stochastic rounding to t bits           */
+  bitmask_operator_sr_lazy,  /* exact SR, ~2 random bits per op on avg  */
   _bitmask_operator_end_
 } bitmask_operator;
 
@@ -58,6 +63,8 @@ typedef struct {
   IBool choose_seed;
   IBool daz;
   IBool ftz;
+  int random_bits; /* <= 0: as many as perturbed bits */
+  IBool exact;     /* binary32 center/sr: perturb the exact result */
 } bitmask_context_t;
 
 typedef bitmask_context_t bitmask_conf_t;

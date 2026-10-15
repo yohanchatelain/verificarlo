@@ -49,3 +49,4 @@ libinterflop_bitmask_no_tls_la_LIBADD = \
 includesdir=$(includedir)/interflop
 includes_HEADERS= interflop_bitmask.h
 
+noinst_HEADERS = bitmask_unbiased.h

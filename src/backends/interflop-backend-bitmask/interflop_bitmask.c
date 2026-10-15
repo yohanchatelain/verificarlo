@@ -63,7 +63,9 @@ typedef enum {
   KEY_OPERATOR = 'o',
   KEY_SEED = 's',
   KEY_DAZ = 'd',
-  KEY_FTZ = 'f'
+  KEY_FTZ = 'f',
+  KEY_RBITS = 'r',
+  KEY_EXACT = 'x'
 } key_args;
 
 static const char backend_name[] = "interflop-bitmask";
@@ -76,6 +78,8 @@ static const char key_operator_str[] = "operator";
 static const char key_seed_str[] = "seed";
 static const char key_daz_str[] = "daz";
 static const char key_ftz_str[] = "ftz";
+static const char key_rbits_str[] = "random-bits";
+static const char key_exact_str[] = "exact";
 
 /* string name of the bitmask modes */
 static const char *const BITMASK_MODE_STR[] = {[bitmask_mode_ieee] = "ieee",
@@ -87,7 +91,11 @@ static const char *const BITMASK_MODE_STR[] = {[bitmask_mode_ieee] = "ieee",
 static const char *const BITMASK_OPERATOR_STR[] = {
     [bitmask_operator_zero] = "zero",
     [bitmask_operator_one] = "one",
-    [bitmask_operator_rand] = "rand"};
+    [bitmask_operator_rand] = "rand",
+    [bitmask_operator_center] = "center",
+    [bitmask_operator_center_t] = "center-t",
+    [bitmask_operator_sr] = "sr",
+    [bitmask_operator_sr_lazy] = "sr-lazy"};
 
 #define GET_BINARYN_T(X)                                                       \
   _Generic(X, float: ctx->binary32_mantissa, double: ctx->binary64_mantissa)
@@ -137,7 +145,7 @@ static void _set_bitmask_operator(const bitmask_operator bitmask,
   bitmask_context_t *ctx = (bitmask_context_t *)context;
   if (bitmask >= _bitmask_operator_end_) {
     logger_error("--%s invalid value provided, must be one of: "
-                 "{zero, one, rand}.",
+                 "{zero, one, rand, center, center-t, sr, sr-lazy}.",
                  key_operator_str);
   }
   ctx->operator= bitmask;
@@ -233,6 +241,8 @@ static uint64_t get_random_binary64_mask() {
   _Generic(X,                                                                  \
       float: get_random_binary32_mask,                                         \
       double: get_random_binary64_mask)(CTX)
+
+#include "bitmask_unbiased.h"
 
 /******************** BITMASK ARITHMETIC FUNCTIONS ********************
  * The following set of functions perform the BITMASK operation. Operands
@@ -336,6 +346,27 @@ static void _inexact_binary32(void *context, float *x) {
   if (_MUST_NOT_BE_NOISED(*x, ctx->binary32_mantissa, ctx->mode)) {
     return;
   }
+  switch (ctx->operator) {
+  case bitmask_operator_center:
+  case bitmask_operator_center_t:
+    _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                           (unsigned long long)(ctx->seed), false);
+    *x = _center_binary32(*x, ctx->binary32_mantissa + 1, ctx->random_bits,
+                           ctx->operator== bitmask_operator_center_t);
+    return;
+  case bitmask_operator_sr:
+    _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                           (unsigned long long)(ctx->seed), false);
+    *x = _sr_binary32(*x, ctx->binary32_mantissa + 1, ctx->random_bits);
+    return;
+  case bitmask_operator_sr_lazy:
+    _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                           (unsigned long long)(ctx->seed), false);
+    *x = _sr_lazy_binary32(*x, ctx->binary32_mantissa + 1);
+    return;
+  default:
+    break;
+  }
   binary32 b32 = {.f32 = *x};
   _INEXACT(context, b32);
 }
@@ -344,6 +375,27 @@ static void _inexact_binary64(void *context, double *x) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
   if (_MUST_NOT_BE_NOISED(*x, ctx->binary64_mantissa, ctx->mode)) {
     return;
+  }
+  switch (ctx->operator) {
+  case bitmask_operator_center:
+  case bitmask_operator_center_t:
+    _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                           (unsigned long long)(ctx->seed), false);
+    *x = _center_binary64(*x, ctx->binary64_mantissa + 1, ctx->random_bits,
+                           ctx->operator== bitmask_operator_center_t);
+    return;
+  case bitmask_operator_sr:
+    _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                           (unsigned long long)(ctx->seed), false);
+    *x = _sr_binary64(*x, ctx->binary64_mantissa + 1, ctx->random_bits);
+    return;
+  case bitmask_operator_sr_lazy:
+    _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                           (unsigned long long)(ctx->seed), false);
+    *x = _sr_lazy_binary64(*x, ctx->binary64_mantissa + 1);
+    return;
+  default:
+    break;
   }
   binary64 b64 = {.f64 = *x};
   _INEXACT(context, b64);
@@ -434,9 +486,45 @@ static double _bitmask_binary64_unary_op(double a, const bitmask_operations op,
   _BITMASK_UNARY_OP(a, op, context);
 }
 
+/* binary32 'exact' path for the unbiased operators: the operation is
+ * evaluated in binary64 (exact for +, -, *; one rounding for /), the
+ * perturbation is applied to that value and the result is brought back to
+ * binary32 by stochastic rounding, so E[result] = exact result (up to the
+ * binary64 rounding of '/').  Without it the perturbation is applied to
+ * RN_24(a op b) and inherits the bias RN_24(a op b) - (a op b). */
+static float _bitmask_binary32_exact_op(float a, float b,
+                                        const bitmask_operations op,
+                                        bitmask_context_t *ctx) {
+  double r = 0;
+  PERFORM_BIN_OP(op, r, (double)a, (double)b);
+  if (FPCLASSIFY(r) != FP_NORMAL && FPCLASSIFY(r) != FP_SUBNORMAL)
+    return (float)r;
+  _init_rng_state_struct(&rng_state, ctx->choose_seed,
+                         (unsigned long long)(ctx->seed), false);
+  const int t = ctx->binary32_mantissa + 1;
+  if (ctx->operator== bitmask_operator_sr) {
+    r = _sr_binary64(r, t, ctx->random_bits);
+  } else if (ctx->operator== bitmask_operator_sr_lazy) {
+    r = _sr_lazy_binary64(r, t);
+  } else {
+    r = _center_binary64(r, t, ctx->random_bits,
+                         ctx->operator== bitmask_operator_center_t);
+    r = _sr_binary64(r, FLOAT_PREC, 0); /* unbiased return to 24 bits */
+  }
+  return (float)r; /* exact unless outside the binary32 normal range */
+}
+
 static float _bitmask_binary32_binary_op(float a, float b,
                                          const bitmask_operations op,
                                          void *context) {
+  bitmask_context_t *ctx = (bitmask_context_t *)context;
+  if (ctx->exact && ctx->mode == bitmask_mode_ob &&
+      (ctx->operator== bitmask_operator_sr ||
+       ctx->operator== bitmask_operator_sr_lazy ||
+       ctx->operator== bitmask_operator_center ||
+       ctx->operator== bitmask_operator_center_t)) {
+    return _bitmask_binary32_exact_op(a, b, op, ctx);
+  }
   _BITMASK_BINARY_OP(a, b, op, context);
 }
 
@@ -539,12 +627,16 @@ static const struct argp_option options[] = {
     {key_mode_str, KEY_MODE, "MODE", 0,
      "select MCA mode among {ieee, mca, pb, rr}", 0},
     {key_operator_str, KEY_OPERATOR, "OPERATOR", 0,
-     "select BITMASK operator among {zero, one, rand}", 0},
+     "select BITMASK operator among {zero, one, rand, center, center-t, sr, sr-lazy}", 0},
     {key_seed_str, KEY_SEED, "SEED", 0, "fix the random generator seed", 0},
     {key_daz_str, KEY_DAZ, 0, 0,
      "denormals-are-zero: sets denormals inputs to zero", 0},
     {key_ftz_str, KEY_FTZ, 0, 0, "flush-to-zero: sets denormal output to zero",
      0},
+    {key_exact_str, KEY_EXACT, 0, 0,
+     "binary32 center/sr: perturb the exact result (unbiased w.r.t. it)", 0},
+    {key_rbits_str, KEY_RBITS, "BITS", 0,
+     "random bits per operation for center/sr (0: all perturbed bits)", 0},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -608,11 +700,34 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     } else if (interflop_strcasecmp(BITMASK_OPERATOR_STR[bitmask_operator_rand],
                                     arg) == 0) {
       _set_bitmask_operator(bitmask_operator_rand, ctx);
+    } else if (interflop_strcasecmp(
+                   BITMASK_OPERATOR_STR[bitmask_operator_center], arg) == 0) {
+      _set_bitmask_operator(bitmask_operator_center, ctx);
+    } else if (interflop_strcasecmp(
+                   BITMASK_OPERATOR_STR[bitmask_operator_center_t], arg) == 0) {
+      _set_bitmask_operator(bitmask_operator_center_t, ctx);
+    } else if (interflop_strcasecmp(BITMASK_OPERATOR_STR[bitmask_operator_sr],
+                                    arg) == 0) {
+      _set_bitmask_operator(bitmask_operator_sr, ctx);
+    } else if (interflop_strcasecmp(
+                   BITMASK_OPERATOR_STR[bitmask_operator_sr_lazy], arg) == 0) {
+      _set_bitmask_operator(bitmask_operator_sr_lazy, ctx);
     } else {
       logger_error("--%s invalid value provided, must be "
                    "one of: "
-                   "{zero, one, rand}.",
+                   "{zero, one, rand, center, center-t, sr, sr-lazy}.",
                    key_operator_str);
+    }
+    break;
+  case KEY_EXACT:
+    ctx->exact = true;
+    break;
+  case KEY_RBITS:
+    error = 0;
+    ctx->random_bits = (int)interflop_strtol(arg, &endptr, &error);
+    if (error != 0 || ctx->random_bits < 0 || ctx->random_bits > 62) {
+      logger_error("--%s invalid value provided, must be in [0, 62]",
+                   key_rbits_str);
     }
     break;
   case KEY_SEED:
@@ -673,6 +788,8 @@ static void _bitmask_init_context(bitmask_context_t *ctx) {
   ctx->seed = BITMASK_SEED_DEFAULT;
   ctx->daz = BITMASK_DAZ_DEFAULT;
   ctx->ftz = BITMASK_FTZ_DEFAULT;
+  ctx->random_bits = BITMASK_RANDOM_BITS_DEFAULT;
+  ctx->exact = false;
 }
 
 void INTERFLOP_BITMASK_API(pre_init)(interflop_panic_t panic, File *stream,
@@ -710,6 +827,8 @@ void INTERFLOP_BITMASK_API(configure)(void *configure, void *context) {
   _set_bitmask_operator(conf->operator, ctx);
   _set_bitmask_daz(conf->daz, ctx);
   _set_bitmask_ftz(conf->ftz, ctx);
+  ctx->random_bits = conf->random_bits;
+  ctx->exact = conf->exact;
 }
 
 static void print_information_header(void *context) {
@@ -737,6 +856,8 @@ static void print_information_header(void *context) {
               BITMASK_OPERATOR_STR[ctx->operator]);
   logger_info("%s = %s\n", key_daz_str, ctx->daz ? "true" : "false");
   logger_info("%s = %s\n", key_ftz_str, ctx->ftz ? "true" : "false");
+  logger_info("%s = %d\n", key_rbits_str, ctx->random_bits);
+  logger_info("%s = %s\n", key_exact_str, ctx->exact ? "true" : "false");
   logger_info("%s = %lu%s\n", key_seed_str, ctx->seed,
               ctx->choose_seed ? " (fixed)" : "");
 }
