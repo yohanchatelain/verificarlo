@@ -297,14 +297,38 @@ static uint64_t get_random_binary64_mask() {
     logger_error("invalid operator %c", OP);                                   \
   };
 
-#define _MUST_NOT_BE_NOISED(X, VIRTUAL_PRECISION, MODE)                        \
+/* True if the finite nonzero x has at most t significant bits, counted from
+ * its leading one, as the masks below count them (also for subnormals) */
+static inline bool _is_representable_t_binary32(const float x, const int t) {
+  const binary32 b = {.f32 = x};
+  int64_t S;
+  int E;
+  const int n = _decompose_b32(b.u & ~((uint32_t)1 << 31), &S, &E) - t;
+  return n <= 0 || (S & ((1LL << n) - 1)) == 0;
+}
+
+static inline bool _is_representable_t_binary64(const double x, const int t) {
+  const binary64 b = {.f64 = x};
+  int64_t S;
+  int E;
+  const int n = _decompose_b64(b.u & ~((uint64_t)1 << 63), &S, &E) - t;
+  return n <= 0 || (S & ((1LL << n) - 1)) == 0;
+}
+
+#define _IS_REPRESENTABLE_T(X, T)                                              \
+  _Generic(X,                                                                  \
+      float: _is_representable_t_binary32,                                     \
+      double: _is_representable_t_binary64)(X, T)
+
+/* T is the virtual precision in significant bits (mantissa bits + 1) */
+#define _MUST_NOT_BE_NOISED(X, T, MODE)                                        \
   /* if mode ieee, do not introduce noise */                                   \
   ((MODE) == bitmask_mode_ieee) ||				\
   /* Check that we are not in a special case */				\
   (FPCLASSIFY(X) != FP_NORMAL && FPCLASSIFY(X) != FP_SUBNORMAL) ||	\
-  /* In RR if the number is representable in current virtual precision, */ \
-  /* do not add any noise if */						\
-  ((MODE) == bitmask_mode_ob && _IS_REPRESENTABLE(X, VIRTUAL_PRECISION))
+  /* In OB if the number is representable in current virtual precision, */ \
+  /* do not add any noise */						\
+  ((MODE) == bitmask_mode_ob && _IS_REPRESENTABLE_T(X, T))
 
 #define _INEXACT(CTX, B)                                                       \
   do {                                                                         \
@@ -322,10 +346,13 @@ static uint64_t get_random_binary64_mask() {
            are incompatible with _Generic feature */                           \
       const typeof((B).u) leading_0 =                                          \
           CLZ2((B).u, (B).ieee.mantissa) - (sign_size + exp_size);             \
-      if (pman_size < (leading_0 + binary_t)) {                                \
+      /* keep the leading one and the binary_t bits after it, i.e. the same    \
+         t = binary_t + 1 significant bits as for normal numbers */            \
+      const typeof((B).u) kept = leading_0 + 1 + binary_t;                     \
+      if (pman_size < kept) {                                                  \
         bitmask = mask_one;                                                    \
       } else {                                                                 \
-        bitmask |= (mask_one << (pman_size - (leading_0 + binary_t)));         \
+        bitmask = mask_one << (pman_size - kept);                              \
       }                                                                        \
     }                                                                          \
     if (ctx->operator== bitmask_operator_rand) {                               \
@@ -343,7 +370,7 @@ static uint64_t get_random_binary64_mask() {
 
 static void _inexact_binary32(void *context, float *x) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
-  if (_MUST_NOT_BE_NOISED(*x, ctx->binary32_mantissa, ctx->mode)) {
+  if (_MUST_NOT_BE_NOISED(*x, ctx->binary32_mantissa + 1, ctx->mode)) {
     return;
   }
   switch (ctx->operator) {
@@ -373,7 +400,7 @@ static void _inexact_binary32(void *context, float *x) {
 
 static void _inexact_binary64(void *context, double *x) {
   bitmask_context_t *ctx = (bitmask_context_t *)context;
-  if (_MUST_NOT_BE_NOISED(*x, ctx->binary64_mantissa, ctx->mode)) {
+  if (_MUST_NOT_BE_NOISED(*x, ctx->binary64_mantissa + 1, ctx->mode)) {
     return;
   }
   switch (ctx->operator) {
