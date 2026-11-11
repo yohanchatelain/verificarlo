@@ -13,22 +13,24 @@ else
 WARNING_FLAGS = 
 endif
 
-libinterflop_vfcwrapper_la_SOURCES = main.c backends.c funcinstr.c
+libinterflop_vfcwrapper_la_SOURCES = main.c backends.c funcinstr.c sentinel.c
 noinst_HEADERS = \
     backends.h \
     funcinstr.h \
     operation_arm.h \
     operation_x86.h \
     operator.h \
+    sentinel.h \
     vector_ext.h
 
 libinterflop_vfcwrapper_la_CFLAGS = \
     -I@INTERFLOP_INCLUDEDIR@ \
+    -DADDR2LINE_PATH=\"@LLVM_BINDIR@/llvm-addr2line\" \
     -fno-stack-protector $(LTO_FLAGS) -O3 \
     $(LTO_FLAGS) -O3 \
     $(WARNING_FLAGS)
 
-libinterflop_vfcwrapper_la_LDFLAGS = -O3 -ldl
+libinterflop_vfcwrapper_la_LDFLAGS = -O3 -ldl -lm
 
 libinterflop_vfcwrapper_la_LIBADD = \
     @INTERFLOP_LIBDIR@/libinterflop_logger.la \

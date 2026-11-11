@@ -110,6 +110,10 @@ int vfc_probe_check_relative_f(vfc_probes *probes, char *testName,
                                char *varName, double *val,
                                double *accuracyThreshold);
 
+// Semi-synchronous (Sentinel) explicit synchronization probes
+void vfc_sync_point(const char *label, double val);
+void vfc_sync_flush(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -28,5 +28,6 @@
 
 void vfc_init_func_inst();
 void vfc_quit_func_inst();
+void vfc_format_call_stack(char *buf, size_t size);
 
 #endif /* __FUNCINSTR_H__ */

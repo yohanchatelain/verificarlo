@@ -196,10 +196,10 @@ def linker_mode(objects, options, libraries, output, args):
     interflop_stdlib_flags = f" -L{libinterflop_stdlib_lib} {interflop_libs} "
 
     # Do not make Position Indenpendant Executable (PIE)
-    # Force no-pie when using ddebug and inst_func; since we use addresses to
-    # indentify the instrumented instructions, we require that the .text segment
-    # is loaded a a statically known address.
-    if args.ddebug or args.inst_func:
+    # Force no-pie when using ddebug, inst_func, or sentinel; since we use
+    # addresses to identify the instrumented instructions, we require that the
+    # .text segment is loaded at a statically known address.
+    if args.ddebug or args.inst_func or args.sentinel:
         options += " -no-pie "
 
     if args.static:
@@ -208,7 +208,7 @@ def linker_mode(objects, options, libraries, output, args):
         )
         cmd = (
             f"{output} {objects} {options} {libraries} "
-            f" -static -lgmp -lm {whole_archive_vfcwrapper} -L{libinterflop_stdlib_lib} -linterflop_stdlib -linterflop_hashmap -linterflop_logger -ldl "
+            f" -static -lgmp -lm {whole_archive_vfcwrapper} -L{libinterflop_stdlib_lib} -linterflop_stdlib -linterflop_hashmap -linterflop_logger -ldl -lm "
         )
     else:
         cmd = (
@@ -340,7 +340,7 @@ def compiler_mode(sources, options, output, args, link=False):
         compiler = linkers[args.linker]
         include = f" -I {INCLUDEDIR} "
 
-        debug = " -g " if args.inst_func or args.ddebug else ""
+        debug = " -g " if args.inst_func or args.ddebug or args.sentinel else ""
 
         if link:
             obj = get_tmp_filename(basename, ".o", args).name
@@ -382,7 +382,7 @@ def compiler_mode(sources, options, output, args, link=False):
             extra_args += " -vfclibinst-verbose "
 
         # Activate fcmp instrumentation
-        if args.inst_fcmp:
+        if args.inst_fcmp or args.sentinel:
             extra_args += " -vfclibinst-inst-fcmp "
 
         # Activate fma instrumentation
@@ -392,6 +392,10 @@ def compiler_mode(sources, options, output, args, link=False):
         # Activate cast instrumentation
         if args.inst_cast:
             extra_args += " -vfclibinst-inst-cast "
+
+        # Activate fptoi instrumentation
+        if args.inst_fptoi or args.sentinel:
+            extra_args += " -vfclibinst-inst-fptoi "
 
         # Apply MCA instrumentation pass
         apply_mca_instrumentation_pass(
@@ -451,6 +455,18 @@ def parse_args():
     )
     parser.add_argument(
         "--inst-cast", action="store_true", help="instrument floating point castings"
+    )
+    parser.add_argument(
+        "--inst-fptoi",
+        action="store_true",
+        help="instrument floating point to integer conversions",
+    )
+    parser.add_argument(
+        "--sentinel",
+        "--semi-sync",
+        dest="sentinel",
+        action="store_true",
+        help="enable semi-synchronous (Sentinel) branch divergence detection mode",
     )
     parser.add_argument("--inst-func", action="store_true", help="instrument functions")
     parser.add_argument(

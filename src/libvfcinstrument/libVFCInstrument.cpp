@@ -29,7 +29,11 @@
 #endif
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
+#if __has_include("llvm/Plugins/PassPlugin.h")
+#include "llvm/Plugins/PassPlugin.h"
+#else
 #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
@@ -95,6 +99,11 @@ static cl::opt<bool> VfclibInstInstrumentCast(
     cl::desc("Instrument floating point cast instructions"),
     cl::value_desc("InstrumentCast"), cl::init(false));
 
+static cl::opt<bool> VfclibInstInstrumentFPToI(
+    "vfclibinst-inst-fptoi",
+    cl::desc("Instrument floating point to integer cast instructions"),
+    cl::value_desc("InstrumentFPToI"), cl::init(false));
+
 namespace {
 // Define an enum type to classify the floating points operations
 // that are instrumented by verificarlo
@@ -106,12 +115,13 @@ enum FPOps {
   FOP_CMP,
   FOP_FMA,
   FOP_CAST,
+  FOP_FPTOI,
   FOP_IGNORE
 };
 
 // Each instruction can be translated to a string representation
-const std::string Fops2str[] = {"add", "sub", "mul",  "div",
-                                "cmp", "fma", "cast", "ignore"};
+const std::string Fops2str[] = {"add", "sub",  "mul",   "div",   "cmp",
+                                "fma", "cast", "fptoi", "ignore"};
 
 /* valid floating-point type to instrument */
 std::map<Type::TypeID, std::string> validTypesMap = {
@@ -836,12 +846,67 @@ struct VfclibInst : public ModulePass {
     return F;
   }
 
+  /* Replace float-to-integer conversion instructions with sync observer */
+  Value *replaceFPToIWithSyncCall(Module &M, IRBuilder<> &Builder,
+                                  Instruction *I) {
+    bool isSigned = (I->getOpcode() == Instruction::FPToSI);
+    Value *op = I->getOperand(0);
+    Type *srcType = op->getType();
+    Type *dstType = I->getType();
+
+    if (auto *vecType = dyn_cast<FixedVectorType>(srcType)) {
+      Type *scalarSrcTy = vecType->getElementType();
+      Type *scalarDstTy = dstType->getScalarType();
+      unsigned lanes = vecType->getNumElements();
+      std::string syncName =
+          scalarSrcTy->isFloatTy() ? "_floatfptoi_sync" : "_doublefptoi_sync";
+      FunctionType *fnTy = FunctionType::get(
+          Builder.getInt64Ty(),
+          {Builder.getInt32Ty(), scalarSrcTy, Builder.getInt64Ty()}, false);
+      FunctionCallee syncFn = M.getOrInsertFunction(syncName, fnTy);
+      Value *rawVec = isSigned ? Builder.CreateFPToSI(op, dstType)
+                               : Builder.CreateFPToUI(op, dstType);
+      Value *resVec = UndefValue::get(dstType);
+      for (unsigned lane = 0; lane < lanes; lane++) {
+        Value *idx = Builder.getInt32(lane);
+        Value *elemFp = Builder.CreateExtractElement(op, idx);
+        Value *elemInt = Builder.CreateExtractElement(rawVec, idx);
+        Value *extInt = isSigned
+                            ? Builder.CreateSExt(elemInt, Builder.getInt64Ty())
+                            : Builder.CreateZExt(elemInt, Builder.getInt64Ty());
+        Value *synced = Builder.CreateCall(
+            syncFn, {Builder.getInt32(isSigned ? 1 : 0), elemFp, extInt});
+        Value *truncInt = Builder.CreateTruncOrBitCast(synced, scalarDstTy);
+        resVec = Builder.CreateInsertElement(resVec, truncInt, idx);
+      }
+      return resVec;
+    }
+
+    std::string syncName =
+        srcType->isFloatTy() ? "_floatfptoi_sync" : "_doublefptoi_sync";
+    FunctionType *fnTy = FunctionType::get(
+        Builder.getInt64Ty(),
+        {Builder.getInt32Ty(), srcType, Builder.getInt64Ty()}, false);
+    FunctionCallee syncFn = M.getOrInsertFunction(syncName, fnTy);
+    Value *rawInt = isSigned ? Builder.CreateFPToSI(op, dstType)
+                             : Builder.CreateFPToUI(op, dstType);
+    Value *extInt = isSigned ? Builder.CreateSExt(rawInt, Builder.getInt64Ty())
+                             : Builder.CreateZExt(rawInt, Builder.getInt64Ty());
+    Value *synced = Builder.CreateCall(
+        syncFn, {Builder.getInt32(isSigned ? 1 : 0), op, extInt});
+    return Builder.CreateTruncOrBitCast(synced, dstType);
+  }
+
   Value *replaceWithMCACall(Module &M, Instruction *I, FPOps opCode) {
     if (not isValidInstruction(I)) {
       return nullptr;
     }
 
     IRBuilder<> Builder(I);
+
+    if (opCode == FOP_FPTOI) {
+      return replaceFPToIWithSyncCall(M, Builder, I);
+    }
 
     if (shouldScalarizeVectorReturn(M, I, opCode))
       return replaceWithScalarizedMCACalls(M, Builder, I, opCode);
@@ -915,6 +980,19 @@ struct VfclibInst : public ModulePass {
     return false;
   }
 
+  /* Check if the float-to-integer conversion operation is valid */
+  bool isValidFPToIOperation(Instruction &I) {
+    Type *srcType = I.getOperand(0)->getType()->getScalarType();
+    Type *dstType = I.getType()->getScalarType();
+    if (not(srcType->isFloatTy() or srcType->isDoubleTy())) {
+      return false;
+    }
+    if (not dstType->isIntegerTy()) {
+      return false;
+    }
+    return dstType->getIntegerBitWidth() <= 64;
+  }
+
   FPOps mustReplace(Instruction &I) {
     switch (I.getOpcode()) {
     case Instruction::FAdd:
@@ -944,6 +1022,14 @@ struct VfclibInst : public ModulePass {
       // Only instrument cast if the flag --inst-cast is passed
       if (VfclibInstInstrumentCast and isValidCastOperation(I)) {
         return FOP_CAST;
+      } else {
+        return FOP_IGNORE;
+      }
+    case Instruction::FPToSI:
+    case Instruction::FPToUI:
+      // Only instrument float-to-int casts if --inst-fptoi is passed
+      if (VfclibInstInstrumentFPToI and isValidFPToIOperation(I)) {
+        return FOP_FPTOI;
       } else {
         return FOP_IGNORE;
       }

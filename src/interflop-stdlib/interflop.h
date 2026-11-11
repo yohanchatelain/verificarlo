@@ -56,6 +56,13 @@ enum FTYPES {
 };
 
 typedef enum {
+  /* Flushes any buffered semi-synchronous comparison trace events to the
+   * Sentinel validator (e.g. before MPI communication or blocking I/O) */
+  /* signature: void flush_sync(void) */
+  INTERFLOP_FLUSH_SYNC_ID = 9,
+  /* Records an explicit user synchronization point with a label and value */
+  /* signature: void sync_point(const char *label, double value) */
+  INTERFLOP_SYNC_ID = 8,
   /* Rounds the double-word number (*value, *error), i.e. the unevaluated sum
    * *value + *error with *value = RN(*value + *error), with the backend's
    * current rounding mode and precision; the result is stored in *value */

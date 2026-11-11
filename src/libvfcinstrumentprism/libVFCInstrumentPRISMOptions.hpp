@@ -132,6 +132,21 @@ static cl::opt<bool>
                             cl::desc("Instrument floating point fma"),
                             cl::value_desc("InstrumentFMA"), cl::init(false));
 
+static cl::opt<bool>
+    VfclibInstInstrumentFCMP("vfclibinst-inst-fcmp",
+                             cl::desc("Instrument floating point comparisons"),
+                             cl::value_desc("InstrumentFCMP"), cl::init(false));
+
+static cl::opt<bool> VfclibInstInstrumentCast(
+    "vfclibinst-inst-cast",
+    cl::desc("Instrument floating point cast instructions"),
+    cl::value_desc("InstrumentCast"), cl::init(false));
+
+static cl::opt<bool> VfclibInstInstrumentFPToI(
+    "vfclibinst-inst-fptoi",
+    cl::desc("Instrument floating point to integer cast instructions"),
+    cl::value_desc("InstrumentFPToI"), cl::init(false));
+
 static cl::opt<bool> VfclibInstDebug("vfclibinst-debug",
                                      cl::desc("Activate debug mode"),
                                      cl::value_desc("Debug"), cl::init(false));

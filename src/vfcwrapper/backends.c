@@ -26,7 +26,14 @@
 #include "interflop/iostream/logger.h"
 
 #include "backends.h"
+#include "sentinel.h"
 #include "vector_ext.h"
+
+#ifdef __x86_64__
+#define CALL_OP_SIZE 5
+#else
+#define CALL_OP_SIZE 4
+#endif
 
 #define DO_PRAGMA(x) _Pragma(#x)
 
@@ -89,6 +96,23 @@ vfc_hashmap_t dd_mustnot_instrument;
 
 void interflop_call(interflop_call_id id, ...) {
   va_list ap;
+  if (id == INTERFLOP_SYNC_ID) {
+    va_start(ap, id);
+    const char *label = va_arg(ap, const char *);
+    double val = va_arg(ap, double);
+    va_end(ap);
+    if (__builtin_expect(vfc_sentinel_enabled, 0)) {
+      uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+      vfc_sentinel_record_user_probe(site_id, label, val);
+    }
+    return;
+  }
+  if (id == INTERFLOP_FLUSH_SYNC_ID) {
+    if (__builtin_expect(vfc_sentinel_enabled, 0)) {
+      vfc_sentinel_flush();
+    }
+    return;
+  }
   for (unsigned char i = 0; i < loaded_backends; i++) {
     if (backends[i].interflop_user_call) {
       va_start(ap, id);
@@ -133,7 +157,13 @@ int _floatcmp(enum FCMP_PREDICATE p, float a, float b) {
       backends[i].interflop_cmp_float(p, a, b, &c, contexts[i]);
     }
   }
-  require_backend_implements(implemented, float, cmp);
+  if (!implemented) {
+    c = vfc_eval_fcmp_float(p, a, b);
+  }
+  if (__builtin_expect(vfc_sentinel_enabled, 0)) {
+    uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+    c = vfc_sentinel_record_cmp_float(site_id, p, a, b, c);
+  }
   return c;
 }
 
@@ -146,7 +176,13 @@ int _doublecmp(enum FCMP_PREDICATE p, double a, double b) {
       backends[i].interflop_cmp_double(p, a, b, &c, contexts[i]);
     }
   }
-  require_backend_implements(implemented, double, cmp);
+  if (!implemented) {
+    c = vfc_eval_fcmp_double(p, a, b);
+  }
+  if (__builtin_expect(vfc_sentinel_enabled, 0)) {
+    uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+    c = vfc_sentinel_record_cmp_double(site_id, p, a, b, c);
+  }
   return c;
 }
 
@@ -183,6 +219,24 @@ float _doubletofloatcast(double a) {
   }
   require_backend_implements(implemented, double, cast);
   return b;
+}
+
+/* --- Float-to-Int sync point dispatch ------------------------------------ */
+
+int64_t _floatfptoi_sync(int is_signed, float a, int64_t res) {
+  if (__builtin_expect(vfc_sentinel_enabled, 0)) {
+    uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+    return vfc_sentinel_record_fptoi_float(site_id, is_signed, a, res);
+  }
+  return res;
+}
+
+int64_t _doublefptoi_sync(int is_signed, double a, int64_t res) {
+  if (__builtin_expect(vfc_sentinel_enabled, 0)) {
+    uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+    return vfc_sentinel_record_fptoi_double(site_id, is_signed, a, res);
+  }
+  return res;
 }
 
 /* --- Generic (non-ISA-specific) vector arithmetic dispatch --------------- */
@@ -272,7 +326,17 @@ define_vectorized_arithmetic_wrapper(double, div, 16);
         }                                                                      \
       }                                                                        \
     }                                                                          \
-    require_backend_implements(implemented, precision, cmp);                   \
+    if (!implemented) {                                                        \
+      UNROLL(size) for (int j = 0; j < (size); j++) {                          \
+        cu.a[j] = vfc_eval_fcmp_##precision(p, au.a[j], bu.a[j]);              \
+      }                                                                        \
+    }                                                                          \
+    if (__builtin_expect(vfc_sentinel_enabled, 0)) {                           \
+      uintptr_t site_id =                                                      \
+          (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;               \
+      vfc_sentinel_record_vec_cmp_##precision(site_id, p, au.a, bu.a, cu.a,    \
+                                              (size));                         \
+    }                                                                          \
     return cu.v;                                                               \
   }
 

@@ -135,7 +135,18 @@
         }                                                                      \
       }                                                                        \
     }                                                                          \
-    require_backend_implements(implemented, precision, cmp);                   \
+    if (!implemented) {                                                        \
+      UNROLL(size)                                                             \
+      for (int j = 0; j < (size); j++) {                                       \
+        cu.a[j] = vfc_eval_fcmp_##precision(p, au.a[j], bu.a[j]);              \
+      }                                                                        \
+    }                                                                          \
+    if (__builtin_expect(vfc_sentinel_enabled, 0)) {                           \
+      uintptr_t site_id =                                                      \
+          (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;               \
+      vfc_sentinel_record_vec_cmp_##precision(site_id, p, au.a, bu.a, cu.a,    \
+                                              (size));                         \
+    }                                                                          \
     return cu.v;                                                               \
   }
 

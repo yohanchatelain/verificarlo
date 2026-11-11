@@ -42,7 +42,11 @@
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Passes/PassBuilder.h>
-#include <llvm/Passes/PassPlugin.h>
+#if __has_include("llvm/Plugins/PassPlugin.h")
+#include "llvm/Plugins/PassPlugin.h"
+#else
+#include "llvm/Passes/PassPlugin.h"
+#endif
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FileSystem.h>
@@ -960,13 +964,116 @@ struct VfclibInst : public ModulePass {
     return newInst;
   }
 
+  auto replaceSyncInstruction(Module &M, Instruction *I) -> Value * {
+    if (not isValidInstruction(I)) {
+      return nullptr;
+    }
+    IRBuilder<> Builder(I);
+    Type *opType = I->getOperand(0)->getType();
+
+    if (I->getOpcode() == Instruction::FCmp) {
+      auto *FCI = cast<FCmpInst>(I);
+      if (auto *vecType = dyn_cast<FixedVectorType>(opType)) {
+        Type *scalarType = vecType->getElementType();
+        unsigned lanes = vecType->getNumElements();
+        std::string scalarName =
+            scalarType->isFloatTy() ? "_floatcmp" : "_doublecmp";
+        FunctionType *fnTy = FunctionType::get(
+            Builder.getInt32Ty(),
+            {Builder.getInt32Ty(), scalarType, scalarType}, false);
+        FunctionCallee cmpFn = M.getOrInsertFunction(scalarName, fnTy);
+        Type *vecResTy = FixedVectorType::get(Builder.getInt32Ty(), lanes);
+        Value *res = UndefValue::get(vecResTy);
+        for (unsigned lane = 0; lane < lanes; lane++) {
+          Value *idx = Builder.getInt32(lane);
+          Value *a = Builder.CreateExtractElement(I->getOperand(0), idx);
+          Value *b = Builder.CreateExtractElement(I->getOperand(1), idx);
+          Value *c = Builder.CreateCall(
+              cmpFn, {Builder.getInt32(FCI->getPredicate()), a, b});
+          res = Builder.CreateInsertElement(res, c, idx);
+        }
+        return Builder.CreateIntCast(res, I->getType(), true);
+      }
+      std::string scalarName = opType->isFloatTy() ? "_floatcmp" : "_doublecmp";
+      FunctionType *fnTy = FunctionType::get(
+          Builder.getInt32Ty(), {Builder.getInt32Ty(), opType, opType}, false);
+      FunctionCallee cmpFn = M.getOrInsertFunction(scalarName, fnTy);
+      Value *c =
+          Builder.CreateCall(cmpFn, {Builder.getInt32(FCI->getPredicate()),
+                                     I->getOperand(0), I->getOperand(1)});
+      return Builder.CreateIntCast(c, I->getType(), true);
+    }
+
+    if (I->getOpcode() == Instruction::FPToSI ||
+        I->getOpcode() == Instruction::FPToUI) {
+      Type *dstType = I->getType();
+      if (!dstType->getScalarType()->isIntegerTy() ||
+          dstType->getScalarType()->getIntegerBitWidth() > 64) {
+        return nullptr;
+      }
+      bool isSigned = (I->getOpcode() == Instruction::FPToSI);
+      Value *op = I->getOperand(0);
+      if (auto *vecType = dyn_cast<FixedVectorType>(opType)) {
+        Type *scalarSrcTy = vecType->getElementType();
+        Type *scalarDstTy = dstType->getScalarType();
+        unsigned lanes = vecType->getNumElements();
+        std::string syncName =
+            scalarSrcTy->isFloatTy() ? "_floatfptoi_sync" : "_doublefptoi_sync";
+        FunctionType *fnTy = FunctionType::get(
+            Builder.getInt64Ty(),
+            {Builder.getInt32Ty(), scalarSrcTy, Builder.getInt64Ty()}, false);
+        FunctionCallee syncFn = M.getOrInsertFunction(syncName, fnTy);
+        Value *rawVec = isSigned ? Builder.CreateFPToSI(op, dstType)
+                                 : Builder.CreateFPToUI(op, dstType);
+        Value *resVec = UndefValue::get(dstType);
+        for (unsigned lane = 0; lane < lanes; lane++) {
+          Value *idx = Builder.getInt32(lane);
+          Value *elemFp = Builder.CreateExtractElement(op, idx);
+          Value *elemInt = Builder.CreateExtractElement(rawVec, idx);
+          Value *extInt =
+              isSigned ? Builder.CreateSExt(elemInt, Builder.getInt64Ty())
+                       : Builder.CreateZExt(elemInt, Builder.getInt64Ty());
+          Value *synced = Builder.CreateCall(
+              syncFn, {Builder.getInt32(isSigned ? 1 : 0), elemFp, extInt});
+          Value *truncInt = Builder.CreateTruncOrBitCast(synced, scalarDstTy);
+          resVec = Builder.CreateInsertElement(resVec, truncInt, idx);
+        }
+        return resVec;
+      }
+      std::string syncName =
+          opType->isFloatTy() ? "_floatfptoi_sync" : "_doublefptoi_sync";
+      FunctionType *fnTy = FunctionType::get(
+          Builder.getInt64Ty(),
+          {Builder.getInt32Ty(), opType, Builder.getInt64Ty()}, false);
+      FunctionCallee syncFn = M.getOrInsertFunction(syncName, fnTy);
+      Value *rawInt = isSigned ? Builder.CreateFPToSI(op, dstType)
+                               : Builder.CreateFPToUI(op, dstType);
+      Value *extInt = isSigned
+                          ? Builder.CreateSExt(rawInt, Builder.getInt64Ty())
+                          : Builder.CreateZExt(rawInt, Builder.getInt64Ty());
+      Value *synced = Builder.CreateCall(
+          syncFn, {Builder.getInt32(isSigned ? 1 : 0), op, extInt});
+      return Builder.CreateTruncOrBitCast(synced, dstType);
+    }
+
+    return nullptr;
+  }
+
   auto runOnBasicBlock(Module &M, BasicBlock &B) -> bool {
     // Expose the arithmetic of vector reductions as scalar operations
     bool modified = vfc::expandVectorReductions(B);
     std::set<Instruction *> WorkList;
+    std::vector<Instruction *> SyncList;
     for (auto &I : B) {
       if (fops::mustReplace(I)) {
         WorkList.insert(&I);
+      } else if (VfclibInstInstrumentFCMP &&
+                 I.getOpcode() == Instruction::FCmp) {
+        SyncList.push_back(&I);
+      } else if (VfclibInstInstrumentFPToI &&
+                 (I.getOpcode() == Instruction::FPToSI ||
+                  I.getOpcode() == Instruction::FPToUI)) {
+        SyncList.push_back(&I);
       }
     }
 
@@ -978,6 +1085,19 @@ struct VfclibInst : public ModulePass {
         }
         BasicBlock::iterator ii(I);
         ReplaceInstWithValue(ii, value);
+        modified = true;
+      }
+    }
+
+    for (auto *I : SyncList) {
+      Value *value = replaceSyncInstruction(M, I);
+      if (value != nullptr) {
+        if (VfclibInstVerbose) {
+          errs() << "Instrumenting" << *I << '\n';
+        }
+        BasicBlock::iterator ii(I);
+        ReplaceInstWithValue(ii, value);
+        modified = true;
       }
     }
 

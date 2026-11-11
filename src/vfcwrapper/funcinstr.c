@@ -19,6 +19,7 @@
  ****************************************************************************/
 
 #include <stdio.h>
+#include <string.h>
 
 #include "interflop/hashmap/vfc_hashmap.h"
 #include "interflop/interflop_stdlib.h"
@@ -26,6 +27,13 @@
 
 #include "backends.h"
 #include "funcinstr.h"
+#include "sentinel.h"
+
+#ifdef __x86_64__
+#define CALL_OP_SIZE 5
+#else
+#define CALL_OP_SIZE 4
+#endif
 
 #define _VFC_CALL_STACK_MAXSIZE 4096
 
@@ -118,6 +126,27 @@ void vfc_call_stack_print(FILE *f) {
   interflop_fprintf(f, "\n");
 }
 
+// Format the call stack into a string buffer
+void vfc_format_call_stack(char *buf, size_t size) {
+  if (!buf || size == 0)
+    return;
+  buf[0] = '\0';
+  if (!_vfc_call_stack.array)
+    return;
+  size_t pos = 0;
+  for (int i = _VFC_CALL_STACK_MAXSIZE - 2; i >= _vfc_call_stack.top; i--) {
+    if (_vfc_call_stack.array[i] && _vfc_call_stack.array[i]->id) {
+      int n = snprintf(buf + pos, size - pos, "%s%s", (pos > 0 ? " -> " : ""),
+                       _vfc_call_stack.array[i]->id);
+      if (n < 0 || (size_t)n >= size - pos) {
+        pos = size - 1;
+        break;
+      }
+      pos += (size_t)n;
+    }
+  }
+}
+
 // Free the call stack
 void vfc_call_stack_free() {
   if (_vfc_call_stack.array) {
@@ -146,6 +175,11 @@ void vfc_enter_function(char *func_name, char isLibraryFunction,
   }
 
   vfc_call_stack_push(function);
+
+  if (__builtin_expect(vfc_sentinel_enabled && vfc_sentinel_sync_func, 0)) {
+    uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+    vfc_sentinel_record_func(site_id, func_name, 1);
+  }
 
   if ((useFloat != 0) || (useDouble != 0)) {
     va_list ap;
@@ -180,6 +214,11 @@ void vfc_exit_function(__attribute__((unused)) char *func_name,
                                             ap);
 
     va_end(ap);
+  }
+
+  if (__builtin_expect(vfc_sentinel_enabled && vfc_sentinel_sync_func, 0)) {
+    uintptr_t site_id = (uintptr_t)__builtin_return_address(0) - CALL_OP_SIZE;
+    vfc_sentinel_record_func(site_id, func_name, 0);
   }
 
   vfc_call_stack_pop();

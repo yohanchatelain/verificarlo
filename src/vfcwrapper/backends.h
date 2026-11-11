@@ -50,4 +50,7 @@ double _doublefma(double a, double b, double c);
 
 float _doubletofloatcast(double a);
 
+int64_t _floatfptoi_sync(int is_signed, float a, int64_t res);
+int64_t _doublefptoi_sync(int is_signed, double a, int64_t res);
+
 void interflop_call(interflop_call_id id, ...);

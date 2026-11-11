@@ -42,7 +42,8 @@ include = [
     "src/tools/ci/vfc_ci_report/static/index.js",
     "src/tools/ci/workflow_templates/*.md",
     "src/tools/ci/workflow_templates/*.yml",
-    "src/tools/usercall/*.py"
+    "src/tools/usercall/*.py",
+    "src/tools/sentinel/*.py"
 ]
 
 [tool.hatch.build.sources]
@@ -54,10 +55,11 @@ include = [
 "src/tools/ci/workflow_templates" = "verificarlo/ci/workflow_templates"
 "src/tools/ci/vfc_ci_report/static" = "verificarlo/ci/vfc_ci_report/static"
 "src/tools/usercall" = "verificarlo/usercall"
+"src/tools/sentinel" = "verificarlo/sentinel"
 
 
 [tool.hatch.build.targets.verificarlo]
-packages = ["src/tools/ddebug", "src/tools/ci", "src/tools/usercall", "src/tools/optimize"]
+packages = ["src/tools/ddebug", "src/tools/ci", "src/tools/usercall", "src/tools/optimize", "src/tools/sentinel"]
 
 [tool.hatch.build.targets.sdist.force-include]
 "VERSION" = "VERSION"
@@ -69,6 +71,7 @@ vfc_precexp = "verificarlo.optimize.precexp:main"
 vfc_piecewise = "verificarlo.optimize.piecewise:main"
 vfc_report = "verificarlo.optimize.report:main"
 vfc_vtk = "verificarlo.vtk.__main__:main"
+vfc_sentinel = "verificarlo.sentinel.sentinel:main"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/verificarlo/verificarlo/issues"
